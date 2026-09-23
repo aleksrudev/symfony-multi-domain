@@ -95,6 +95,33 @@ services:
       - ./var:/app/var/
     command: ['php', 'bin/console', 'messenger:consume', 'async', '-vv', '--limit=100', '--memory-limit=128M', '--time-limit=3600']
 
+  outbox-worker:
+    image: ${APP_NAME}-php-${APP_ENV}:latest
+    container_name: ${APP_NAME}-outbox-worker-${APP_ENV}
+    restart: always
+    profiles:
+      - worker
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=${POSTGRES_VERSION:-15}&charset=${POSTGRES_CHARSET:-utf8}
+      MESSENGER_TRANSPORT_DSN: ${MESSENGER_TRANSPORT_DSN:-doctrine://default}
+      SYMFONY_VERSION: ${SYMFONY_VERSION:-}
+      STABILITY: ${STABILITY:-stable}
+    depends_on:
+      - database
+      - php
+    networks:
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep 'messenger:consume' | grep -v grep || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./var:/app/var/
+    command: ['php', 'bin/console', 'messenger:consume', 'outbox', '-vv', '--limit=100', '--memory-limit=128M', '--time-limit=3600']
+
 ###> doctrine/doctrine-bundle ###
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine

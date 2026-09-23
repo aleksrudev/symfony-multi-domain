@@ -1,4 +1,4 @@
-.PHONY: help start start-all stop restart build console composer migrate diff cc worker scheduler architecture test-unit test-db-prepare phpstan cs-fix cs-check test lint logs \
+.PHONY: help start start-all stop restart build console composer migrate diff cc worker outbox-worker scheduler architecture test-unit test-db-prepare phpstan cs-fix cs-check test lint logs \
         prod-build prod-start prod-start-all prod-stop prod-restart prod-logs prod-migrate prod-cc
 .DEFAULT_GOAL := help
 
@@ -49,6 +49,9 @@ cc: ## Clear cache
 
 worker: ## Consume async transport
 	$(CONSOLE) messenger:consume async -vv
+
+outbox-worker: ## Consume the transactional outbox transport
+	$(CONSOLE) messenger:consume outbox -vv
 
 scheduler: ## Consume scheduler transport
 	$(CONSOLE) messenger:consume scheduler_default -vv

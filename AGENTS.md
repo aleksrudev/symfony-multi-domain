@@ -66,13 +66,18 @@ API-контроллеры находятся в `Presentation/Http/Controller/A
 `command.bus` с валидацией и транзакцией. Запросы используют `query.bus`
 и не изменяют состояние. Внутренние inbox-сообщения реализуют
 `InboxMessageInterface`, идут через `inbox.bus` в `async`; после трёх повторов
-попадают в `failed`. Это не механизм дедупликации.
+попадают в `failed`. Это не механизм дедупликации. Исходящие асинхронные
+сообщения реализуют `OutboxMessageInterface` и публикуются через
+`OutboxBusInterface` внутри транзакции команды. Они направляются в отдельные
+`outbox.bus` и Doctrine-очередь `outbox`; `make outbox-worker` их обрабатывает.
+Публикация после commit нарушает атомарность. Получатели учитывают повторы.
 
 Обработчики остаются в Application и регистрируются в конфигурации модуля
 с явной шиной. Репозитории не вызывают flush самостоятельно. Доменные события
 реализуют Shared Domain `EventInterface`; их синхронная шина основана на
 EventDispatcher. Обработчики ограничены своим контекстом, выполняются до commit
-и не производят внешних побочных эффектов. Outbox пока отсутствует.
+и не производят внешних побочных эффектов. Outbox использует то же подключение
+PostgreSQL и таблицу `messenger_messages`; отдельной бизнес-модели в Shared нет.
 
 Ожидаемые доменные исключения наследуют Shared Domain `DomainException`.
 HTTP-маппинг задаёт модульный Presentation-провайдер
@@ -92,7 +97,7 @@ make start / make start-all / make stop / make logs
 make console CMD="debug:router"
 make composer CMD="…"
 make lint / make test / make test-unit / make architecture
-make worker / make scheduler
+make worker / make outbox-worker / make scheduler
 make test-db-prepare
 ```
 

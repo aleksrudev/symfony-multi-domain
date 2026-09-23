@@ -8,6 +8,7 @@ variables:
   APP_SECRET: ci-only-secret
   DEFAULT_URI: http://localhost
   DATABASE_URL: 'postgresql://test:test@postgres:5432/template?serverVersion=16&charset=utf8'
+  OUTBOX_TEST_DATABASE_URL: 'postgresql://test:test@postgres:5432/outbox_test?serverVersion=16&charset=utf8'
   MESSENGER_TRANSPORT_DSN: doctrine://default
   APP_RUNTIME_OPTIONS: '{"disable_dotenv":true}'
 
@@ -62,6 +63,7 @@ phpunit:
     POSTGRES_PASSWORD: test
   script:
     - php bin/test-db-prepare --confirm-test-database
+    - DATABASE_URL='postgresql://test:test@postgres:5432/outbox?serverVersion=16&charset=utf8' php bin/test-db-prepare --confirm-test-database
     - vendor/bin/phpunit
     - php bin/console lint:container --env=test
     - php bin/console doctrine:schema:validate --skip-sync --env=test

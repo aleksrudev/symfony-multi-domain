@@ -12,6 +12,11 @@ services:
       MERCURE_SUBSCRIBER_JWT_KEY: ${CADDY_MERCURE_JWT_SECRET}
     volumes:
       - ./var:/app/var/
+  outbox-worker:
+    image: ${IMAGES_PREFIX:-}app-php-prod
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET}
   database:
     ports:
       - 127.0.0.1:${DB_PROD_PORT}:5432

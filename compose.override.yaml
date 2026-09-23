@@ -34,6 +34,10 @@ services:
     volumes:
       - ./:/app
       - ./var:/app/var
+  outbox-worker:
+    volumes:
+      - ./:/app
+      - ./var:/app/var
 
 ###> doctrine/doctrine-bundle ###
   database:

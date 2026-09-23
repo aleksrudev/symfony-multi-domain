@@ -148,7 +148,8 @@ doctrine:
   без изменения состояния;
 - Inbox: `dispatch(InboxMessageInterface): void`, async, validation + transaction
   при обработке, три повтора и failed;
-- Event: `dispatch(EventInterface): void`, синхронный EventDispatcher.
+- Event: `dispatch(EventInterface): void`, синхронный EventDispatcher;
+- Outbox: `publish(OutboxMessageInterface): void`, отдельная шина и PostgreSQL-очередь.
 
 Прикладные обработчики регистрируются с явным bus. Входящий внешний формат
 преобразуется Presentation-адаптером во внутреннюю команду или inbox DTO.
@@ -158,8 +159,32 @@ doctrine:
 Доменные события обрабатываются только внутри своего контекста до commit;
 исключение обработчика откатывает транзакцию. Не выполняйте здесь HTTP, email
 или другие внешние побочные эффекты. Интеграционные события — отдельные
-версионируемые Contracts. Надёжная доставка потребует outbox; inbox-интерфейс
-сам по себе не обеспечивает дедупликацию. Команды `make outbox` больше нет.
+версионируемые Contracts. Публичные Contracts остаются независимыми от транспорта:
+адаптер владельца преобразует их в исходящее сообщение.
+
+### Исходящие сообщения
+
+`OutboxMessageInterface` — технический маркер в Shared Application без обязательного
+`messageId()`. `OutboxBusInterface::publish()` вызывается из сценария использования
+только внутри активной транзакции `command.bus` или явной транзакции того же
+Doctrine-подключения. Реализация отклоняет вызов вне транзакции. Domain EventBus
+остаётся синхронным и не служит транспортом для межмодульных сообщений.
+
+`outbox.bus` направляет сообщения в Doctrine transport `outbox` с
+`queue_name=outbox`. Он пишет в существующую таблицу `messenger_messages` через
+тот же DBAL connection, что и данные владельца. PostgreSQL фиксирует изменение
+модуля и запись сообщения вместе, даже если таблицы находятся в разных схемах.
+Отдельной миграции outbox и relay в брокер нет. `DispatchAfterCurrentBusStamp`
+здесь не применять: публикация после commit разрушает атомарность.
+
+Worker запускается `make outbox-worker` (или `messenger:consume outbox`).
+Обработчики исходящих сообщений регистрируются явно на `outbox.bus`;
+`inbox.bus` остаётся для входящих сообщений. Три повтора и `failed` transport
+работают и для outbox. Возможна повторная доставка после сбоя worker, поэтому
+каждый получатель обеспечивает идемпотентность по смысловому ключу операции.
+Маркер общего ключа не задаёт. Несколько независимых получателей одного события
+должны получать отдельные сообщения, чтобы ошибка одного не повторяла эффекты
+другого.
 
 ## HTTP-ошибки и расписание
 
@@ -199,7 +224,8 @@ yield RecurringMessage::every('1 minute', new RedispatchMessage(
 `Symfony\Component\Messenger\Message\RedispatchMessage`,
 `Symfony\Component\Messenger\Envelope`,
 `Symfony\Component\Messenger\Stamp\BusNameStamp`.
-Планировщик запускается `make scheduler`, async worker — `make worker`.
+Планировщик запускается `make scheduler`, async worker — `make worker`,
+outbox worker — `make outbox-worker`.
 
 ## Архитектурные проверки и тесты
 
@@ -225,8 +251,12 @@ DI-код сборки в Infrastructure/Symfony/DependencyInjection может 
 своего модуля. Domain/Repository — обязательное место репозиторных интерфейсов.
 
 Тесты технической загрузки используют только tests/Fixtures и отдельный Kernel.
-Они не создают production-модули и не регистрируются обычным Kernel. Команды и
-inbox проверяются на SQLite in-memory; PostgreSQL для этих тестов не требуется.
+Они не создают production-модули и не регистрируются обычным Kernel. Команды,
+inbox и базовая outbox-маршрутизация проверяются на SQLite in-memory.
+Дополнительный outbox-тест на PostgreSQL запускается при наличии
+`OUTBOX_TEST_DATABASE_URL`, указывающего на отдельную БД с суффиксом `_test`;
+CI подготавливает её отдельно. Тест проверяет атомарность записи между схемой
+модуля и таблицей `messenger_messages`.
 
 Bootstrap PHPUnit не создаёт/удаляет БД и не применяет миграции. Для настоящих
 DB-интеграций после согласования:

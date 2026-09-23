@@ -14,6 +14,15 @@ framework:
                     delay: 1000
                     multiplier: 3
                     max_delay: 30000
+            outbox:
+                dsn: 'doctrine://default?queue_name=outbox'
+                options:
+                    auto_setup: false
+                retry_strategy:
+                    max_retries: 3
+                    delay: 1000
+                    multiplier: 3
+                    max_delay: 30000
             # failed: 'doctrine://default?queue_name=failed'
             sync: 'sync://'
             failed: 'doctrine://default?queue_name=failed'
@@ -22,12 +31,17 @@ framework:
             # Route your messages to the transports
             # 'App\Message\YourMessage': async
             'App\Shared\Application\Bus\Inbox\InboxMessageInterface': async
+            'App\Shared\Application\Bus\Outbox\OutboxMessageInterface': outbox
         default_bus: default.bus
         buses:
             default.bus:
                 middleware:
                     - validation
             inbox.bus:
+                middleware:
+                    - validation
+                    - doctrine_transaction
+            outbox.bus:
                 middleware:
                     - validation
                     - doctrine_transaction
