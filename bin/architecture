@@ -1,0 +1,38 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\Process\Process;
+use Symfony\Component\Yaml\Yaml;
+
+require dirname(__DIR__).'/vendor/autoload.php';
+$root = dirname(__DIR__);
+$source = realpath($argv[1] ?? $root.'/src');
+if (false === $source || !is_dir($source)) {
+    fwrite(STDERR, "Architecture source directory does not exist.\n");
+    exit(2);
+}
+$build = require $root.'/tools/architecture.php';
+$dependencies = [];
+foreach (glob($source.'/*/config/dependencies.php') ?: [] as $declaration) {
+    $dependencies[basename(dirname($declaration, 2))] = require $declaration;
+}
+$file = tempnam(sys_get_temp_dir(), 'deptrac-');
+if (false === $file) {
+    throw new RuntimeException('Cannot create temporary Deptrac configuration.');
+}
+$yaml = $file.'.yaml';
+rename($file, $yaml);
+$file = $yaml;
+try {
+    file_put_contents($file, Yaml::dump($build($source, $dependencies), 12));
+    $process = new Process([PHP_BINARY, $root.'/vendor/bin/deptrac', 'analyse', '--config-file='.$file, '--no-cache', '--fail-on-uncovered'], $root);
+    $process->setTimeout(120);
+    $status = $process->run(static function (string $type, string $output): void {
+        fwrite(Process::ERR === $type ? STDERR : STDOUT, $output);
+    });
+} finally {
+    unlink($file);
+}
+exit($status);

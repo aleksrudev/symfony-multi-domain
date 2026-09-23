@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "skills": {
+    "api-and-interface-design": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/api-and-interface-design/SKILL.md",
+      "computedHash": "26f5a9e7abfd332d7a2e5887cf19bddd3393f47514c379b36bf227c1f15cdec4"
+    },
+    "clean-code-principles": {
+      "source": "asyrafhussin/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/clean-code-principles/SKILL.md",
+      "computedHash": "4c22dca6110d58f1454523dc3f192ef20d91f538233da9132b407edd041a4762"
+    },
+    "clean-ddd-hexagonal": {
+      "source": "ccheney/robust-skills",
+      "sourceType": "github",
+      "skillPath": "skills/clean-ddd-hexagonal/SKILL.md",
+      "computedHash": "4a48fdb1461f8f62d3f477bd7958582bc47ac98044f9ac8f0940324f20027663"
+    },
+    "code-review-and-quality": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-review-and-quality/SKILL.md",
+      "computedHash": "6231479cc74c7ed70a5618b81b3f94034d9806c0319a1a23d15f9b94a368c581"
+    },
+    "php-best-practices": {
+      "source": "asyrafhussin/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/php-best-practices/SKILL.md",
+      "computedHash": "1b25a60572ddd8b206eaf68b067cde70a9d002df572de8fefda703532cecfdad"
+    },
+    "security-and-hardening": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/security-and-hardening/SKILL.md",
+      "computedHash": "47d027526d7e0be784a19a034f18cba328009b3c8fe483f16e4b12530cf82183"
+    },
+    "symfony:cqrs-and-handlers": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/cqrs-and-handlers/SKILL.md",
+      "computedHash": "eae9fd4fb0ba0e470e460c5bd5c64064a4a06b64b52398d199c54eb58fe283bc"
+    },
+    "symfony:doctrine-transactions": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/doctrine-transactions/SKILL.md",
+      "computedHash": "1682b0b3fa1dc53db39471751467528d132bd72842b9d9e5d4c1dcb28bfcd1a2"
+    },
+    "symfony:messenger-retry-failures": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/messenger-retry-failures/SKILL.md",
+      "computedHash": "760b7115b9c1c7c4ec0042b21d91bdd6a58ba9b451452485eae71e5057332e29"
+    },
+    "symfony:runner-selection": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/runner-selection/SKILL.md",
+      "computedHash": "238744ad7e55f67f29e3e0de838e8d675e4cf51a58fddc2056b0bf27b43c2b5d"
+    },
+    "symfony:symfony-messenger": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/symfony-messenger/SKILL.md",
+      "computedHash": "4f7d3772433a2a03d570a3957d0a84f7f3d86782b273c14a8a75dae3aceb1e4d"
+    },
+    "symfony:symfony-scheduler": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/symfony-scheduler/SKILL.md",
+      "computedHash": "8978979cf09c166b3a68dc6f64f47f38ce805ef654f55c3e913e41fbee502096"
+    },
+    "symfony:tdd-with-phpunit": {
+      "source": "dev-toolings/superpowers-symfony",
+      "sourceType": "github",
+      "skillPath": "skills/tdd-with-phpunit/SKILL.md",
+      "computedHash": "484f05f7a16bf1e161eb4d2770b693526eb156f2a7502ea5833f64f5ef83e233"
+    }
+  }
+}

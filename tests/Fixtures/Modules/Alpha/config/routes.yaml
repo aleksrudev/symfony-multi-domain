@@ -1,0 +1,5 @@
+alpha_api:
+    resource: ../Presentation/Http/
+    type: attribute
+    prefix: /api/v1
+    name_prefix: alpha_

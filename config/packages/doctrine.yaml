@@ -1,0 +1,51 @@
+doctrine:
+    dbal:
+        default_connection: default
+        types:
+        connections:
+            default:
+                url: '%env(resolve:DATABASE_URL)%'
+                profiling_collect_backtrace: '%kernel.debug%'
+    orm:
+        default_entity_manager: default
+        entity_managers:
+            default:
+                connection: default
+                dql:
+                    string_functions:
+                        JSON_EXTRACT: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonbExtract
+                        JSON_SEARCH: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonbSearch
+                        JSONB_CONTAINS: Scienta\DoctrineJsonFunctions\Query\AST\Functions\Postgresql\JsonbContains
+                validate_xml_mapping: true
+                naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+                identity_generation_preferences:
+                    Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+                auto_mapping: false
+                mappings: {}
+when@test:
+    doctrine:
+        dbal:
+            connections:
+                default:
+                    # "TEST_TOKEN" is typically set by ParaTest
+                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            entity_managers:
+                default:
+                    query_cache_driver:
+                        type: pool
+                        pool: doctrine.system_cache_pool
+                    result_cache_driver:
+                        type: pool
+                        pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

@@ -1,0 +1,7 @@
+grumphp:
+    hooks_dir: ~ # set to null to disable git hook installation
+    tasks:
+        phpcsfixer:
+            config: .php-cs-fixer.dist.php
+        phpstan:
+            configuration: phpstan.dist.neon

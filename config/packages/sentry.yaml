@@ -1,0 +1,16 @@
+when@prod:
+    sentry:
+        register_error_listener: false
+        register_error_handler: false
+        options:
+#            enable_logs: true
+            attach_stacktrace: true
+            ignore_exceptions:
+                - Symfony\Component\HttpKernel\Exception\NotFoundHttpException
+                - Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException
+    services:
+        Sentry\Monolog\Handler:
+            arguments:
+                $hub: '@Sentry\State\HubInterface'
+                $level: 'error'
+                $fillExtraContext: true

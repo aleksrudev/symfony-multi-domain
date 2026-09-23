@@ -1,0 +1,3 @@
+# Global parameters and application-wide services only. Modules own their config/services.yaml.
+parameters: {}
+services: {}

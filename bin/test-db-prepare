@@ -1,0 +1,48 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use App\Kernel;
+use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
+use Symfony\Component\Dotenv\Dotenv;
+
+require dirname(__DIR__).'/vendor/autoload.php';
+if (!in_array('--confirm-test-database', $argv, true)) {
+    fwrite(STDERR, "Explicit --confirm-test-database is required. No database was changed.\n");
+    exit(2);
+}
+$_SERVER['APP_ENV'] = $_ENV['APP_ENV'] = 'test';
+if (is_file(dirname(__DIR__).'/.env')) {
+    (new Dotenv())->bootEnv(dirname(__DIR__).'/.env');
+}
+$kernel = new Kernel('test', true);
+try {
+    $kernel->boot();
+    $registry = $kernel->getContainer()->get('doctrine');
+    if (!$registry instanceof ManagerRegistry) {
+        throw new LogicException('Doctrine registry is unavailable.');
+    }
+    $connection = $registry->getConnection();
+    if (!$connection instanceof Doctrine\DBAL\Connection) {
+        throw new LogicException('DBAL connection is unavailable.');
+    }
+    $guard = require dirname(__DIR__).'/tools/test-database-guard.php';
+    $database = $guard($kernel->getEnvironment(), true, $connection->getParams(), $_SERVER['TEST_TOKEN'] ?? $_ENV['TEST_TOKEN'] ?? '');
+    $application = new Application($kernel);
+    $application->setAutoExit(false);
+    $output = new ConsoleOutput();
+    $output->writeln('Preparing dedicated database: '.$database);
+    foreach ([['command' => 'doctrine:database:create', '--if-not-exists' => true], ['command' => 'doctrine:migrations:migrate', '--allow-no-migration' => true]] as $arguments) {
+        $input = new ArrayInput($arguments);
+        $input->setInteractive(false);
+        if (0 !== $application->run($input, $output)) {
+            exit(1);
+        }
+    }
+} finally {
+    $kernel->shutdown();
+}
