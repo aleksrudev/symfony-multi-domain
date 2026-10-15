@@ -28,6 +28,7 @@ class ModuleKernel extends Kernel
     {
         parent::configureContainer($container);
         $container->extension('doctrine', ['dbal' => ['connections' => ['default' => ['url' => 'sqlite:///:memory:']]]]);
+        $container->extension('dama_doctrine_test', ['enable_static_connection' => false]);
         $container->extension('framework', ['messenger' => ['transports' => ['async' => ['dsn' => 'in-memory://', 'options' => []], 'failed' => ['dsn' => 'in-memory://']]]]);
     }
 }

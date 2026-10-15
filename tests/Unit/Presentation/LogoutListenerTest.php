@@ -43,4 +43,3 @@ final class LogoutListenerTest extends TestCase
         self::assertNull($event->getResponse());
     }
 }
-

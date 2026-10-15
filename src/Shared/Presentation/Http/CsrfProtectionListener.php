@@ -55,4 +55,3 @@ final readonly class CsrfProtectionListener
         }
     }
 }
-

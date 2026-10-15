@@ -21,7 +21,9 @@ class Kernel extends BaseKernel
     /** @return array<string, string> Module name => absolute directory. */
     protected function moduleDirectories(): array
     {
-        return [];
+        return [
+            'Catalog' => __DIR__.'/Catalog',
+        ];
     }
 
     protected function build(ContainerBuilder $container): void

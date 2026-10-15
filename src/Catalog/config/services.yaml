@@ -1,0 +1,49 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Application Query Handlers
+    App\Catalog\Application\Query\GetProducts\GetProductsHandler:
+        tags:
+            - { name: messenger.message_handler, bus: query.bus }
+
+    App\Catalog\Application\Query\GetProduct\GetProductHandler:
+        tags:
+            - { name: messenger.message_handler, bus: query.bus }
+
+    # Application Command Handlers
+    App\Catalog\Application\Command\UpdateProduct\UpdateProductHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
+    App\Catalog\Application\Command\InitDemo\InitDemoCatalogHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
+    # Public Contracts Service
+    App\Catalog\Application\Service\CatalogService: ~
+    App\Catalog\Contracts\CatalogContractInterface:
+        alias: App\Catalog\Application\Service\CatalogService
+        public: true
+
+    # Infrastructure Repositories
+    App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository: ~
+    App\Catalog\Domain\Repository\ProductRepositoryInterface:
+        alias: App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository
+        public: true
+
+    # Presentation Controllers
+    App\Catalog\Presentation\Http\Controller\Api\ProductController:
+        tags: [controller.service_arguments]
+
+    App\Catalog\Presentation\Http\Controller\Api\AdminProductController:
+        tags: [controller.service_arguments]
+
+    # Presentation Error Provider
+    App\Catalog\Presentation\Http\Error\CatalogErrorProvider: ~
+
+    # Console Command
+    App\Catalog\Presentation\Console\InitDemoCatalogCommand:
+        arguments:
+            $environment: '%kernel.environment%'

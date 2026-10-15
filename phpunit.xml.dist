@@ -10,7 +10,7 @@
         <ini name="display_errors" value="1"/>
         <ini name="error_reporting" value="-1"/>
         <server name="APP_SECRET" value="test-only-secret"/>
-        <server name="DATABASE_URL" value="postgresql://test:test@127.0.0.1/template?serverVersion=16"/>
+        <server name="DATABASE_URL" value="postgresql://symfony:symfony@database:5432/symfony_db?serverVersion=16&amp;charset=utf8"/>
         <server name="MESSENGER_TRANSPORT_DSN" value="doctrine://default"/>
         <server name="DEFAULT_URI" value="http://localhost"/>
         <server name="APP_ENV" value="test" force="true"/>

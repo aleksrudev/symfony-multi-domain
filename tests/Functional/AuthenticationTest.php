@@ -282,4 +282,3 @@ final class AuthenticationTest extends TestCase
         self::assertSame(429, $lastStatus);
     }
 }
-

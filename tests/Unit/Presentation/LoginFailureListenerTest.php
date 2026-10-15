@@ -46,4 +46,3 @@ final class LoginFailureListenerTest extends TestCase
         self::assertNull($event->getResponse());
     }
 }
-

@@ -159,7 +159,7 @@ final class ModuleKernelTest extends TestCase
             self::assertFalse($container->hasParameter('alpha.origin'));
             self::assertCount(0, $container->get(\App\Shared\Infrastructure\Schedule\Schedule::class)->getSchedule()->getRecurringMessages());
             self::assertNull($container->get('router')->getRouteCollection()->get('alpha_probe'));
-            self::assertSame([], $container->get(EntityManagerInterface::class)->getMetadataFactory()->getAllMetadata());
+            self::assertFalse($container->get(EntityManagerInterface::class)->getMetadataFactory()->hasMetadataFor(Record::class));
         } finally {
             $kernel->shutdown();
         }
