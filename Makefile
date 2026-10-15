@@ -41,10 +41,16 @@ composer: ## Run Composer (usage: make composer CMD="require foo/bar")
 migrate: ## Run database migrations
 	$(CONSOLE) doctrine:migrations:migrate --no-interaction
 
-dev-db-recreate: ## Recreate dev database and run migrations (deletes all dev data)
+dev-db-recreate: ## Recreate dev database, run migrations and load fixtures (deletes all dev data)
 	$(CONSOLE) doctrine:database:drop --env=dev --force --if-exists --no-interaction
 	$(CONSOLE) doctrine:database:create --env=dev --no-interaction
 	$(CONSOLE) doctrine:migrations:migrate --env=dev --no-interaction --allow-no-migration
+	@fixture_tags=$$($(CONSOLE) debug:container --tags --format=txt --env=dev --no-ansi) || exit $$?; \
+	if printf '%s\n' "$$fixture_tags" | grep -Fq '"doctrine.fixture.orm" tag'; then \
+	    $(CONSOLE) doctrine:fixtures:load --env=dev --append --no-interaction; \
+	else \
+	    printf '%s\n' 'No Doctrine fixtures registered; skipping fixture loading.'; \
+	fi
 
 diff: ## Generate a migration diff
 	$(CONSOLE) doctrine:migrations:diff

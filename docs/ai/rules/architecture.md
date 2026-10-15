@@ -1,10 +1,13 @@
-# Мультидоменный шаблон
+# Архитектура
+
+Прочитай перед созданием, изменением или ревью модулей, зависимостей слоёв,
+публичных контрактов и конфигурации подключения модулей.
 
 Шаблон содержит только Kernel и Shared. Бизнес-модули, демо-функции и
 аутентификация добавляются в создаваемом сервисе. Стек: Symfony 8, PHP >= 8.4.17,
 Doctrine ORM 3, PostgreSQL 16, Messenger, Scheduler, FrankenPHP.
 
-Существующие модули, их назначение и инструкции перечислены в [карте](map.md).
+Существующие модули, их назначение и инструкции перечислены в [карте](../map.md).
 
 ## Границы и структура
 
@@ -15,12 +18,19 @@ src/<Module>/
 ├── AGENTS.md
 ├── Domain/
 │   ├── Entity/
+│   ├── Action/
 │   ├── ValueObject/
 │   ├── Repository/
+│   ├── DataProvider/
+│   ├── Collection/
 │   └── Event/
 ├── Application/
-├── Contracts/
+│   ├── Command/
+│   └── Query/
 ├── Presentation/
+│   ├── Contracts/
+│   │   └── Dto/
+│   ├── Adapter/
 │   ├── Http/Controller/Api/
 │   ├── Http/Request/
 │   ├── Http/Response/
@@ -28,6 +38,7 @@ src/<Module>/
 │   └── Messaging/
 ├── Infrastructure/
 │   ├── Persistence/Doctrine/
+│   │   └── Fixtures/
 │   ├── Integration/
 │   └── Symfony/DependencyInjection/
 └── config/
@@ -37,27 +48,64 @@ src/<Module>/
     └── packages/
 ```
 
-Создавайте каталоги по необходимости. Команды, запросы, обработчики и прикладные
-DTO группируются по сценарию использования внутри Application.
+Создавайте каталоги по необходимости. В Application бизнес-модуля находятся
+только каталоги Command и Query. Сообщения, обработчики, модели результатов
+и необходимые прикладные порты группируются внутри соответствующего сценария.
+Общие технические контракты шин Shared сохраняются в Shared/Application/Bus.
+Результаты Query для сущностей, списков и составных данных оформляются моделями
+`<QueryName>Result` рядом с запросом и обработчиком. Application преобразует
+доменные сущности в эти модели, не раскрывая их через результат сценария.
+Command/Query-обработчики оркестрируют доменные операции и их результаты;
+бизнес-правила реализуют доменные Action, агрегаты и value objects.
+Перед работой с ними прочитай [правила доменных Action](domain-actions.md).
+
+| Слой | Ответственность |
+| --- | --- |
+| Domain | Агрегаты, сущности, Action с бизнес-операциями, value objects, коллекции сущностей, доменные события и исключения, интерфейсы репозиториев и DataProvider. |
+| Application | Command/Query-сценарии как оркестраторы доменного слоя, сообщения, обработчики и прикладные порты. |
+| Presentation/Contracts | Публичный межмодульный API: интерфейсы и неизменяемые DTO в Dto/. |
+| Presentation | Реализации публичных интерфейсов в Adapter/, HTTP-контроллеры и Request/Response DTO, CLI, адаптация входящих внешних сообщений. |
+| Infrastructure | Doctrine-репозитории, внешние и межмодульные адаптеры. |
+| config | Сервисы, маршруты, mappings и настройки интеграций владельца. |
+
+Зависимости: `Presentation -> Application -> Domain`. Infrastructure реализует
+порты Application/Domain. Сборка компонентов относится к конфигурации и DI-коду.
+Application не зависит от адаптеров. Контроллеры не вызывают репозитории.
+Контроллеры также не вызывают DataProvider; доступ к данным идёт через Application.
 
 Presentation — входные адаптеры. Infrastructure — реализации исходящих портов.
-Domain не знает о них. Интерфейс репозитория агрегата находится в Domain/Repository,
-порты внешних возможностей — в Application. Application может использовать
-Validator Constraints, Domain — только PHP и Doctrine-атрибуты маппинга.
+Domain не зависит от Symfony, других модулей и адаптеров.
+Интерфейс репозитория агрегата находится в Domain/Repository, интерфейс поиска
+сущностей — в Domain/DataProvider. Их разделение, результаты поиска и коллекции
+описаны в [правилах доступа к данным](data-access.md); прочитай их перед работой
+с этими интерфейсами и их реализациями.
 
-Contracts — опубликованный межмодульный API, независимый от Symfony/Doctrine.
+Прикладные порты внешних возможностей находятся внутри Command/Query-сценариев
+Application потребителя. Application может использовать
+Validator Constraints, Domain — только PHP и Doctrine-атрибуты маппинга сущностей
+как единственное намеренное ORM-исключение.
+
+Presentation/Contracts — опубликованный межмодульный API, независимый
+от Symfony/Doctrine. Он не раскрывает сущности и не зависит от внутренних слоёв.
+Реализации интерфейсов находятся в Presentation/Adapter и вызывают
+собственные Command/Query через шины. Application не зависит от Contracts
+и других частей Presentation. Подключение и границы описаны в
+[правилах контрактов модулей](module-contracts.md).
 HTTP Request/Response и транспортные форматы сообщений находятся в Presentation.
-Потребитель использует собственный Application-порт и переводящий адаптер в
-Infrastructure/Integration. Только этот адаптер импортирует чужие Contracts.
+Потребитель использует собственный порт внутри Command/Query-сценария
+и переводящий адаптер в Infrastructure/Integration. Только этот адаптер
+импортирует чужие Presentation/Contracts.
 
 Shared — общая техническая основа, не набор общих бизнес-моделей. Бизнесовые
 идентификаторы, Money, Customer и репозитории принадлежат конкретным контекстам.
+Не перемещайте туда сущности, бизнесовые value objects, универсальные репозитории
+или бизнес-правила ради устранения дублирования.
 Осознанный Shared Kernel не вводится шаблоном заранее.
 
 ## Добавление и подключение модуля
 
 1. Определите ответственность, язык, границы агрегатов и опубликованные контракты.
-2. Создайте `src/<Module>/AGENTS.md` по [шаблону](templates/module-AGENTS.md).
+2. Создайте `src/<Module>/AGENTS.md` по [шаблону](../templates/module-AGENTS.md).
 3. Добавьте `config/` и нужные слои с namespace `App\<Module>\...`.
 4. Явно зарегистрируйте модуль в `App\Kernel::moduleDirectories()`:
 
@@ -65,7 +113,7 @@ Shared — общая техническая основа, не набор об�
 return ['Example' => __DIR__.'/Example'];
 ```
 
-5. Добавьте конфигурацию и тесты, обновите [карту модулей](map.md).
+5. Добавьте конфигурацию и тесты, обновите [карту модулей](../map.md).
 При удалении регистрации исчезают сервисы,
 маршруты, mappings, поставщики расписания и регистрации миграций владельца.
 Данные при этом не удаляются. Перед отключением завершите обработку его очередей:
@@ -91,16 +139,25 @@ services:
     App\Example\Application\DoSomething\Handler:
         tags:
             - { name: messenger.message_handler, bus: command.bus }
+    App\Example\Domain\Action\DoSomethingAction: ~
     App\Example\Presentation\Http\Controller\Api\:
         resource: '../Presentation/Http/Controller/Api/'
         tags: [controller.service_arguments]
     App\Example\Infrastructure\Persistence\Doctrine\ExampleRepository: ~
     App\Example\Domain\Repository\ExampleRepositoryInterface:
         alias: App\Example\Infrastructure\Persistence\Doctrine\ExampleRepository
+    App\Example\Infrastructure\Persistence\Doctrine\ExampleDataProvider: ~
+    App\Example\Domain\DataProvider\ExampleDataProviderInterface:
+        alias: App\Example\Infrastructure\Persistence\Doctrine\ExampleDataProvider
 ```
 
 Не сканируйте целиком Domain или весь модуль как сервисы. Сущности, value objects,
 команды/запросы и DTO не являются сервисами. Не переопределяйте сервисы соседей.
+
+Начальные dev/test-данные загружайте через DoctrineFixturesBundle. Фикстуры
+принадлежат Infrastructure владельца; их размещение и регистрация описаны
+в [правилах фикстур](fixtures.md). Не создавайте для наполнения базы отдельные
+Application-команды и CLI вроде `InitDemoCatalogCommand`.
 
 Пример `config/routes.yaml`:
 
@@ -160,7 +217,7 @@ doctrine:
 Доменные события обрабатываются только внутри своего контекста до commit;
 исключение обработчика откатывает транзакцию. Не выполняйте здесь HTTP, email
 или другие внешние побочные эффекты. Интеграционные события — отдельные
-версионируемые Contracts. Публичные Contracts остаются независимыми от транспорта:
+версионируемые DTO в Presentation/Contracts/Dto. Публичные Contracts остаются независимыми от транспорта:
 адаптер владельца преобразует их в исходящее сообщение.
 
 ### Исходящие сообщения
@@ -230,7 +287,7 @@ outbox worker — `make outbox-worker`.
 
 ## Межмодульные зависимости
 
-Разрешённые поставщики Contracts перечисляются
+Разрешённые поставщики Presentation/Contracts перечисляются
 в `src/<Consumer>/config/dependencies.php`:
 
 ```php
@@ -244,6 +301,8 @@ return ['Provider'];
 Отсутствующий файл означает отсутствие межмодульных зависимостей. Неизвестные
 модули, самозависимости и циклы запрещены. Разрешение относится только к
 Infrastructure/Integration потребителя, не ко всему модулю.
+Реализации из Presentation/Adapter поставщика потребителю недоступны.
+Прямые вызовы обработчиков другого модуля запрещены.
 
 Линтеры, архитектурные проверки, тесты и проверки конфигурации описаны
 в [checks.md](checks.md).

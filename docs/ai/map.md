@@ -5,8 +5,8 @@
 модулей, прочитай инструкции каждого из них, включая владельцев тестов.
 
 Все пути ниже указаны от корня проекта. Подробные правила границ и зависимостей
-находятся в [architecture.md](architecture.md), команды проверок — в
-[checks.md](checks.md).
+находятся в [rules/architecture.md](rules/architecture.md), команды проверок — в
+[rules/checks.md](rules/checks.md).
 
 ## Существующие модули
 
@@ -52,17 +52,24 @@ Shared не является модулем пользователей или а
 | Что добавляется | Куда класть |
 | --- | --- |
 | Агрегат, сущность, бизнесовый value object, доменное событие или исключение, интерфейс репозитория агрегата | `src/<Module>/Domain/` |
-| Сценарий использования, команда или запрос с обработчиком, прикладной порт | `src/<Module>/Application/` |
-| Публичный межмодульный интерфейс или неизменяемый DTO | `src/<Module>/Contracts/` |
+| Доменный Action с бизнес-операцией | `src/<Module>/Domain/Action/` |
+| Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
+| Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
+| Оркестрация доменных операций, сообщения, обработчики и прикладные порты бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
+| Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
+| Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
+| Реализация публичного интерфейса через Command/Query владельца | `src/<Module>/Presentation/Adapter/` |
 | HTTP-контроллер, Request/Response DTO, CLI, адаптация входящего внешнего сообщения | `src/<Module>/Presentation/` |
-| Реализация репозитория или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
+| Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
+| Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |
 | Сервисы, маршруты, mappings и настройки интеграций модуля | `src/<Module>/config/` |
 
 Общий технический механизм для нескольких модулей относится к `src/Shared/`,
 если соответствует его инструкции. Бизнесовый код относится к модулю владельца;
 если подходящего модуля нет, определи новый bounded context по
-[руководству](architecture.md) и создай его инструкцию по
+[руководству](rules/architecture.md) и создай его инструкцию по
 [шаблону](templates/module-AGENTS.md).
 
 Общая загрузка модулей находится в `src/Kernel.php`, общие настройки — в `config/`.
