@@ -31,7 +31,7 @@ src/<Module>/
 │   ├── Contracts/
 │   │   └── Dto/
 │   ├── Adapter/
-│   ├── Http/Controller/Api/
+│   ├── Http/Controller/Api/<Actor>/
 │   ├── Http/Request/
 │   ├── Http/Response/
 │   ├── Console/
@@ -51,7 +51,8 @@ src/<Module>/
 Создавайте каталоги по необходимости. В Application бизнес-модуля находятся
 только каталоги Command и Query. Сообщения, обработчики, модели результатов
 и необходимые прикладные порты группируются внутри соответствующего сценария.
-Общие технические контракты шин Shared сохраняются в Shared/Application/Bus.
+Контракты шин Command, Query, Inbox и Outbox находятся в Shared/Application/Bus;
+интерфейс шины доменных событий — в Shared/Domain/Event рядом с EventInterface.
 Результаты Query для сущностей, списков и составных данных оформляются моделями
 `<QueryName>Result` рядом с запросом и обработчиком. Application преобразует
 доменные сущности в эти модели, не раскрывая их через результат сценария.
@@ -72,6 +73,8 @@ Command/Query-обработчики оркестрируют доменные �
 порты Application/Domain. Сборка компонентов относится к конфигурации и DI-коду.
 Application не зависит от адаптеров. Контроллеры не вызывают репозитории.
 Контроллеры также не вызывают DataProvider; доступ к данным идёт через Application.
+API-контроллер выполняет одно действие через `__invoke()` и размещается
+в namespace актора по [правилам HTTP-контроллеров](http-controllers.md).
 
 Presentation — входные адаптеры. Infrastructure — реализации исходящих портов.
 Domain не зависит от Symfony, других модулей и адаптеров.
@@ -82,8 +85,12 @@ Domain не зависит от Symfony, других модулей и адап
 
 Прикладные порты внешних возможностей находятся внутри Command/Query-сценариев
 Application потребителя. Application может использовать
-Validator Constraints, Domain — только PHP и Doctrine-атрибуты маппинга сущностей
-как единственное намеренное ORM-исключение.
+Validator Constraints. Domain использует PHP и Doctrine-атрибуты маппинга сущностей.
+Дополнительное исключение — `Shared/Domain/Collection/AbstractCollection`,
+наследующий Doctrine `ArrayCollection`. Коллекции сущностей наследуют эту основу;
+прямые импорты Doctrine Collections в остальных доменных классах запрещены.
+Это исключение не разрешает зависимости Domain от ORM-сервисов, Symfony
+или других адаптеров.
 
 Presentation/Contracts — опубликованный межмодульный API, независимый
 от Symfony/Doctrine. Он не раскрывает сущности и не зависит от внутренних слоёв.
@@ -199,15 +206,19 @@ doctrine:
 Общая миграция таблицы Messenger остаётся в корневом `migrations/`.
 Не создавайте и не применяйте миграции без согласования.
 
-Контракты шин находятся в Shared/Application/Bus:
+Контракты прикладных шин находятся в Shared/Application/Bus:
 
 - Command: `dispatch(CommandInterface): void`, validation + doctrine_transaction;
 - Query: `dispatch(QueryInterface): mixed`, результат единственного обработчика,
   без изменения состояния;
 - Inbox: `dispatch(InboxMessageInterface): void`, async, validation + transaction
   при обработке, три повтора и failed;
-- Event: `dispatch(EventInterface): void`, синхронный EventDispatcher;
 - Outbox: `publish(OutboxMessageInterface): void`, отдельная шина и PostgreSQL-очередь.
+
+`Shared/Domain/Event/EventBusInterface` объявляет `dispatch(EventInterface): void`.
+Реализация находится в Infrastructure и использует синхронный Symfony EventDispatcher.
+Доменный Action или Application-обработчик организует публикацию;
+сущностям шину не внедряйте. Domain не зависит от Application или Symfony.
 
 Прикладные обработчики регистрируются с явным bus. Входящий внешний формат
 преобразуется Presentation-адаптером во внутреннюю команду или inbox DTO.

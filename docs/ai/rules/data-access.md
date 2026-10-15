@@ -61,12 +61,35 @@ Presentation не обращается к ним напрямую.
 ## Коллекции и пагинация
 
 Для каждого типа сущности создавай отдельный класс `{Entity}Collection`
-в `Domain/Collection/`. Он содержит только сущности соответствующего типа,
-обеспечивает типизированную итерацию и подсчёт элементов. Проверяй типы
-при создании и при добавлении элементов, если добавление предусмотрено.
+в `Domain/Collection/`, наследующий
+`App\Shared\Domain\Collection\AbstractCollection<Entity>`. Укажи generic-тип
+в `@extends` и конкретный класс элемента в `elementClass()`:
+
+```php
+/** @extends AbstractCollection<Product> */
+final class ProductCollection extends AbstractCollection
+{
+    protected function elementClass(): string
+    {
+        return Product::class;
+    }
+}
+```
+
+Основа наследует Doctrine `ArrayCollection`, предоставляет итерацию, подсчёт
+и проверку типа элементов при создании, `add()`, `set()` и записи через `[]`.
+Не дублируй конструктор и эти проверки в конкретных коллекциях.
+Прямое наследование бизнес-коллекций от Doctrine запрещено.
+Не импортируй Doctrine Collections в другие доменные классы.
+
+`filter()`, `partition()` и `map()` создают коллекции того же конкретного класса
+и проверяют тип результата. Поэтому `map()` может возвращать только тот же тип
+сущности; преобразование в DTO выполняй вне коллекции, например через `all()`.
+`toArray()` сохраняет ключи, `all()` возвращает `list<Entity>` с новыми индексами.
 
 Пагинация возвращает доменную модель `{Entity}PaginatedCollection` из того же
-каталога. Она содержит `{Entity}Collection $items` и `int $count`:
+каталога. Это отдельная readonly-модель, не наследник `AbstractCollection`.
+Она содержит `{Entity}Collection $items` и `int $count`:
 
 ```php
 final readonly class ProductPaginatedCollection
@@ -89,12 +112,6 @@ DataProvider возвращает эту доменную модель. Query-о
 [правилам результатов Query](domain-actions.md#результаты-query).
 Доменная коллекция не должна попадать в результат Query даже как вложенное поле.
 Отдельный порт проекций для этой пагинации не нужен.
-
-В текущем шаблоне используй коллекцию на PHP: Domain допускает только
-Doctrine-атрибуты маппинга, а Deptrac запрещает зависимость от Doctrine Collections.
-Если выбираешь наследование от Doctrine Collections, одновременно отрази
-это исключение в архитектурных правилах и проверках, ограничив его доменными
-коллекциями. Не разрешай всему Domain произвольные зависимости от Doctrine.
 
 ## Проверка изменений
 

@@ -12,12 +12,12 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события и базовое исключение, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события, базовые исключение и коллекция, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 
 Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
 пустой список; Shared подключается отдельно как техническая основа.
-Модули Alpha и Beta в `tests/Fixtures/` — технические fixtures, а не модули
-приложения.
+Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
+а не модули приложения.
 
 ## Границы ответственности
 
@@ -26,8 +26,14 @@ Shared содержит только механизмы, независимые 
 относятся к бизнес-модулю владельца. Аутентификация в шаблоне не реализована;
 Shared не является модулем пользователей или авторизации.
 
-Общие контракты шин находятся в `src/Shared/Application/Bus/`, HTTP-маппинг ошибок —
-в `src/Shared/Presentation/Http/`, реализация шин, сборка расписания и compiler passes —
+Общая типизированная основа коллекций находится в
+`src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
+сущностей принадлежат бизнес-модулям и наследуются от неё.
+
+Контракты шин Command, Query, Inbox и Outbox находятся в `src/Shared/Application/Bus/`,
+контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.
+HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
+реализация шин, сборка расписания и compiler passes —
 в `src/Shared/Infrastructure/`. Регистрация общих сервисов находится
 в [src/Shared/config/services.yaml](../../src/Shared/config/services.yaml).
 
@@ -61,6 +67,7 @@ Shared не является модулем пользователей или а
 | Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
 | Реализация публичного интерфейса через Command/Query владельца | `src/<Module>/Presentation/Adapter/` |
 | HTTP-контроллер, Request/Response DTO, CLI, адаптация входящего внешнего сообщения | `src/<Module>/Presentation/` |
+| API-контроллер одного действия с `__invoke()` | `src/<Module>/Presentation/Http/Controller/Api/<Actor>/` |
 | Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
 | Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |

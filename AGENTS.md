@@ -28,6 +28,8 @@ Doctrine ORM 3, PostgreSQL 16, Messenger и Scheduler. Бизнес-модуле
 Для межмодульного API и его адаптеров прочитай
 [правила контрактов модулей](docs/ai/rules/module-contracts.md).
 
+Для API-контроллеров прочитай [правила HTTP-контроллеров](docs/ai/rules/http-controllers.md).
+
 Для начальных dev/test-данных используй [правила фикстур](docs/ai/rules/fixtures.md).
 
 При создании модуля добавь его AGENTS.md по `docs/ai/templates/module-AGENTS.md`.
@@ -46,7 +48,7 @@ Doctrine ORM 3, PostgreSQL 16, Messenger и Scheduler. Бизнес-модуле
 Сервисы других модулей не переопределять; имена mappings и маршрутов уникальны.
 Сущности, value objects и DTO не регистрировать как сервисы.
 
-API-контроллеры находятся в `Presentation/Http/Controller/Api` владельца;
+API-контроллеры находятся в `Presentation/Http/Controller/Api/<Actor>` владельца;
 модульные маршруты задают `/api/v1`. Защита `/api` требует
 `IS_AUTHENTICATED_FULLY`; закомментированный access_token не является
 работающей аутентификацией.
