@@ -5,25 +5,28 @@ declare(strict_types=1);
 namespace Tests\Unit\Catalog\Domain;
 
 use App\Catalog\Domain\Entity\Product;
+use App\Catalog\Domain\Enum\Currency;
 use App\Catalog\Domain\Exception\InvalidProductPriceException;
+use App\Catalog\Domain\ValueObject\ProductId;
 use PHPUnit\Framework\TestCase;
 
 final class ProductTest extends TestCase
 {
     public function testCanCreateProductWithValidData(): void
     {
+        $id = new ProductId('prod-1');
         $product = new Product(
-            id: 'prod-1',
+            id: $id,
             name: 'Keyboard',
             priceAmount: 500000,
-            currency: 'RUB',
+            currency: Currency::RUB,
             published: true,
         );
 
-        self::assertSame('prod-1', $product->id());
+        self::assertTrue($product->id()->equals($id));
         self::assertSame('Keyboard', $product->name());
         self::assertSame(500000, $product->priceAmount());
-        self::assertSame('RUB', $product->currency());
+        self::assertSame(Currency::RUB, $product->currency());
         self::assertTrue($product->isPublished());
         self::assertInstanceOf(\DateTimeImmutable::class, $product->createdAt());
     }
@@ -32,7 +35,7 @@ final class ProductTest extends TestCase
     {
         $this->expectException(InvalidProductPriceException::class);
         new Product(
-            id: 'prod-1',
+            id: new ProductId('prod-1'),
             name: 'Keyboard',
             priceAmount: 0,
         );
@@ -41,7 +44,7 @@ final class ProductTest extends TestCase
     public function testThrowsExceptionOnChangePriceZeroOrNegative(): void
     {
         $product = new Product(
-            id: 'prod-1',
+            id: new ProductId('prod-1'),
             name: 'Keyboard',
             priceAmount: 500000,
         );
@@ -53,7 +56,7 @@ final class ProductTest extends TestCase
     public function testCanChangePrice(): void
     {
         $product = new Product(
-            id: 'prod-1',
+            id: new ProductId('prod-1'),
             name: 'Keyboard',
             priceAmount: 500000,
         );
@@ -65,7 +68,7 @@ final class ProductTest extends TestCase
     public function testCanPublishAndUnpublish(): void
     {
         $product = new Product(
-            id: 'prod-1',
+            id: new ProductId('prod-1'),
             name: 'Keyboard',
             priceAmount: 500000,
             published: true,
@@ -81,7 +84,7 @@ final class ProductTest extends TestCase
     public function testCanRename(): void
     {
         $product = new Product(
-            id: 'prod-1',
+            id: new ProductId('prod-1'),
             name: 'Old Name',
             priceAmount: 500000,
         );
@@ -90,4 +93,3 @@ final class ProductTest extends TestCase
         self::assertSame('New Name', $product->name());
     }
 }
-

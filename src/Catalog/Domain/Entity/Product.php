@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Catalog\Domain\Entity;
 
+use App\Catalog\Domain\Enum\Currency;
 use App\Catalog\Domain\Exception\InvalidProductPriceException;
+use App\Catalog\Domain\ValueObject\ProductId;
 use Doctrine\ORM\Mapping\Column;
 use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
@@ -15,29 +17,29 @@ use Doctrine\ORM\Mapping\Table;
 class Product
 {
     #[Id]
-    #[Column(type: 'string', length: 64)]
-    private string $id;
+    #[Column(name: 'id', type: 'product_id', length: 64)]
+    private ProductId $id;
 
-    #[Column(type: 'string', length: 255)]
+    #[Column(name: 'name', type: 'string', length: 255)]
     private string $name;
 
-    #[Column(type: 'integer')]
+    #[Column(name: 'price_amount', type: 'integer')]
     private int $priceAmount;
 
-    #[Column(type: 'string', length: 3)]
-    private string $currency;
+    #[Column(name: 'currency', type: 'string', length: 3, enumType: Currency::class)]
+    private Currency $currency;
 
-    #[Column(type: 'boolean')]
+    #[Column(name: 'published', type: 'boolean')]
     private bool $published;
 
-    #[Column(type: 'datetime_immutable')]
+    #[Column(name: 'created_at', type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
     public function __construct(
-        string $id,
+        ProductId $id,
         string $name,
         int $priceAmount,
-        string $currency = 'RUB',
+        Currency $currency = Currency::RUB,
         bool $published = true,
         ?\DateTimeImmutable $createdAt = null,
     ) {
@@ -53,7 +55,7 @@ class Product
         $this->createdAt = $createdAt ?? new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     }
 
-    public function id(): string
+    public function id(): ProductId
     {
         return $this->id;
     }
@@ -68,7 +70,7 @@ class Product
         return $this->priceAmount;
     }
 
-    public function currency(): string
+    public function currency(): Currency
     {
         return $this->currency;
     }

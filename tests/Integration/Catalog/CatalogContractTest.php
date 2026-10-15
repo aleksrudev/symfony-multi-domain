@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Catalog;
 
-use App\Catalog\Contracts\CatalogContractInterface;
-use App\Catalog\Contracts\Offer;
 use App\Catalog\Domain\Entity\Product;
+use App\Catalog\Domain\Enum\Currency;
 use App\Catalog\Domain\Repository\ProductRepositoryInterface;
+use App\Catalog\Domain\ValueObject\ProductId;
+use App\Catalog\Presentation\Contracts\CatalogContractInterface;
+use App\Catalog\Presentation\Contracts\Dto\Offer;
 use Tests\Integration\IntegrationTestCase;
 
 final class CatalogContractTest extends IntegrationTestCase
@@ -25,10 +27,10 @@ final class CatalogContractTest extends IntegrationTestCase
     public function testGetOfferReturnsOfferForPublishedProduct(): void
     {
         $product = new Product(
-            id: 'prod-contract-1',
+            id: new ProductId('prod-contract-1'),
             name: 'Test Contract Product',
             priceAmount: 199900,
-            currency: 'RUB',
+            currency: Currency::RUB,
             published: true,
         );
         $this->repository->save($product);
@@ -46,10 +48,10 @@ final class CatalogContractTest extends IntegrationTestCase
     public function testGetOfferReturnsNullWhenProductIsUnpublished(): void
     {
         $product = new Product(
-            id: 'prod-contract-hidden',
+            id: new ProductId('prod-contract-hidden'),
             name: 'Hidden Product',
             priceAmount: 250000,
-            currency: 'RUB',
+            currency: Currency::RUB,
             published: false,
         );
         $this->repository->save($product);
@@ -67,4 +69,3 @@ final class CatalogContractTest extends IntegrationTestCase
         self::assertNull($offer);
     }
 }
-

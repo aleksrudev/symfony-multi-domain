@@ -4,28 +4,30 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Query\GetProduct;
 
-use App\Catalog\Domain\Entity\Product;
-use App\Catalog\Domain\Exception\ProductNotFoundException;
-use App\Catalog\Domain\Repository\ProductRepositoryInterface;
+use App\Catalog\Domain\DataProvider\ProductDataProviderInterface;
+use App\Catalog\Domain\ValueObject\ProductId;
 
 final readonly class GetProductHandler
 {
     public function __construct(
-        private ProductRepositoryInterface $repository,
+        private ProductDataProviderInterface $dataProvider,
     ) {
     }
 
-    public function __invoke(GetProductQuery $query): Product
+    public function __invoke(GetProductQuery $query): GetProductQueryResult
     {
+        $id = new ProductId($query->productId);
+
         $product = $query->onlyPublished
-            ? $this->repository->findPublishedById($query->productId)
-            : $this->repository->findById($query->productId);
+            ? $this->dataProvider->findPublishedById($id)
+            : $this->dataProvider->findById($id);
 
-        if (null === $product) {
-            throw new ProductNotFoundException($query->productId);
-        }
-
-        return $product;
+        return new GetProductQueryResult(
+            productId: $product->id()->value,
+            name: $product->name(),
+            priceAmount: $product->priceAmount(),
+            currency: $product->currency()->value,
+            published: $product->isPublished(),
+        );
     }
 }
-

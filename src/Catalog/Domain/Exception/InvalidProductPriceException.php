@@ -13,4 +13,3 @@ final class InvalidProductPriceException extends DomainException
         parent::__construct(sprintf('Product price must be greater than zero, got %d.', $priceAmount));
     }
 }
-

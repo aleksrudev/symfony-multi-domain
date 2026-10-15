@@ -39,7 +39,7 @@ Shared содержит только механизмы, независимые 
 
 ## Связи модулей
 
-`Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Contracts\CatalogContractInterface`
+`Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Presentation\Contracts\CatalogContractInterface`
 (метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребители: будущий модуль `Ordering`
 через собственный адаптер `Ordering/Infrastructure/Integration`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).

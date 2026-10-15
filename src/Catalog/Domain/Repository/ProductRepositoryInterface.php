@@ -10,13 +10,5 @@ interface ProductRepositoryInterface
 {
     public function save(Product $product): void;
 
-    public function findById(string $id): ?Product;
-
-    public function findPublishedById(string $id): ?Product;
-
-    /**
-     * @return array{items: list<Product>, total: int}
-     */
-    public function findPublishedPaginated(int $page, int $limit): array;
+    public function remove(Product $product): void;
 }
-

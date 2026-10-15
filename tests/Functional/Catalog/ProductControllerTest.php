@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Functional\Catalog;
 
+use App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\CatalogFixtures;
 use App\Kernel;
+use Doctrine\Persistence\ManagerRegistry;
 use PHPUnit\Framework\TestCase;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\HttpKernel\HttpKernelBrowser;
 
 final class ProductControllerTest extends TestCase
@@ -22,11 +21,12 @@ final class ProductControllerTest extends TestCase
         $this->kernel->boot();
         $this->client = new HttpKernelBrowser($this->kernel);
 
-        // Seed demo products
-        $application = new Application($this->kernel);
-        $application->setAutoExit(false);
-        $input = new ArrayInput(['command' => 'catalog:init-demo']);
-        $application->run($input, new NullOutput());
+        // Seed demo products via fixtures
+        /** @var ManagerRegistry $doctrine */
+        $doctrine = $this->kernel->getContainer()->get('doctrine');
+        $em = $doctrine->getManager();
+        $fixture = new CatalogFixtures();
+        $fixture->load($em);
     }
 
     protected function tearDown(): void

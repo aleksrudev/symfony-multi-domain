@@ -4,32 +4,41 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Query\GetProducts;
 
+use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
+use App\Catalog\Domain\DataProvider\ProductDataProviderInterface;
 use App\Catalog\Domain\Entity\Product;
-use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 
 final readonly class GetProductsHandler
 {
     public function __construct(
-        private ProductRepositoryInterface $repository,
+        private ProductDataProviderInterface $dataProvider,
     ) {
     }
 
-    /**
-     * @return array{items: list<Product>, total: int, page: int, limit: int}
-     */
-    public function __invoke(GetProductsQuery $query): array
+    public function __invoke(GetProductsQuery $query): GetProductsQueryResult
     {
         $page = max(1, $query->page);
         $limit = min(50, max(1, $query->limit));
+        $offset = ($page - 1) * $limit;
 
-        $result = $this->repository->findPublishedPaginated($page, $limit);
+        $paginated = $this->dataProvider->findPublishedPaginated($offset, $limit);
 
-        return [
-            'items' => $result['items'],
-            'total' => $result['total'],
-            'page' => $page,
-            'limit' => $limit,
-        ];
+        $items = array_map(
+            static fn (Product $product): GetProductQueryResult => new GetProductQueryResult(
+                productId: $product->id()->value,
+                name: $product->name(),
+                priceAmount: $product->priceAmount(),
+                currency: $product->currency()->value,
+                published: $product->isPublished(),
+            ),
+            $paginated->items->all(),
+        );
+
+        return new GetProductsQueryResult(
+            items: $items,
+            total: $paginated->count,
+            page: $page,
+            limit: $limit,
+        );
     }
 }
-

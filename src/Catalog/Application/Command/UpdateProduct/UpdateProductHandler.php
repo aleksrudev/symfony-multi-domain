@@ -4,32 +4,22 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Command\UpdateProduct;
 
-use App\Catalog\Domain\Exception\ProductNotFoundException;
-use App\Catalog\Domain\Repository\ProductRepositoryInterface;
+use App\Catalog\Domain\Action\UpdateProductAction;
+use App\Catalog\Domain\ValueObject\ProductId;
 
 final readonly class UpdateProductHandler
 {
     public function __construct(
-        private ProductRepositoryInterface $repository,
+        private UpdateProductAction $updateProductAction,
     ) {
     }
 
     public function __invoke(UpdateProductCommand $command): void
     {
-        $product = $this->repository->findById($command->productId);
-        if (null === $product) {
-            throw new ProductNotFoundException($command->productId);
-        }
-
-        if (null !== $command->priceAmount) {
-            $product->changePrice($command->priceAmount);
-        }
-
-        if (null !== $command->published) {
-            $command->published ? $product->publish() : $product->unpublish();
-        }
-
-        $this->repository->save($product);
+        ($this->updateProductAction)(
+            id: new ProductId($command->productId),
+            priceAmount: $command->priceAmount,
+            published: $command->published,
+        );
     }
 }
-

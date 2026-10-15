@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Contracts;
+namespace App\Catalog\Presentation\Contracts;
+
+use App\Catalog\Presentation\Contracts\Dto\Offer;
 
 interface CatalogContractInterface
 {

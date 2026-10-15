@@ -20,52 +20,8 @@ final readonly class ProductRepository implements ProductRepositoryInterface
         $this->em->persist($product);
     }
 
-    public function findById(string $id): ?Product
+    public function remove(Product $product): void
     {
-        return $this->em->find(Product::class, $id);
-    }
-
-    public function findPublishedById(string $id): ?Product
-    {
-        return $this->em->createQueryBuilder()
-            ->select('p')
-            ->from(Product::class, 'p')
-            ->where('p.id = :id AND p.published = true')
-            ->setParameter('id', $id)
-            ->getQuery()
-            ->getOneOrNullResult();
-    }
-
-    /**
-     * @return array{items: list<Product>, total: int}
-     */
-    public function findPublishedPaginated(int $page, int $limit): array
-    {
-        $offset = ($page - 1) * $limit;
-
-        $total = (int) $this->em->createQueryBuilder()
-            ->select('COUNT(p.id)')
-            ->from(Product::class, 'p')
-            ->where('p.published = true')
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        /** @var list<Product> $items */
-        $items = $this->em->createQueryBuilder()
-            ->select('p')
-            ->from(Product::class, 'p')
-            ->where('p.published = true')
-            ->orderBy('p.createdAt', 'DESC')
-            ->addOrderBy('p.id', 'ASC')
-            ->setFirstResult($offset)
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
-
-        return [
-            'items' => $items,
-            'total' => $total,
-        ];
+        $this->em->remove($product);
     }
 }
-

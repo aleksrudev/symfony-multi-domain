@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Contracts;
+namespace App\Catalog\Presentation\Contracts\Dto;
 
 final readonly class Offer
 {
@@ -10,7 +10,7 @@ final readonly class Offer
         public string $productId,
         public string $name,
         public int $priceAmount,
-        public string $currency = 'RUB',
+        public string $currency,
     ) {
     }
 }

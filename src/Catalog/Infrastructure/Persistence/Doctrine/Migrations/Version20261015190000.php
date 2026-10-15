@@ -27,4 +27,3 @@ final class Version20261015190000 extends AbstractMigration
         $this->addSql('DROP TABLE catalog.products');
     }
 }
-

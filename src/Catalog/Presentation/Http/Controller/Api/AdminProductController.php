@@ -6,7 +6,7 @@ namespace App\Catalog\Presentation\Http\Controller\Api;
 
 use App\Catalog\Application\Command\UpdateProduct\UpdateProductCommand;
 use App\Catalog\Application\Query\GetProduct\GetProductQuery;
-use App\Catalog\Domain\Entity\Product;
+use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -40,16 +40,15 @@ final readonly class AdminProductController
             published: $published,
         ));
 
-        /** @var Product $product */
+        /** @var GetProductQueryResult $product */
         $product = $this->queryBus->dispatch(new GetProductQuery($id, onlyPublished: false));
 
         return new JsonResponse([
-            'id' => $product->id(),
-            'name' => $product->name(),
-            'price' => $product->priceAmount(),
-            'currency' => $product->currency(),
-            'published' => $product->isPublished(),
+            'id' => $product->productId,
+            'name' => $product->name,
+            'price' => $product->priceAmount,
+            'currency' => $product->currency,
+            'published' => $product->published,
         ]);
     }
 }
-

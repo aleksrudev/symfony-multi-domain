@@ -1,4 +1,7 @@
 doctrine:
+    dbal:
+        types:
+            product_id: App\Catalog\Infrastructure\Persistence\Doctrine\Type\ProductIdType
     orm:
         entity_managers:
             default:
@@ -8,4 +11,3 @@ doctrine:
                         is_bundle: false
                         dir: '%kernel.project_dir%/src/Catalog/Domain/Entity'
                         prefix: 'App\Catalog\Domain\Entity'
-

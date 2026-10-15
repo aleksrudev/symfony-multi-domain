@@ -17,20 +17,24 @@ services:
         tags:
             - { name: messenger.message_handler, bus: command.bus }
 
-    App\Catalog\Application\Command\InitDemo\InitDemoCatalogHandler:
-        tags:
-            - { name: messenger.message_handler, bus: command.bus }
+    # Domain Actions
+    App\Catalog\Domain\Action\UpdateProductAction: ~
 
-    # Public Contracts Service
-    App\Catalog\Application\Service\CatalogService: ~
-    App\Catalog\Contracts\CatalogContractInterface:
-        alias: App\Catalog\Application\Service\CatalogService
+    # Public Contracts Adapter
+    App\Catalog\Presentation\Adapter\CatalogContractAdapter: ~
+    App\Catalog\Presentation\Contracts\CatalogContractInterface:
+        alias: App\Catalog\Presentation\Adapter\CatalogContractAdapter
         public: true
 
-    # Infrastructure Repositories
+    # Infrastructure Repositories & DataProviders
     App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository: ~
     App\Catalog\Domain\Repository\ProductRepositoryInterface:
         alias: App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository
+        public: true
+
+    App\Catalog\Infrastructure\Persistence\Doctrine\DataProvider\ProductDataProvider: ~
+    App\Catalog\Domain\DataProvider\ProductDataProviderInterface:
+        alias: App\Catalog\Infrastructure\Persistence\Doctrine\DataProvider\ProductDataProvider
         public: true
 
     # Presentation Controllers
@@ -43,7 +47,16 @@ services:
     # Presentation Error Provider
     App\Catalog\Presentation\Http\Error\CatalogErrorProvider: ~
 
-    # Console Command
-    App\Catalog\Presentation\Console\InitDemoCatalogCommand:
-        arguments:
-            $environment: '%kernel.environment%'
+when@dev:
+    services:
+        App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\:
+            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
+            autowire: true
+            autoconfigure: true
+
+when@test:
+    services:
+        App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\:
+            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
+            autowire: true
+            autoconfigure: true

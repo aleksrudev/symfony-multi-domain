@@ -14,4 +14,3 @@ final readonly class GetProductsQuery implements QueryInterface
     ) {
     }
 }
-
