@@ -35,4 +35,3 @@ final class ProductIdType extends StringType
         return self::NAME;
     }
 }
-

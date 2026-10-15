@@ -38,4 +38,3 @@ final readonly class CatalogContractAdapter implements CatalogContractInterface
         }
     }
 }
-

@@ -74,4 +74,3 @@ final readonly class ProductDataProvider implements ProductDataProviderInterface
         );
     }
 }
-

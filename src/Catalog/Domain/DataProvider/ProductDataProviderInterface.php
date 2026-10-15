@@ -23,4 +23,3 @@ interface ProductDataProviderInterface
 
     public function findPublishedPaginated(int $offset, int $limit): ProductPaginatedCollection;
 }
-

@@ -5,45 +5,15 @@ declare(strict_types=1);
 namespace App\Catalog\Domain\Collection;
 
 use App\Catalog\Domain\Entity\Product;
+use App\Shared\Domain\Collection\AbstractCollection;
 
 /**
- * @implements \IteratorAggregate<int, Product>
+ * @extends AbstractCollection<Product>
  */
-final class ProductCollection implements \Countable, \IteratorAggregate
+final class ProductCollection extends AbstractCollection
 {
-    /** @var list<Product> */
-    private array $items = [];
-
-    /**
-     * @param iterable<Product> $items
-     */
-    public function __construct(iterable $items = [])
+    protected function elementClass(): string
     {
-        foreach ($items as $item) {
-            $this->add($item);
-        }
-    }
-
-    public function add(Product $product): void
-    {
-        $this->items[] = $product;
-    }
-
-    /**
-     * @return list<Product>
-     */
-    public function all(): array
-    {
-        return $this->items;
-    }
-
-    public function count(): int
-    {
-        return count($this->items);
-    }
-
-    public function getIterator(): \Traversable
-    {
-        return new \ArrayIterator($this->items);
+        return Product::class;
     }
 }

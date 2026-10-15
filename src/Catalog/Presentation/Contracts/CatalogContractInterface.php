@@ -10,4 +10,3 @@ interface CatalogContractInterface
 {
     public function getOffer(string $productId): ?Offer;
 }
-

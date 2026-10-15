@@ -53,4 +53,3 @@ final class CatalogContractAdapterTest extends TestCase
         self::assertNull($offer);
     }
 }
-

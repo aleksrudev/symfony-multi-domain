@@ -9,10 +9,17 @@ use App\Catalog\Domain\Collection\ProductPaginatedCollection;
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Enum\Currency;
 use App\Catalog\Domain\ValueObject\ProductId;
+use App\Shared\Domain\Collection\AbstractCollection;
 use PHPUnit\Framework\TestCase;
 
 final class ProductCollectionTest extends TestCase
 {
+    public function testCollectionExtendsAbstractCollection(): void
+    {
+        $collection = new ProductCollection();
+        self::assertInstanceOf(AbstractCollection::class, $collection);
+    }
+
     public function testCollectionIterationAndCount(): void
     {
         $product1 = new Product(new ProductId('p-1'), 'P1', 100, Currency::RUB);
@@ -30,6 +37,31 @@ final class ProductCollectionTest extends TestCase
         self::assertSame([$product1, $product2], $iterated);
     }
 
+    public function testAddValidElement(): void
+    {
+        $product = new Product(new ProductId('p-1'), 'P1', 100, Currency::RUB);
+        $collection = new ProductCollection();
+        $collection->add($product);
+
+        self::assertCount(1, $collection);
+        self::assertSame($product, $collection->first());
+    }
+
+    public function testRejectsInvalidElementOnConstruct(): void
+    {
+        $this->expectException(\TypeError::class);
+        /* @phpstan-ignore argument.type */
+        new ProductCollection([new \stdClass()]);
+    }
+
+    public function testRejectsInvalidElementOnAdd(): void
+    {
+        $collection = new ProductCollection();
+        $this->expectException(\TypeError::class);
+        /* @phpstan-ignore argument.type */
+        $collection->add(new \stdClass());
+    }
+
     public function testPaginatedCollectionStructure(): void
     {
         $product1 = new Product(new ProductId('p-1'), 'P1', 100, Currency::RUB);
@@ -41,4 +73,3 @@ final class ProductCollectionTest extends TestCase
         self::assertSame(42, $paginated->count);
     }
 }
-

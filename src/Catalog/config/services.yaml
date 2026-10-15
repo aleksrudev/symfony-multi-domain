@@ -38,11 +38,9 @@ services:
         public: true
 
     # Presentation Controllers
-    App\Catalog\Presentation\Http\Controller\Api\ProductController:
-        tags: [controller.service_arguments]
-
-    App\Catalog\Presentation\Http\Controller\Api\AdminProductController:
-        tags: [controller.service_arguments]
+    App\Catalog\Presentation\Http\Controller\Api\:
+        resource: '../Presentation/Http/Controller/Api/'
+        tags: ['controller.service_arguments']
 
     # Presentation Error Provider
     App\Catalog\Presentation\Http\Error\CatalogErrorProvider: ~

@@ -115,4 +115,3 @@ final class UpdateProductActionTest extends TestCase
         $action(new ProductId('prod-1'), -50, null);
     }
 }
-

@@ -42,6 +42,13 @@ Application сценарии:
 - Связь DI: `CatalogContractInterface` ассоциирован через alias с `CatalogContractAdapter` (`public: true`).
 - Зависимости от других бизнес-модулей отсутствуют (`config/dependencies.php` возвращает пустой массив).
 
+HTTP API контроллеры одного действия:
+- Актор `Visitor` (`Presentation/Http/Controller/Api/Visitor/`):
+  - `GetProductsController::__invoke(Request $request)`: `GET /api/v1/products`, имя маршрута `products_list`, доступ публичный.
+  - `GetProductController::__invoke(string $id)`: `GET /api/v1/products/{id}`, имя маршрута `products_item`, доступ публичный.
+- Актор `Admin` (`Presentation/Http/Controller/Api/Admin/`):
+  - `UpdateProductController::__invoke(string $id, Request $request)`: `PATCH /api/v1/admin/products/{id}`, имя маршрута `admin_products_update`, доступ `IS_AUTHENTICATED_FULLY` (защищён security-конфигурацией).
+
 ## Хранение, сообщения и конфигурация
 
 - Собственная схема PostgreSQL: `catalog`.
@@ -49,7 +56,9 @@ Application сценарии:
 - Маппинг `ProductId` зарегистрирован через DBAL-тип `product_id` (`ProductIdType`).
 - Репозиторий: `ProductRepositoryInterface` в `Domain/Repository/` содержит только `save(Product $product): void` и `remove(Product $product): void`. Реализация в `Infrastructure/Persistence/Doctrine/Repository/ProductRepository`.
 - DataProvider: `ProductDataProviderInterface` в `Domain/DataProvider/` содержит `findById()`, `findPublishedById()` (выбрасывают `ProductNotFoundException` при отсутствии/скрытии) и `findPublishedPaginated()`. Реализация в `Infrastructure/Persistence/Doctrine/DataProvider/ProductDataProvider`.
-- Коллекции: `ProductCollection` и `ProductPaginatedCollection` в `Domain/Collection/`.
+- Коллекции:
+  - `ProductCollection` в `Domain/Collection/ProductCollection` — коллекция сущностей `Product`, наследует `App\Shared\Domain\Collection\AbstractCollection<Product>`, возвращает `Product::class` в `elementClass()`.
+  - `ProductPaginatedCollection` в `Domain/Collection/ProductPaginatedCollection` — readonly-оболочка выборки с пагинацией (`ProductCollection $items`, `int $count`).
 - Начальные dev/test-данные: `CatalogFixtures` в `Infrastructure/Persistence/Doctrine/Fixtures/CatalogFixtures.php`. Зарегистрированы в `services.yaml` под `when@dev` и `when@test`. Согласованные идентификаторы: `prod-keyboard`, `prod-mouse`, `prod-monitor`, `prod-headphones` (неопубликован).
 - Доменные исключения `ProductNotFoundException` (404) и `InvalidProductPriceException` (422) маппятся через `CatalogErrorProvider`.
 

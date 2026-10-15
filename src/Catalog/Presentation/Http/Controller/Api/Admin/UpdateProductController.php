@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Presentation\Http\Controller\Api;
+namespace App\Catalog\Presentation\Http\Controller\Api\Admin;
 
 use App\Catalog\Application\Command\UpdateProduct\UpdateProductCommand;
 use App\Catalog\Application\Query\GetProduct\GetProductQuery;
@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-final readonly class AdminProductController
+final readonly class UpdateProductController
 {
     public function __construct(
         private CommandBusInterface $commandBus,
@@ -23,7 +23,7 @@ final readonly class AdminProductController
     }
 
     #[Route('/admin/products/{id}', name: 'admin_products_update', methods: ['PATCH'])]
-    public function update(string $id, Request $request): JsonResponse
+    public function __invoke(string $id, Request $request): JsonResponse
     {
         /** @var array<string, mixed>|null $data */
         $data = json_decode((string) $request->getContent(), true);
@@ -52,3 +52,4 @@ final readonly class AdminProductController
         ]);
     }
 }
+
