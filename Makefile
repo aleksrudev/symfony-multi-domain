@@ -1,4 +1,4 @@
-.PHONY: help start start-all stop restart build console composer migrate diff cc worker outbox-worker scheduler architecture test-unit test-db-prepare phpstan cs-fix cs-check test lint logs \
+.PHONY: help start start-all stop restart build console composer migrate dev-db-recreate diff cc worker outbox-worker scheduler architecture test-unit test-db-prepare phpstan cs-fix cs-check test lint logs \
         prod-build prod-start prod-start-all prod-stop prod-restart prod-logs prod-migrate prod-cc
 .DEFAULT_GOAL := help
 
@@ -40,6 +40,17 @@ composer: ## Run Composer (usage: make composer CMD="require foo/bar")
 
 migrate: ## Run database migrations
 	$(CONSOLE) doctrine:migrations:migrate --no-interaction
+
+dev-db-recreate: ## Recreate dev database, run migrations and load fixtures (deletes all dev data)
+	$(CONSOLE) doctrine:database:drop --env=dev --force --if-exists --no-interaction
+	$(CONSOLE) doctrine:database:create --env=dev --no-interaction
+	$(CONSOLE) doctrine:migrations:migrate --env=dev --no-interaction --allow-no-migration
+	@fixture_tags=$$($(CONSOLE) debug:container --tags --format=txt --env=dev --no-ansi) || exit $$?; \
+	if printf '%s\n' "$$fixture_tags" | grep -Fq '"doctrine.fixture.orm" tag'; then \
+	    $(CONSOLE) doctrine:fixtures:load --env=dev --append --no-interaction; \
+	else \
+	    printf '%s\n' 'No Doctrine fixtures registered; skipping fixture loading.'; \
+	fi
 
 diff: ## Generate a migration diff
 	$(CONSOLE) doctrine:migrations:diff

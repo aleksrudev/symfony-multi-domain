@@ -53,8 +53,8 @@ return static function (string $source, array $dependencies = []): array {
             'Repository' => [$class($prefix.'Domain\\\\Repository\\\\')],
             'Domain' => [['type' => 'bool', 'must' => [$class($prefix.'Domain\\\\')], 'must_not' => [$class($prefix.'Domain\\\\Repository\\\\')]]],
             'Application' => [$class($prefix.'Application\\\\')],
-            'Contracts' => [$class($prefix.'Contracts\\\\')],
-            'Presentation' => [$class($prefix.'Presentation\\\\')],
+            'Contracts' => [$class($prefix.'Presentation\\\\Contracts\\\\')],
+            'Presentation' => [['type' => 'bool', 'must' => [$class($prefix.'Presentation\\\\')], 'must_not' => [$class($prefix.'Presentation\\\\Contracts\\\\')]]],
             'Integration' => [$class($prefix.'Infrastructure\\\\Integration\\\\')],
             'Wiring' => [$class($prefix.'Infrastructure\\\\Symfony\\\\DependencyInjection\\\\')],
             'Infrastructure' => [['type' => 'bool', 'must' => [$class($prefix.'Infrastructure\\\\')], 'must_not' => [$class($prefix.'Infrastructure\\\\Integration\\\\'), $class($prefix.'Infrastructure\\\\Symfony\\\\DependencyInjection\\\\')]]],
@@ -66,7 +66,7 @@ return static function (string $source, array $dependencies = []): array {
         }
         $rules[$module.'.Domain'] = ['PHP', 'ORMMapping', $module.'.Repository'];
         $rules[$module.'.Repository'][] = $module.'.Domain';
-        $rules[$module.'.Application'] = ['PHP', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Contracts'];
+        $rules[$module.'.Application'] = ['PHP', 'Validation', $module.'.Domain', $module.'.Repository'];
         $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'Validation', $module.'.Application', $module.'.Domain', $module.'.Contracts'];
         foreach (['Infrastructure', 'Integration', 'Wiring'] as $layer) {
             $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'ORMMapping', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Application', $module.'.Contracts'];
