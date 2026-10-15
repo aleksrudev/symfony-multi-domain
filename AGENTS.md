@@ -6,12 +6,18 @@
 Doctrine ORM 3, PostgreSQL 16, Messenger и Scheduler. Бизнес-модулей и рабочей
 токен-аутентификации изначально нет. Namespace приложения — `App\`.
 
-Перед изменением модуля прочитай `src/<Module>/AGENTS.md`. Это обязательно
-и при работе с его тестами вне `src`. Для общей основы прочитай
+До внесения изменений прочитай [карту модулей](docs/ai/map.md), чтобы определить
+владельца кода. Затем перед изменением модуля прочитай `src/<Module>/AGENTS.md`.
+Это обязательно и при работе с его тестами вне `src`. Для общей основы прочитай
 `src/Shared/AGENTS.md`. Для изменений нескольких модулей прочитай инструкции
-каждого. Общее устройство и подключение модулей описаны в `docs/architecture.md`.
+каждого. Общее устройство и подключение модулей описаны в `docs/ai/architecture.md`.
 
-При создании модуля добавь его AGENTS.md по `docs/templates/module-AGENTS.md`.
+При создании модуля добавь его AGENTS.md по `docs/ai/templates/module-AGENTS.md`.
+При добавлении, удалении или переименовании модуля, изменении его назначения
+или пути к инструкции обновляй `docs/ai/map.md`.
+После завершения работы над каждой задачей, до итогового ответа, сверяй
+`docs/ai/map.md` с фактическим состоянием проекта и актуализируй её по результатам
+работы.
 При изменении границ, инвариантов или публичных контрактов обновляй инструкцию
 владельца. Общие правила не копируй в модульные файлы.
 
@@ -84,7 +90,7 @@ HTTP-маппинг задаёт модульный Presentation-провайд�
 `DomainErrorProviderInterface`; не добавляй бизнес-ошибки в Shared.
 Расписание расширяется инфраструктурными `ScheduleContributorInterface`.
 
-## PHP и проверки
+## PHP и окружение
 
 Во всех новых PHP-файлах: `declare(strict_types=1);`, строгие типы,
 PHP-атрибуты, constructor property promotion, readonly для неизменяемых
@@ -96,23 +102,12 @@ PHP-атрибуты, constructor property promotion, readonly для неизм
 make start / make start-all / make stop / make logs
 make console CMD="debug:router"
 make composer CMD="…"
-make lint / make test / make test-unit / make architecture
 make worker / make outbox-worker / make scheduler
-make test-db-prepare
 ```
 
-Unit-тесты изолированы от контейнера и БД. Интеграции с контейнером/БД используют
-`Tests\Integration\IntegrationTestCase`; HTTP-тесты — WebTestCase либо прямой
-Kernel для проверки адаптеров. Технические fixtures находятся только в tests.
-
-Bootstrap PHPUnit не изменяет БД. `make test-db-prepare` — отдельная явная
-подготовка выделенной PostgreSQL БД с суффиксом `_test[TEST_TOKEN]`; команда
-не удаляет существующую базу, но применяет миграции, поэтому требует согласования.
-
-Перед завершением запускай релевантные тесты и `make lint`. При изменениях
-нескольких слоёв — `make test` и `make architecture`. Для конфигурации также
-проверяй контейнер test/prod и Doctrine metadata. Сообщай фактические результаты
-и ограничения окружения.
+Обязательные проверки перед завершением, линтеры, тесты и подготовка тестовой БД
+описаны в [docs/ai/checks.md](docs/ai/checks.md). Прочитай и выполни эти инструкции
+перед завершением работы.
 
 ## Безопасность изменений
 
