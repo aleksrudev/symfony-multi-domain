@@ -29,6 +29,7 @@
         "symfony/monolog-bundle": "^4.0",
         "symfony/property-access": "8.0.*",
         "symfony/property-info": "8.0.*",
+        "symfony/rate-limiter": "8.0.*",
         "symfony/runtime": "8.0.*",
         "symfony/scheduler": "8.0.*",
         "symfony/security-bundle": "8.0.*",
@@ -102,11 +103,5 @@
         "phpunit/phpunit": "^12.5",
         "symfony/browser-kit": "8.0.*",
         "symfony/maker-bundle": "^1.65"
-    },
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://gt-lab.ais24.ru/ais24/gis-soap-contracts.git"
-        }
-    ]
+    }
 }

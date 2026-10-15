@@ -25,6 +25,18 @@ services:
     App\Shared\Presentation\Http\ExceptionListener:
         tags: [{ name: kernel.event_listener, event: kernel.exception }]
 
+    App\Shared\Presentation\Http\AuthController:
+        tags: [controller.service_arguments]
+
+    App\Shared\Presentation\Http\CsrfProtectionListener:
+        tags: [{ name: kernel.event_listener, event: kernel.request, priority: 16 }]
+
+    App\Shared\Presentation\Http\LogoutListener:
+        tags: [kernel.event_subscriber]
+
+    App\Shared\Presentation\Http\LoginFailureListener:
+        tags: [kernel.event_subscriber]
+
     App\Shared\Infrastructure\Schedule\Schedule:
         arguments:
             $contributors: !tagged_iterator app.schedule_contributor

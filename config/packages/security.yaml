@@ -5,24 +5,44 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        users_in_memory: { memory: null }
+        in_memory_users:
+            memory:
+                users:
+                    buyer1:
+                        password: '%env(DEMO_BUYER1_PASSWORD_HASH)%'
+                        roles: ['ROLE_BUYER']
+                    buyer2:
+                        password: '%env(DEMO_BUYER2_PASSWORD_HASH)%'
+                        roles: ['ROLE_BUYER']
+                    admin:
+                        password: '%env(DEMO_ADMIN_PASSWORD_HASH)%'
+                        roles: ['ROLE_ADMIN']
 
     firewalls:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
         main:
-            stateless: true
-#            access_token:
-#                token_handler:
-#                    jwt:
-#                token_extractors:
-#                    - 'header'
+            lazy: true
+            stateless: false
+            provider: in_memory_users
+            json_login:
+                check_path: /api/v1/auth/login
+                username_path: username
+                password_path: password
+            logout:
+                path: /api/v1/auth/logout
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
+
     # Note: Only the *first* matching rule is applied
     access_control:
+        - { path: ^/api/v1/auth/session, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/v1/auth/login, roles: PUBLIC_ACCESS, methods: [POST] }
+        - { path: ^/api/v1/products, roles: PUBLIC_ACCESS, methods: [GET] }
+        - { path: ^/api/v1/admin, roles: ROLE_ADMIN }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
-        # - { path: ^/admin, roles: ROLE_ADMIN }
-        # - { path: ^/profile, roles: ROLE_USER }
 
 when@test:
     security:

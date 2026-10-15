@@ -14,4 +14,16 @@ final class ProbeController
     {
         return new JsonResponse(['ok' => true]);
     }
+
+    #[Route('/products', name: 'products', methods: ['GET'])]
+    public function products(): JsonResponse
+    {
+        return new JsonResponse(['items' => []]);
+    }
+
+    #[Route('/admin/probe', name: 'admin_probe', methods: ['GET'])]
+    public function adminProbe(): JsonResponse
+    {
+        return new JsonResponse(['admin' => true]);
+    }
 }
