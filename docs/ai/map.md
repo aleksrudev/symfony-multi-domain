@@ -12,38 +12,35 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события и базовое исключение, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
-| Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
+| Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события, базовые исключение и коллекция, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 
-Модули Alpha и Beta в `tests/Fixtures/` — технические fixtures, а не модули
-приложения.
+Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
+пустой список; Shared подключается отдельно как техническая основа.
+Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
+а не модули приложения.
 
 ## Границы ответственности
 
 Shared содержит только механизмы, независимые от предметной области.
 Бизнесовые сущности, value objects, репозитории, правила и сценарии использования
-относятся к бизнес-модулю владельца. Демонстрационный вход и сессионный доступ
-реализованы через общую конфигурацию безопасности и технические HTTP-адаптеры
-в `src/Shared/Presentation/Http/` (сессия, CSRF, login/logout, throttling); Shared
-не является модулем пользователей и не содержит их бизнес-моделей.
+относятся к бизнес-модулю владельца. Аутентификация в шаблоне не реализована;
+Shared не является модулем пользователей или авторизации.
 
-`Catalog` владеет товарами (`Product`), их наименованием, ценой целым числом копеек (RUB)
-и признаком публикации. Не владеет складскими остатками (владеет `Inventory`) и историческими
-снимками позиций в заказах (владеет `Ordering`).
+Общая типизированная основа коллекций находится в
+`src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
+сущностей принадлежат бизнес-модулям и наследуются от неё.
 
-Общие контракты шин находятся в `src/Shared/Application/Bus/`, HTTP-маппинг ошибок
-и технические адаптеры сессии, CSRF и входа — в `src/Shared/Presentation/Http/`,
-реализация шин, сборка расписания и compiler passes — в `src/Shared/Infrastructure/`.
-Регистрация общих сервисов находится
+Контракты шин Command, Query, Inbox и Outbox находятся в `src/Shared/Application/Bus/`,
+контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.
+HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
+реализация шин, сборка расписания и compiler passes —
+в `src/Shared/Infrastructure/`. Регистрация общих сервисов находится
 в [src/Shared/config/services.yaml](../../src/Shared/config/services.yaml).
 
 ## Связи модулей
 
-`Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Presentation\Contracts\CatalogContractInterface`
-(метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребители: будущий модуль `Ordering`
-через собственный адаптер `Ordering/Infrastructure/Integration`.
-Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
-Shared не зависит от бизнес-модулей и их Contracts.
+Межмодульных бизнес-связей пока нет: бизнес-модули и их публичные Contracts
+отсутствуют. Shared не зависит от бизнес-модулей и их Contracts.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
 общие механизмы через провайдеры HTTP-ошибок и поставщиков расписания.
@@ -70,6 +67,7 @@ Shared не зависит от бизнес-модулей и их Contracts.
 | Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
 | Реализация публичного интерфейса через Command/Query владельца | `src/<Module>/Presentation/Adapter/` |
 | HTTP-контроллер, Request/Response DTO, CLI, адаптация входящего внешнего сообщения | `src/<Module>/Presentation/` |
+| API-контроллер одного действия с `__invoke()` | `src/<Module>/Presentation/Http/Controller/Api/<Actor>/` |
 | Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
 | Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |

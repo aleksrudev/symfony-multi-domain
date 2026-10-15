@@ -22,6 +22,22 @@ Compose-сервисе `php`. Для окружения без Docker make до�
 
 PHPStan использует `phpstan.dist.neon`, PHP-CS-Fixer — `.php-cs-fixer.dist.php`.
 
+Проектные PHPStan-правила находятся в `tools/phpstan/Rules/`:
+
+- API-контроллеры: namespace `Api/<Actor>/`, публичный нестатический `__invoke()`,
+  отсутствие дополнительных публичных методов, включая traits. Идентификаторы:
+  `architecture.controllerActor`, `architecture.controllerInvoke`,
+  `architecture.controllerPublicMethod`. Абстрактные классы и унаследованные
+  методы Symfony не считаются действиями конкретного контроллера.
+- `{Entity}Collection` в `Domain/Collection/` наследует Shared `AbstractCollection`:
+  `architecture.collectionBase`. Модели `*PaginatedCollection` исключены:
+  это отдельные оболочки страницы.
+
+Тесты правил находятся в `tests/Unit/Tooling/`, их намеренно некорректные примеры —
+в `tests/Fixtures/PHPStan/`. Примеры исключены из обычного анализа и форматирования,
+но проверяются через PHPStan `RuleTestCase`. После изменения dev-autoload выполни
+`make composer CMD="dump-autoload --no-scripts"`.
+
 ## Архитектурные проверки
 
 `make architecture` запускает Deptrac 4 и строит отдельные слои для каждого
@@ -31,6 +47,15 @@ Deptrac проверяет границы слоёв, запрет чужих м
 запрет доступа Presentation к Domain/Repository и Application к адаптерам.
 DI-код сборки в Infrastructure/Symfony/DependencyInjection может связывать слои
 своего модуля. Domain/Repository — обязательное место репозиторных интерфейсов.
+
+В Domain прямые зависимости от Doctrine Collections разрешены только Shared
+`Domain/Collection/AbstractCollection`. Для коллекций модулей Deptrac допускает
+унаследованную зависимость через эту основу; подписчик
+`tools/deptrac/InheritedCollectionDependencySubscriber.php` проверяет, что
+источник зависимости — файл Shared-основы, в том числе при раскрытии generic-типов.
+Прямые импорты Doctrine в конкретной коллекции запрещены,
+даже если она наследует Shared-основу. Исключение не разрешает ORM-сервисы.
+Положительные и отрицательные примеры проверяются в `tests/Unit/Architecture/`.
 
 Разрешённые межмодульные зависимости задаются в `config/dependencies.php`
 потребителя; правила описаны в [архитектуре](architecture.md).

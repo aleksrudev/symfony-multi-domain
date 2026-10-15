@@ -10,3 +10,12 @@ parameters:
     excludePaths:
         analyseAndScan:
             - tests/Fixtures/Architecture/
+            - tests/Fixtures/PHPStan/
+
+services:
+    -
+        class: Tools\PHPStan\Rules\InvokableControllerRule
+        tags: [phpstan.rules.rule]
+    -
+        class: Tools\PHPStan\Rules\EntityCollectionRule
+        tags: [phpstan.rules.rule]

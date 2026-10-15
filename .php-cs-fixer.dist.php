@@ -5,6 +5,7 @@ $finder = (new PhpCsFixer\Finder())
     ->in(__DIR__.'/migrations')
     ->in(__DIR__.'/tests')
     ->exclude('Fixtures/Architecture')
+    ->exclude('Fixtures/PHPStan')
     ->in(__DIR__.'/tools')
 ;
 

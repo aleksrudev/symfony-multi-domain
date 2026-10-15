@@ -55,8 +55,13 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
-        }
+            "Tests\\": "tests/",
+            "Tools\\Deptrac\\": "tools/deptrac/",
+            "Tools\\PHPStan\\": "tools/phpstan/"
+        },
+        "classmap": [
+            "tests/Fixtures/PHPStan/"
+        ]
     },
     "replace": {
         "symfony/polyfill-ctype": "*",
