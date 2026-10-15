@@ -84,7 +84,7 @@ Then rebuild the Dev Container for the changes to take effect.
 
 ## Using Other Agents
 
-The Dev Container's network sandbox and project context (`.devcontainer/AGENTS.md`) work
+The Dev Container's network sandbox and project context (`AGENTS.md`) work
 with any AI coding agent. You just need to install the agent and whitelist the domains it
 needs to reach.
 
@@ -123,7 +123,7 @@ For any other agent, follow the same pattern:
 
 1. Add the agent's API domain(s) to the firewall allowlist.
 2. Install the agent inside the container.
-3. Run it — the `.devcontainer/AGENTS.md` file provides project context
+3. Run it — the root `AGENTS.md` file provides project context
    to agents that support the convention.
 
 ## Using Without Visual Studio Code
