@@ -25,4 +25,3 @@ final class UpdateProductRequestTest extends TestCase
         self::assertFalse($request->published);
     }
 }
-

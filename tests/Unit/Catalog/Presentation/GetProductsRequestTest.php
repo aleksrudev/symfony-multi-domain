@@ -25,4 +25,3 @@ final class GetProductsRequestTest extends TestCase
         self::assertSame(25, $request->limit);
     }
 }
-
