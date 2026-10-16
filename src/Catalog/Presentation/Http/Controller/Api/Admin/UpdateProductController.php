@@ -7,11 +7,11 @@ namespace App\Catalog\Presentation\Http\Controller\Api\Admin;
 use App\Catalog\Application\Command\UpdateProduct\UpdateProductCommand;
 use App\Catalog\Application\Query\GetProduct\GetProductQuery;
 use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
+use App\Catalog\Presentation\Http\Request\UpdateProductRequest;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 
 final readonly class UpdateProductController
@@ -22,22 +22,16 @@ final readonly class UpdateProductController
     ) {
     }
 
-    #[Route('/admin/products/{id}', name: 'admin_products_update', methods: ['PATCH'])]
-    public function __invoke(string $id, Request $request): JsonResponse
-    {
-        /** @var array<string, mixed>|null $data */
-        $data = json_decode((string) $request->getContent(), true);
-        if (!is_array($data)) {
-            return new JsonResponse(['text' => 'Invalid JSON payload.', 'error' => 'invalid_payload'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $price = isset($data['price']) ? (int) $data['price'] : null;
-        $published = isset($data['published']) ? (bool) $data['published'] : null;
-
+    #[Route('/admin/products/{id}', name: 'admin_products_update', methods: ['PATCH'], format: 'json')]
+    public function __invoke(
+        string $id,
+        #[MapRequestPayload(acceptFormat: 'json')]
+        UpdateProductRequest $request,
+    ): JsonResponse {
         $this->commandBus->dispatch(new UpdateProductCommand(
             productId: $id,
-            priceAmount: $price,
-            published: $published,
+            priceAmount: $request->price,
+            published: $request->published,
         ));
 
         /** @var GetProductQueryResult $product */
@@ -52,4 +46,3 @@ final readonly class UpdateProductController
         ]);
     }
 }
-

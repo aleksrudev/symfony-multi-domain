@@ -3,4 +3,4 @@ catalog_api:
     type: attribute
     prefix: /api/v1
     name_prefix: catalog_
-
+    format: json

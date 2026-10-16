@@ -7,9 +7,11 @@ namespace App\Catalog\Presentation\Http\Controller\Api\Visitor;
 use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
 use App\Catalog\Application\Query\GetProducts\GetProductsQuery;
 use App\Catalog\Application\Query\GetProducts\GetProductsQueryResult;
+use App\Catalog\Presentation\Http\Request\GetProductsRequest;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\Routing\Attribute\Route;
 
 final readonly class GetProductsController
@@ -19,14 +21,13 @@ final readonly class GetProductsController
     ) {
     }
 
-    #[Route('/products', name: 'products_list', methods: ['GET'])]
-    public function __invoke(Request $request): JsonResponse
-    {
-        $page = max(1, $request->query->getInt('page', 1));
-        $limit = min(50, max(1, $request->query->getInt('limit', 10)));
-
+    #[Route('/products', name: 'products_list', methods: ['GET'], format: 'json')]
+    public function __invoke(
+        #[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)]
+        GetProductsRequest $request = new GetProductsRequest(),
+    ): JsonResponse {
         /** @var GetProductsQueryResult $result */
-        $result = $this->queryBus->dispatch(new GetProductsQuery($page, $limit));
+        $result = $this->queryBus->dispatch(new GetProductsQuery($request->page, $request->limit));
 
         $items = array_map(
             static fn (GetProductQueryResult $item): array => [
@@ -47,4 +48,3 @@ final readonly class GetProductsController
         ]);
     }
 }
-

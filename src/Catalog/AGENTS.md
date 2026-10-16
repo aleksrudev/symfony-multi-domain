@@ -44,10 +44,29 @@ Application сценарии:
 
 HTTP API контроллеры одного действия:
 - Актор `Visitor` (`Presentation/Http/Controller/Api/Visitor/`):
-  - `GetProductsController::__invoke(Request $request)`: `GET /api/v1/products`, имя маршрута `products_list`, доступ публичный.
-  - `GetProductController::__invoke(string $id)`: `GET /api/v1/products/{id}`, имя маршрута `products_item`, доступ публичный.
+  - `GetProductsController::__invoke(GetProductsRequest $request)`: `GET /api/v1/products` (format: `json`), имя маршрута `products_list`, доступ публичный. Маппинг через `#[MapQueryString(validationFailedStatusCode: 422)]`.
+  - `GetProductController::__invoke(string $id)`: `GET /api/v1/products/{id}` (format: `json`), имя маршрута `products_item`, доступ публичный.
 - Актор `Admin` (`Presentation/Http/Controller/Api/Admin/`):
-  - `UpdateProductController::__invoke(string $id, Request $request)`: `PATCH /api/v1/admin/products/{id}`, имя маршрута `admin_products_update`, доступ `IS_AUTHENTICATED_FULLY` (защищён security-конфигурацией).
+  - `UpdateProductController::__invoke(string $id, UpdateProductRequest $request)`: `PATCH /api/v1/admin/products/{id}` (format: `json`), имя маршрута `admin_products_update`, доступ `IS_AUTHENTICATED_FULLY` (защищён security-конфигурацией). Маппинг через `#[MapRequestPayload(acceptFormat: 'json')]`.
+
+HTTP Request DTO и валидация (`Presentation/Http/Request/`):
+- `GetProductsRequest`:
+  - `page: int = 1`, ограничение `#[Assert\Positive]` (значения <= 0 запрещены);
+  - `limit: int = 10`, ограничение `#[Assert\Range(min: 1, max: 50)]` (допустимо от 1 до 50);
+  - Преобразуется в `GetProductsQuery($request->page, $request->limit)`.
+- `UpdateProductRequest`:
+  - `price: ?int = null`, ограничение `#[Assert\Positive]` (строго положительное целое число копеек);
+  - `published: ?bool = null` (булево значение);
+  - Преобразуется в `UpdateProductCommand(productId: $id, priceAmount: $request->price, published: $request->published)`.
+
+Семантика PATCH:
+- Отсутствие поля в JSON-теле запроса (`null` в DTO по умолчанию) — свойство товара не изменяется и сохраняет своё текущее значение.
+- Значение `false` для `published` — явная команда на деактивацию публикации (`unpublish()`), не являющаяся отсутствием поля.
+- Значение `null` — сущность `Product` не поддерживает `null` для цены и публикации; передача `null` в качестве цены отклоняется валидацией.
+- Ошибки типов данных и нарушение Assert-ограничений возвращают HTTP 422 в формате JSON.
+- Некорректный синтаксис JSON возвращает HTTP 400.
+- Неподдерживаемый `Content-Type` возвращает HTTP 415.
+- При ошибочном вводе контроллер не вызывает Command/Query-шины.
 
 ## Хранение, сообщения и конфигурация
 

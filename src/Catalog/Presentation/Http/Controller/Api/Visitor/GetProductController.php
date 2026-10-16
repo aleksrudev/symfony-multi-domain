@@ -17,7 +17,7 @@ final readonly class GetProductController
     ) {
     }
 
-    #[Route('/products/{id}', name: 'products_item', methods: ['GET'])]
+    #[Route('/products/{id}', name: 'products_item', methods: ['GET'], format: 'json')]
     public function __invoke(string $id): JsonResponse
     {
         /** @var GetProductQueryResult $product */
@@ -32,4 +32,3 @@ final readonly class GetProductController
         ]);
     }
 }
-
