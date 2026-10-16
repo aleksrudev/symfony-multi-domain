@@ -42,6 +42,15 @@ final class ArchitectureTest extends TestCase
         }
     }
 
+    public function testOnlyTheSharedUidBasesCanDependOnSymfonyUid(): void
+    {
+        $process = $this->analyse('Forbidden');
+        self::assertSame(1, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        foreach (['DirectUid', 'SharedUidLeak', 'UlidId'] as $class) {
+            self::assertStringContainsString($class, $process->getOutput());
+        }
+    }
+
     private function analyse(string $fixture): Process
     {
         $root = dirname(__DIR__, 3);

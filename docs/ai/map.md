@@ -12,7 +12,7 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события, базовые исключение и коллекция, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
 | Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, идемпотентное создание, сага оформления и статусы заказа. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
 
@@ -40,6 +40,11 @@ Shared содержит только механизмы, независимые 
 Общая типизированная основа коллекций находится в
 `src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
 сущностей принадлежат бизнес-модулям и наследуются от неё.
+
+Общие основы UUID/ULID находятся в `src/Shared/Domain/ValueObject/UuidId.php`
+и `UlidId.php`; конкретные бизнесовые ID принадлежат модулям и наследуют
+соответствующую основу. Правила использования — в
+[rules/domain-types.md](rules/domain-types.md).
 
 Контракты шин Command, Query, Inbox и Outbox находятся в `src/Shared/Application/Bus/`,
 контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.

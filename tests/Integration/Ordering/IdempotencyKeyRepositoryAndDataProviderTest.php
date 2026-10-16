@@ -62,4 +62,3 @@ final class IdempotencyKeyRepositoryAndDataProviderTest extends IntegrationTestC
         $this->dataProvider->findByKeyAndBuyerId('key-int-2', $buyerId);
     }
 }
-

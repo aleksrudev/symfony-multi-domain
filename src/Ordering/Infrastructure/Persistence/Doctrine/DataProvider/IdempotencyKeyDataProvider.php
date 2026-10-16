@@ -31,4 +31,3 @@ final readonly class IdempotencyKeyDataProvider implements IdempotencyKeyDataPro
         return $idempotencyKey;
     }
 }
-

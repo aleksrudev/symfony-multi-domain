@@ -57,6 +57,16 @@ DI-код сборки в Infrastructure/Symfony/DependencyInjection может 
 даже если она наследует Shared-основу. Исключение не разрешает ORM-сервисы.
 Положительные и отрицательные примеры проверяются в `tests/Unit/Architecture/`.
 
+Прямые зависимости Domain от Symfony UID разрешены только Shared-основам
+`Domain/ValueObject/UuidId` и `UlidId`. Deptrac выделяет их в слой `UidBase`,
+а компонент — в `SymfonyUid`. Подписчик
+`tools/deptrac/InheritedUidDependencySubscriber.php` допускает унаследованные
+зависимости доменных ID только с источником в файлах этих основ.
+Прямые импорты UID в других доменных классах и зависимости основ от остальных
+компонентов Symfony запрещены. Проверяй обе стороны исключения через
+`tests/Unit/Architecture/ArchitectureTest.php`, поведение ID — через
+`tests/Unit/Domain/UidIdTest.php`.
+
 Разрешённые межмодульные зависимости задаются в `config/dependencies.php`
 потребителя; правила описаны в [архитектуре](architecture.md).
 Статический анализ зависимостей не анализирует смысл SQL; это проверяется ревью

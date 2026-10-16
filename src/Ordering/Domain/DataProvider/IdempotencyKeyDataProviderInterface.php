@@ -15,4 +15,3 @@ interface IdempotencyKeyDataProviderInterface
      */
     public function findByKeyAndBuyerId(string $key, BuyerId $buyerId): IdempotencyKey;
 }
-

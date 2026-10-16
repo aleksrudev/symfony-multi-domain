@@ -17,4 +17,3 @@ final class IdempotencyKeyCollection extends AbstractCollection
         return IdempotencyKey::class;
     }
 }
-

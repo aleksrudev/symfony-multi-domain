@@ -13,4 +13,3 @@ final class IdempotencyKeyNotFoundException extends DomainException
         parent::__construct(sprintf('Idempotency key "%s" not found.', $key));
     }
 }
-
