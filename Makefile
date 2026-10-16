@@ -45,7 +45,7 @@ dev-db-recreate: ## Recreate dev database, run migrations and load fixtures (del
 	$(CONSOLE) doctrine:database:drop --env=dev --force --if-exists --no-interaction
 	$(CONSOLE) doctrine:database:create --env=dev --no-interaction
 	$(CONSOLE) doctrine:migrations:migrate --env=dev --no-interaction --allow-no-migration
-	@fixture_tags=$$($(CONSOLE) debug:container --tags --format=txt --env=dev --no-ansi) || exit $$?; \
+	@fixture_tags=$$($(CONSOLE) debug:container --tags --format=txt --env=dev --no-ansi --no-interaction) || exit $$?; \
 	if printf '%s\n' "$$fixture_tags" | grep -Fq '"doctrine.fixture.orm" tag'; then \
 	    $(CONSOLE) doctrine:fixtures:load --env=dev --append --no-interaction; \
 	else \
