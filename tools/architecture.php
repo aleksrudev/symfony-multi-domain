@@ -14,17 +14,21 @@ return static function (string $source, array $dependencies = []): array {
     $mapping = $class('^Doctrine\\\\ORM\\\\Mapping\\\\');
     $doctrineCollections = $class('^Doctrine\\\\Common\\\\Collections\\\\');
     $collectionBase = $class('^App\\\\Shared\\\\Domain\\\\Collection\\\\AbstractCollection$');
+    $uid = $class('^Symfony\\\\Component\\\\Uid\\\\');
+    $uidBase = $class('^App\\\\Shared\\\\Domain\\\\ValueObject\\\\(?:UuidId|UlidId)$');
     $validation = $class('^Symfony\\\\Component\\\\Validator\\\\Constraints\\\\');
     $layers = [
         ['name' => 'PHP', 'collectors' => [$internal]],
         ['name' => 'ORMMapping', 'collectors' => [$mapping]],
         ['name' => 'DoctrineCollections', 'collectors' => [$doctrineCollections]],
         ['name' => 'CollectionBase', 'collectors' => [$collectionBase]],
+        ['name' => 'SymfonyUid', 'collectors' => [$uid]],
+        ['name' => 'UidBase', 'collectors' => [$uidBase]],
         ['name' => 'Validation', 'collectors' => [$validation]],
-        ['name' => 'Vendor', 'collectors' => [['type' => 'bool', 'must' => [$class('^(?!App\\\\).*')], 'must_not' => [$internal, $mapping, $validation, $doctrineCollections]]]],
+        ['name' => 'Vendor', 'collectors' => [['type' => 'bool', 'must' => [$class('^(?!App\\\\).*')], 'must_not' => [$internal, $mapping, $validation, $doctrineCollections, $uid]]]],
         ['name' => 'Kernel', 'collectors' => [$class('^App\\\\Kernel$')]],
     ];
-    $rules = ['PHP' => [], 'ORMMapping' => [], 'DoctrineCollections' => [], 'CollectionBase' => ['PHP', 'DoctrineCollections'], 'Validation' => [], 'Vendor' => [], 'Kernel' => ['PHP', 'Vendor', 'DoctrineCollections', 'CollectionBase']];
+    $rules = ['PHP' => [], 'ORMMapping' => [], 'DoctrineCollections' => [], 'CollectionBase' => ['PHP', 'DoctrineCollections'], 'SymfonyUid' => [], 'UidBase' => ['PHP', 'SymfonyUid'], 'Validation' => [], 'Vendor' => [], 'Kernel' => ['PHP', 'Vendor', 'DoctrineCollections', 'CollectionBase', 'SymfonyUid', 'UidBase']];
     $modules = ['Shared'];
     foreach (glob($source.'/*', GLOB_ONLYDIR) ?: [] as $directory) {
         $name = basename($directory);
@@ -56,7 +60,7 @@ return static function (string $source, array $dependencies = []): array {
         $collectors = [
             'Repository' => [$class($prefix.'Domain\\\\Repository\\\\')],
             'Collection' => [['type' => 'bool', 'must' => [$class($prefix.'Domain\\\\Collection\\\\')], 'must_not' => [$collectionBase]]],
-            'Domain' => [['type' => 'bool', 'must' => [$class($prefix.'Domain\\\\')], 'must_not' => [$class($prefix.'Domain\\\\Repository\\\\'), $class($prefix.'Domain\\\\Collection\\\\')]]],
+            'Domain' => [['type' => 'bool', 'must' => [$class($prefix.'Domain\\\\')], 'must_not' => [$class($prefix.'Domain\\\\Repository\\\\'), $class($prefix.'Domain\\\\Collection\\\\'), $uidBase]]],
             'Application' => [$class($prefix.'Application\\\\')],
             'Contracts' => [$class($prefix.'Presentation\\\\Contracts\\\\')],
             'Presentation' => [['type' => 'bool', 'must' => [$class($prefix.'Presentation\\\\')], 'must_not' => [$class($prefix.'Presentation\\\\Contracts\\\\')]]],
@@ -73,12 +77,15 @@ return static function (string $source, array $dependencies = []): array {
         $rules[$module.'.Collection'] = ['PHP', 'CollectionBase', $module.'.Domain'];
         $rules[$module.'.Repository'] = ['PHP', $module.'.Domain', $module.'.Collection'];
         $rules[$module.'.Application'] = ['PHP', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Collection'];
-        $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'DoctrineCollections', 'Validation', $module.'.Application', $module.'.Domain', $module.'.Collection', $module.'.Contracts'];
+        $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'Validation', $module.'.Application', $module.'.Domain', $module.'.Collection', $module.'.Contracts'];
         foreach (['Infrastructure', 'Integration', 'Wiring'] as $layer) {
-            $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'DoctrineCollections', 'ORMMapping', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Collection', $module.'.Application', $module.'.Contracts'];
+            $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'ORMMapping', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Collection', $module.'.Application', $module.'.Contracts'];
         }
         $rules[$module.'.Integration'][] = $module.'.Infrastructure';
         $rules[$module.'.Wiring'] = array_merge($rules[$module.'.Wiring'], [$module.'.Infrastructure', $module.'.Integration', $module.'.Presentation']);
+        foreach (['Domain', 'Collection', 'Repository', 'Application', 'Presentation', 'Infrastructure', 'Integration', 'Wiring'] as $layer) {
+            $rules[$module.'.'.$layer][] = 'UidBase';
+        }
         if ('Shared' !== $module) {
             foreach (['Domain', 'Collection', 'Repository', 'Application', 'Presentation', 'Infrastructure', 'Integration', 'Wiring'] as $layer) {
                 $rules[$module.'.'.$layer][] = 'Shared.Domain';
@@ -99,9 +106,18 @@ return static function (string $source, array $dependencies = []): array {
 
     return [
         'deptrac' => ['paths' => [$source], 'analyser' => ['types' => ['class', 'use']], 'layers' => $layers, 'ruleset' => $rules],
-        'services' => [Tools\Deptrac\InheritedCollectionDependencySubscriber::class => [
-            'arguments' => ['$baseFile' => $source.'/Shared/Domain/Collection/AbstractCollection.php'],
-            'tags' => ['kernel.event_subscriber'],
-        ]],
+        'services' => [
+            Tools\Deptrac\InheritedCollectionDependencySubscriber::class => [
+                'arguments' => ['$baseFile' => $source.'/Shared/Domain/Collection/AbstractCollection.php'],
+                'tags' => ['kernel.event_subscriber'],
+            ],
+            Tools\Deptrac\InheritedUidDependencySubscriber::class => [
+                'arguments' => ['$baseFiles' => [
+                    $source.'/Shared/Domain/ValueObject/UuidId.php',
+                    $source.'/Shared/Domain/ValueObject/UlidId.php',
+                ]],
+                'tags' => ['kernel.event_subscriber'],
+            ],
+        ],
     ];
 };
