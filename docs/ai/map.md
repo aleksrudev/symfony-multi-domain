@@ -75,6 +75,7 @@ Shared не зависит от бизнес-модулей и их Contracts.
 | Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
 | Реализация публичного интерфейса через Command/Query владельца | `src/<Module>/Presentation/Adapter/` |
 | HTTP-контроллер, Request/Response DTO, CLI, адаптация входящего внешнего сообщения | `src/<Module>/Presentation/` |
+| Типизированный DTO входа HTTP с ограничениями Assert для MapRequestPayload/MapQueryString | `src/<Module>/Presentation/Http/Request/` |
 | API-контроллер одного действия с `__invoke()` | `src/<Module>/Presentation/Http/Controller/Api/<Actor>/` |
 | Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
 | Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
