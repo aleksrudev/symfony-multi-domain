@@ -1,0 +1,135 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Ordering\Domain\Entity;
+
+use App\Ordering\Domain\Collection\OrderItemCollection;
+use App\Ordering\Domain\Enum\OrderStatus;
+use App\Ordering\Domain\Exception\EmptyOrderItemsException;
+use App\Ordering\Domain\Exception\OrderNotModifiableException;
+use App\Ordering\Domain\ValueObject\BuyerId;
+use App\Ordering\Domain\ValueObject\OrderId;
+use Doctrine\ORM\Mapping\Column;
+use Doctrine\ORM\Mapping\Entity;
+use Doctrine\ORM\Mapping\Id;
+use Doctrine\ORM\Mapping\OneToMany;
+use Doctrine\ORM\Mapping\Table;
+
+#[Entity]
+#[Table(name: 'orders', schema: 'ordering')]
+class Order
+{
+    #[Id]
+    #[Column(name: 'id', type: 'order_id', length: 64)]
+    private OrderId $id;
+
+    #[Column(name: 'buyer_id', type: 'string', length: 64)]
+    private string $buyerId;
+
+    #[Column(name: 'status', type: 'string', length: 32, enumType: OrderStatus::class)]
+    private OrderStatus $status;
+
+    /**
+     * @var OrderItemCollection|iterable<OrderItem>
+     */
+    #[OneToMany(targetEntity: OrderItem::class, mappedBy: 'order', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private iterable $items;
+
+    #[Column(name: 'created_at', type: 'datetime_immutable')]
+    private \DateTimeImmutable $createdAt;
+
+    #[Column(name: 'updated_at', type: 'datetime_immutable')]
+    private \DateTimeImmutable $updatedAt;
+
+    public function __construct(
+        OrderId $id,
+        BuyerId $buyerId,
+        OrderStatus $status = OrderStatus::DRAFT,
+        ?\DateTimeImmutable $createdAt = null,
+        ?\DateTimeImmutable $updatedAt = null,
+    ) {
+        $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->id = $id;
+        $this->buyerId = $buyerId->value;
+        $this->status = $status;
+        $this->items = new OrderItemCollection();
+        $this->createdAt = $createdAt ?? $now;
+        $this->updatedAt = $updatedAt ?? $now;
+    }
+
+    public static function createDraft(
+        OrderId $id,
+        BuyerId $buyerId,
+        ?\DateTimeImmutable $createdAt = null,
+    ): self {
+        return new self($id, $buyerId, OrderStatus::DRAFT, $createdAt);
+    }
+
+    public function id(): OrderId
+    {
+        return $this->id;
+    }
+
+    public function buyerId(): BuyerId
+    {
+        return new BuyerId($this->buyerId);
+    }
+
+    public function status(): OrderStatus
+    {
+        return $this->status;
+    }
+
+    public function createdAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function updatedAt(): \DateTimeImmutable
+    {
+        return $this->updatedAt;
+    }
+
+    public function items(): OrderItemCollection
+    {
+        if ($this->items instanceof OrderItemCollection) {
+            return $this->items;
+        }
+
+        return new OrderItemCollection(is_array($this->items) ? $this->items : iterator_to_array($this->items));
+    }
+
+    public function replaceItems(OrderItemCollection $newItems): void
+    {
+        if (OrderStatus::DRAFT !== $this->status) {
+            throw new OrderNotModifiableException($this->id, $this->status);
+        }
+
+        if ($newItems->isEmpty()) {
+            throw new EmptyOrderItemsException();
+        }
+
+        $items = $this->items;
+        if ($items instanceof OrderItemCollection) {
+            $items->clear();
+            foreach ($newItems as $item) {
+                $item->setOrder($this);
+                $items->add($item);
+            }
+        } elseif (is_object($items) && method_exists($items, 'clear') && method_exists($items, 'add')) {
+            $items->clear();
+            foreach ($newItems as $item) {
+                $item->setOrder($this);
+                $items->add($item);
+            }
+        } else {
+            foreach ($newItems as $item) {
+                $item->setOrder($this);
+            }
+            $this->items = $newItems;
+        }
+
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+}

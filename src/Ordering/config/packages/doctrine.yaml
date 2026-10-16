@@ -1,0 +1,14 @@
+doctrine:
+    dbal:
+        types:
+            order_id: App\Ordering\Infrastructure\Persistence\Doctrine\Type\OrderIdType
+    orm:
+        entity_managers:
+            default:
+                mappings:
+                    Ordering:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/Ordering/Domain/Entity'
+                        prefix: 'App\Ordering\Domain\Entity'
+

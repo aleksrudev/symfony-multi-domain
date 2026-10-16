@@ -14,6 +14,7 @@
 | --- | --- | --- | --- | --- |
 | Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события, базовые исключение и коллекция, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
+| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, идемпотентное создание, сага оформления и статусы заказа. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
 а не модули приложения.
@@ -31,6 +32,11 @@ Shared содержит только механизмы, независимые 
 и признаком публикации. Не владеет складскими остатками (владеет `Inventory`) и историческими
 снимками позиций в заказах (владеет `Ordering`).
 
+`Ordering` владеет заказами (`Order`), их статусами, позициями (`OrderItem`), снимками
+идентификаторов товаров, количествами, черновиком покупателя и идемпотентным созданием.
+Не владеет каталожной витриной и актуальными ценами (владеет `Catalog`), остатками на складе
+(владеет `Inventory`) и оплатой (владеет `Payment`).
+
 Общая типизированная основа коллекций находится в
 `src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
 сущностей принадлежат бизнес-модулям и наследуются от неё.
@@ -45,9 +51,10 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 ## Связи модулей
 
 `Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Presentation\Contracts\CatalogContractInterface`
-(метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребители: будущий модуль `Ordering`
-через собственный адаптер `Ordering/Infrastructure/Integration`.
+(метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребители: модуль `Ordering`
+(в этапах оформления/чекаута) через собственный адаптер `Ordering/Infrastructure/Integration`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
+Модуль `Ordering` на текущем этапе черновика (`T03`) автономен (`Ordering/config/dependencies.php` пуст).
 Shared не зависит от бизнес-модулей и их Contracts.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
