@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ordering\Application\Query\GetOrder;
 
 use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
+use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 
@@ -17,8 +18,14 @@ final readonly class GetOrderHandler
 
     public function __invoke(GetOrderQuery $query): GetOrderQueryResult
     {
+        try {
+            $orderId = new OrderId($query->orderId);
+        } catch (\InvalidArgumentException) {
+            throw new OrderNotFoundException($query->orderId);
+        }
+
         $order = $this->orderDataProvider->findByIdAndBuyerId(
-            new OrderId($query->orderId),
+            $orderId,
             new BuyerId($query->buyerId),
         );
 

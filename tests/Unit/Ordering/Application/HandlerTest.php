@@ -24,6 +24,7 @@ use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
 use App\Ordering\Domain\Entity\IdempotencyKey;
 use App\Ordering\Domain\Entity\Order;
 use App\Ordering\Domain\Entity\OrderItem;
+use App\Ordering\Domain\Enum\IdempotencyOperation;
 use App\Ordering\Domain\Exception\IdempotencyConflictException;
 use App\Ordering\Domain\Exception\IdempotencyKeyNotFoundException;
 use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
@@ -41,9 +42,12 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(GetOrdersHandler::class)]
 final class HandlerTest extends TestCase
 {
+    private const ORDER_ID_1 = '00000000-0000-4000-8000-000000000001';
+    private const ORDER_ID_2 = '00000000-0000-4000-8000-000000000002';
+
     public function testCreateDraftHandlerWithNewKeySavesKeyAndExecutesAction(): void
     {
-        $existingOrder = Order::createDraft(new OrderId('ord-1'), new BuyerId('buyer-1'));
+        $existingOrder = Order::createDraft(new OrderId(self::ORDER_ID_1), new BuyerId('buyer-1'));
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $dataProvider->expects(self::once())
             ->method('findDraftByBuyerId')
@@ -75,7 +79,7 @@ final class HandlerTest extends TestCase
         $repository = $this->createMock(OrderRepositoryInterface::class);
         $action = new CreateDraftAction($dataProvider, $repository);
 
-        $existingKey = new IdempotencyKey('key-1', new BuyerId('buyer-1'), 'create_draft', 'hash-1');
+        $existingKey = new IdempotencyKey('key-1', new BuyerId('buyer-1'), IdempotencyOperation::CREATE_DRAFT, 'hash-1');
         $idempotencyDataProvider = $this->createMock(IdempotencyKeyDataProviderInterface::class);
         $idempotencyDataProvider->expects(self::once())
             ->method('findByKeyAndBuyerId')
@@ -96,7 +100,7 @@ final class HandlerTest extends TestCase
         $repository = $this->createMock(OrderRepositoryInterface::class);
         $action = new CreateDraftAction($dataProvider, $repository);
 
-        $existingKey = new IdempotencyKey('key-1', new BuyerId('buyer-1'), 'create_draft', 'hash-1');
+        $existingKey = new IdempotencyKey('key-1', new BuyerId('buyer-1'), IdempotencyOperation::CREATE_DRAFT, 'hash-1');
         $idempotencyDataProvider = $this->createMock(IdempotencyKeyDataProviderInterface::class);
         $idempotencyDataProvider->expects(self::once())
             ->method('findByKeyAndBuyerId')
@@ -112,7 +116,7 @@ final class HandlerTest extends TestCase
 
     public function testCreateDraftHandlerWithoutKeyExecutesAction(): void
     {
-        $existingOrder = Order::createDraft(new OrderId('ord-1'), new BuyerId('buyer-1'));
+        $existingOrder = Order::createDraft(new OrderId(self::ORDER_ID_1), new BuyerId('buyer-1'));
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $dataProvider->expects(self::once())
             ->method('findDraftByBuyerId')
@@ -133,7 +137,7 @@ final class HandlerTest extends TestCase
 
     public function testReplaceOrderItemsHandler(): void
     {
-        $order = Order::createDraft(new OrderId('ord-1'), new BuyerId('buyer-1'));
+        $order = Order::createDraft(new OrderId(self::ORDER_ID_1), new BuyerId('buyer-1'));
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $dataProvider->expects(self::once())
             ->method('findByIdAndBuyerId')
@@ -145,7 +149,7 @@ final class HandlerTest extends TestCase
         $action = new ReplaceOrderItemsAction($dataProvider, $repository);
         $handler = new ReplaceOrderItemsHandler($action);
 
-        $handler(new ReplaceOrderItemsCommand('ord-1', 'buyer-1', [
+        $handler(new ReplaceOrderItemsCommand(self::ORDER_ID_1, 'buyer-1', [
             ['productId' => 'prod-1', 'quantity' => 2],
         ]));
 
@@ -154,7 +158,7 @@ final class HandlerTest extends TestCase
 
     public function testGetOrderHandler(): void
     {
-        $order = Order::createDraft(new OrderId('ord-1'), new BuyerId('buyer-1'));
+        $order = Order::createDraft(new OrderId(self::ORDER_ID_1), new BuyerId('buyer-1'));
         $order->replaceItems(new OrderItemCollection([
             new OrderItem(new ProductId('prod-1'), 5),
         ]));
@@ -165,9 +169,9 @@ final class HandlerTest extends TestCase
             ->willReturn($order);
 
         $handler = new GetOrderHandler($dataProvider);
-        $result = $handler(new GetOrderQuery('ord-1', 'buyer-1'));
+        $result = $handler(new GetOrderQuery(self::ORDER_ID_1, 'buyer-1'));
 
-        self::assertSame('ord-1', $result->id);
+        self::assertSame(self::ORDER_ID_1, $result->id);
         self::assertSame('buyer-1', $result->buyerId);
         self::assertCount(1, $result->items);
         self::assertSame('prod-1', $result->items[0]['productId']);
@@ -176,7 +180,7 @@ final class HandlerTest extends TestCase
 
     public function testGetDraftHandler(): void
     {
-        $order = Order::createDraft(new OrderId('ord-draft'), new BuyerId('buyer-1'));
+        $order = Order::createDraft(new OrderId(self::ORDER_ID_2), new BuyerId('buyer-1'));
 
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $dataProvider->expects(self::once())
@@ -186,13 +190,13 @@ final class HandlerTest extends TestCase
         $handler = new GetDraftHandler($dataProvider);
         $result = $handler(new GetDraftQuery('buyer-1'));
 
-        self::assertSame('ord-draft', $result->id);
+        self::assertSame(self::ORDER_ID_2, $result->id);
         self::assertSame('draft', $result->status);
     }
 
     public function testGetOrdersHandler(): void
     {
-        $order = Order::createDraft(new OrderId('ord-1'), new BuyerId('buyer-1'));
+        $order = Order::createDraft(new OrderId(self::ORDER_ID_1), new BuyerId('buyer-1'));
         $paginated = new OrderPaginatedCollection(new OrderCollection([$order]), 1);
 
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
@@ -206,6 +210,6 @@ final class HandlerTest extends TestCase
 
         self::assertSame(1, $result->total);
         self::assertCount(1, $result->items);
-        self::assertSame('ord-1', $result->items[0]->id);
+        self::assertSame(self::ORDER_ID_1, $result->items[0]->id);
     }
 }

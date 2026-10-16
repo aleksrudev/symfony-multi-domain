@@ -31,7 +31,7 @@ final class OrderRepositoryAndDataProviderTest extends IntegrationTestCase
 
     public function testSaveAndFindOrderWithItems(): void
     {
-        $orderId = new OrderId('test-order-1');
+        $orderId = new OrderId('00000000-0000-4000-8000-000000000001');
         $buyerId = new BuyerId('test-buyer-1');
 
         $order = Order::createDraft($orderId, $buyerId);
@@ -59,14 +59,15 @@ final class OrderRepositoryAndDataProviderTest extends IntegrationTestCase
     public function testFindDraftByBuyerId(): void
     {
         $buyerId = new BuyerId('test-buyer-draft');
-        $order = Order::createDraft(new OrderId('test-order-draft'), $buyerId);
+        $orderId = new OrderId('00000000-0000-4000-8000-000000000002');
+        $order = Order::createDraft($orderId, $buyerId);
 
         $this->repository->save($order);
         $this->em->flush();
         $this->em->clear();
 
         $loadedDraft = $this->dataProvider->findDraftByBuyerId($buyerId);
-        self::assertTrue($loadedDraft->id()->equals(new OrderId('test-order-draft')));
+        self::assertTrue($loadedDraft->id()->equals($orderId));
     }
 
     public function testFindDraftThrowsWhenNoDraftExists(): void
@@ -77,23 +78,24 @@ final class OrderRepositoryAndDataProviderTest extends IntegrationTestCase
 
     public function testFindByIdAndBuyerIdHidesForeignOrder(): void
     {
-        $order = Order::createDraft(new OrderId('test-order-owner'), new BuyerId('owner-buyer'));
+        $orderId = new OrderId('00000000-0000-4000-8000-000000000003');
+        $order = Order::createDraft($orderId, new BuyerId('owner-buyer'));
         $this->repository->save($order);
         $this->em->flush();
         $this->em->clear();
 
         // Own order found
-        $loaded = $this->dataProvider->findByIdAndBuyerId(new OrderId('test-order-owner'), new BuyerId('owner-buyer'));
-        self::assertTrue($loaded->id()->equals(new OrderId('test-order-owner')));
+        $loaded = $this->dataProvider->findByIdAndBuyerId($orderId, new BuyerId('owner-buyer'));
+        self::assertTrue($loaded->id()->equals($orderId));
 
         // Foreign order throws OrderNotFoundException
         $this->expectException(OrderNotFoundException::class);
-        $this->dataProvider->findByIdAndBuyerId(new OrderId('test-order-owner'), new BuyerId('other-buyer'));
+        $this->dataProvider->findByIdAndBuyerId($orderId, new BuyerId('other-buyer'));
     }
 
     public function testReplaceItemsUpdatesOrphanRemoval(): void
     {
-        $orderId = new OrderId('test-order-orphan');
+        $orderId = new OrderId('00000000-0000-4000-8000-000000000004');
         $buyerId = new BuyerId('test-buyer-orphan');
 
         $order = Order::createDraft($orderId, $buyerId);
@@ -127,8 +129,8 @@ final class OrderRepositoryAndDataProviderTest extends IntegrationTestCase
     {
         $buyerId = new BuyerId('test-buyer-unique-draft');
 
-        $order1 = Order::createDraft(new OrderId('draft-1'), $buyerId);
-        $order2 = Order::createDraft(new OrderId('draft-2'), $buyerId);
+        $order1 = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000005'), $buyerId);
+        $order2 = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000006'), $buyerId);
 
         $this->repository->save($order1);
         $this->em->flush();
@@ -142,16 +144,16 @@ final class OrderRepositoryAndDataProviderTest extends IntegrationTestCase
     {
         $buyerId = new BuyerId('test-buyer-transition');
 
-        $order1 = new Order(new OrderId('trans-order-1'), $buyerId, OrderStatus::PENDING_STOCK);
+        $order1 = new Order(new OrderId('00000000-0000-4000-8000-000000000007'), $buyerId, OrderStatus::PENDING_STOCK);
         $this->repository->save($order1);
         $this->em->flush();
 
-        $order2 = Order::createDraft(new OrderId('trans-order-2'), $buyerId);
+        $order2 = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000008'), $buyerId);
         $this->repository->save($order2);
         $this->em->flush();
         $this->em->clear();
 
         $loadedDraft = $this->dataProvider->findDraftByBuyerId($buyerId);
-        self::assertTrue($loadedDraft->id()->equals(new OrderId('trans-order-2')));
+        self::assertTrue($loadedDraft->id()->equals(new OrderId('00000000-0000-4000-8000-000000000008')));
     }
 }

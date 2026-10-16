@@ -6,6 +6,7 @@ namespace Tests\Integration\Ordering;
 
 use App\Ordering\Domain\DataProvider\IdempotencyKeyDataProviderInterface;
 use App\Ordering\Domain\Entity\IdempotencyKey;
+use App\Ordering\Domain\Enum\IdempotencyOperation;
 use App\Ordering\Domain\Exception\IdempotencyKeyNotFoundException;
 use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
@@ -26,7 +27,7 @@ final class IdempotencyKeyRepositoryAndDataProviderTest extends IntegrationTestC
     public function testSaveAndFindIdempotencyKey(): void
     {
         $buyerId = new BuyerId('buyer-int-1');
-        $key = new IdempotencyKey('key-int-1', $buyerId, 'create_draft', 'hash-int-1');
+        $key = new IdempotencyKey('key-int-1', $buyerId, IdempotencyOperation::CREATE_DRAFT, 'hash-int-1');
 
         $this->repository->save($key);
         $this->em->flush();
@@ -36,7 +37,7 @@ final class IdempotencyKeyRepositoryAndDataProviderTest extends IntegrationTestC
 
         self::assertSame('key-int-1', $loaded->key());
         self::assertTrue($loaded->buyerId()->equals($buyerId));
-        self::assertSame('create_draft', $loaded->operation());
+        self::assertSame(IdempotencyOperation::CREATE_DRAFT, $loaded->operation());
         self::assertSame('hash-int-1', $loaded->requestHash());
     }
 
@@ -49,7 +50,7 @@ final class IdempotencyKeyRepositoryAndDataProviderTest extends IntegrationTestC
     public function testRemoveIdempotencyKey(): void
     {
         $buyerId = new BuyerId('buyer-int-2');
-        $key = new IdempotencyKey('key-int-2', $buyerId, 'create_draft', 'hash-int-2');
+        $key = new IdempotencyKey('key-int-2', $buyerId, IdempotencyOperation::CREATE_DRAFT, 'hash-int-2');
 
         $this->repository->save($key);
         $this->em->flush();

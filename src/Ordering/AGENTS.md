@@ -21,9 +21,9 @@
 ## Модель и инварианты
 
 Агрегат `Order` (`id: OrderId`, `buyerId: BuyerId`, `status: OrderStatus`, `items: OrderItemCollection`, `createdAt: DateTimeImmutable`, `updatedAt: DateTimeImmutable`).
-- `OrderId` — `final readonly` value object в `Domain/ValueObject/OrderId`, оборачивает непустую строку (UUID/ULID).
-- `BuyerId` — `final readonly` value object в `Domain/ValueObject/BuyerId`, оборачивает строковый идентификатор покупателя.
-- `ProductId` — `final readonly` value object в `Domain/ValueObject/ProductId`, оборачивает идентификатор товара в позиции заказа.
+- `OrderId` — `final readonly` value object в `Domain/ValueObject/OrderId`, наследует `App\Shared\Domain\ValueObject\UuidId` (UUIDv4 в формате RFC 4122 в нижнем регистре с дефисами, генерация по умолчанию без аргументов).
+- `BuyerId` — `final readonly` value object в `Domain/ValueObject/BuyerId`, оборачивает строковый идентификатор покупателя. Использование скалярной строки обусловлено получением идентификатора из внешней аутентификации/сессии.
+- `ProductId` — `final readonly` value object в `Domain/ValueObject/ProductId`, оборачивает строковый идентификатор товара в позиции заказа. Использование скалярной строки обусловлено согласованными строковыми идентификаторами каталога без внешних ключей.
 - `OrderStatus` — backed enum в `Domain/Enum/OrderStatus` со значениями:
   - `case DRAFT = 'draft';`
   - `case PENDING_STOCK = 'pending_stock';`
@@ -31,6 +31,8 @@
   - `case REJECTED = 'rejected';`
   - `case CANCELLING = 'cancelling';`
   - `case CANCELLED = 'cancelled';`
+- `IdempotencyOperation` — backed enum в `Domain/Enum/IdempotencyOperation` со значениями:
+  - `case CREATE_DRAFT = 'create_draft';`
 - Инвариант одного черновика (BR-16): у покупателя одновременно может быть не более одного активного черновика (`status === 'draft'`). Это гарантируется доменной проверкой при создании и частичным уникальным индексом PostgreSQL `ON ordering.orders (buyer_id) WHERE status = 'draft'`.
 - Инвариант количества (BR-02): количество каждой позиции — строго положительное целое число (`quantity > 0`). При `<= 0` выбрасывается `InvalidOrderItemQuantityException`.
 - Инвариант модификации: состав заказа можно изменять только в состоянии `draft` (`$order->replaceItems(...)`). При попытке изменить заказ в ином состоянии выбрасывается `OrderNotModifiableException`. При замене позиций передаваемый список не может быть пустым (`EmptyOrderItemsException`).

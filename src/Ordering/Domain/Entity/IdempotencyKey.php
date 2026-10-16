@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\Entity;
 
+use App\Ordering\Domain\Enum\IdempotencyOperation;
 use App\Ordering\Domain\Exception\IdempotencyConflictException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use Doctrine\ORM\Mapping\Column;
@@ -23,8 +24,8 @@ class IdempotencyKey
     #[Column(name: 'buyer_id', type: 'string', length: 64)]
     private string $buyerId;
 
-    #[Column(name: 'operation', type: 'string', length: 64)]
-    private string $operation;
+    #[Column(name: 'operation', type: 'string', length: 64, enumType: IdempotencyOperation::class)]
+    private IdempotencyOperation $operation;
 
     #[Column(name: 'request_hash', type: 'string', length: 64)]
     private string $requestHash;
@@ -38,7 +39,7 @@ class IdempotencyKey
     public function __construct(
         string $key,
         BuyerId $buyerId,
-        string $operation,
+        IdempotencyOperation $operation,
         string $requestHash,
         string $responsePayload = '',
         ?\DateTimeImmutable $createdAt = null,
@@ -61,7 +62,7 @@ class IdempotencyKey
         return new BuyerId($this->buyerId);
     }
 
-    public function operation(): string
+    public function operation(): IdempotencyOperation
     {
         return $this->operation;
     }

@@ -19,7 +19,7 @@
 ## Модель и инварианты
 
 Агрегат `Product` (`id: ProductId`, `name: string`, `priceAmount: int`, `currency: Currency`, `published: bool`, `createdAt: DateTimeImmutable`).
-- `ProductId` — `final readonly` value object в `Domain/ValueObject/ProductId`, оборачивает непустую строку.
+- `ProductId` — `final readonly` value object в `Domain/ValueObject/ProductId`, оборачивает непустую строку. Использование скалярной строки обосновано согласованными строковыми идентификаторами товаров (`prod-1`, `prod-keyboard`) без внешних ключей между витриной, складом и заказами.
 - `Currency` — backed enum в `Domain/Enum/Currency` (`case RUB = 'RUB'`).
 - Инвариант цены: `priceAmount` — строго положительное целое число копеек (> 0).
 - Инвариант публикации (BR-01): коммерческим предложением (`Offer`) является только опубликованный товар (`isPublished() === true`). Скрытый товар не выводится на витрину и возвращает `null` в публичном контракте.

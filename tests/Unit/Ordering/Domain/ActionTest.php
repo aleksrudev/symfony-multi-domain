@@ -25,7 +25,7 @@ final class ActionTest extends TestCase
     public function testCreateDraftActionReturnsExistingDraftIfFound(): void
     {
         $buyerId = new BuyerId('buyer-1');
-        $existingOrder = Order::createDraft(new OrderId('existing-order'), $buyerId);
+        $existingOrder = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000001'), $buyerId);
 
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $dataProvider->expects(self::once())
@@ -45,7 +45,7 @@ final class ActionTest extends TestCase
     public function testCreateDraftActionCreatesNewDraftIfNotFound(): void
     {
         $buyerId = new BuyerId('buyer-1');
-        $newOrderId = new OrderId('new-order');
+        $newOrderId = new OrderId('00000000-0000-4000-8000-000000000002');
 
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $dataProvider->expects(self::once())
@@ -69,7 +69,7 @@ final class ActionTest extends TestCase
 
     public function testReplaceOrderItemsActionReplacesAndSaves(): void
     {
-        $orderId = new OrderId('ord-1');
+        $orderId = new OrderId('00000000-0000-4000-8000-000000000003');
         $buyerId = new BuyerId('buyer-1');
         $order = Order::createDraft($orderId, $buyerId);
 

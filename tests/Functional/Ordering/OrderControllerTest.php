@@ -73,6 +73,7 @@ final class OrderControllerTest extends TestCase
         $data = json_decode((string) $response->getContent(), true);
 
         self::assertNotEmpty($data['id']);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $data['id']);
         self::assertSame('buyer1', $data['buyerId']);
         self::assertSame('draft', $data['status']);
         self::assertSame([], $data['items']);

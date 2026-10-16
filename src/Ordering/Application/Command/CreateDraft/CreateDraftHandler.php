@@ -7,6 +7,7 @@ namespace App\Ordering\Application\Command\CreateDraft;
 use App\Ordering\Domain\Action\CreateDraftAction;
 use App\Ordering\Domain\DataProvider\IdempotencyKeyDataProviderInterface;
 use App\Ordering\Domain\Entity\IdempotencyKey;
+use App\Ordering\Domain\Enum\IdempotencyOperation;
 use App\Ordering\Domain\Exception\IdempotencyKeyNotFoundException;
 use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
@@ -34,7 +35,7 @@ final readonly class CreateDraftHandler
                 $idempotencyKey = new IdempotencyKey(
                     key: $command->idempotencyKey,
                     buyerId: $buyerId,
-                    operation: 'create_draft',
+                    operation: IdempotencyOperation::CREATE_DRAFT,
                     requestHash: $command->requestHash,
                 );
                 $this->idempotencyKeyRepository->save($idempotencyKey);

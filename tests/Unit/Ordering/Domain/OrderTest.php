@@ -23,7 +23,7 @@ final class OrderTest extends TestCase
 {
     public function testCreateDraftOrder(): void
     {
-        $orderId = new OrderId('order-123');
+        $orderId = new OrderId('00000000-0000-4000-8000-000000000123');
         $buyerId = new BuyerId('buyer-1');
 
         $order = Order::createDraft($orderId, $buyerId);
@@ -38,7 +38,7 @@ final class OrderTest extends TestCase
 
     public function testReplaceItemsInDraft(): void
     {
-        $order = Order::createDraft(new OrderId('order-123'), new BuyerId('buyer-1'));
+        $order = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000123'), new BuyerId('buyer-1'));
 
         $items = new OrderItemCollection([
             new OrderItem(new ProductId('prod-1'), 2),
@@ -58,7 +58,7 @@ final class OrderTest extends TestCase
     public function testReplaceItemsInNonDraftStatusThrowsException(): void
     {
         $order = new Order(
-            new OrderId('order-123'),
+            new OrderId('00000000-0000-4000-8000-000000000123'),
             new BuyerId('buyer-1'),
             OrderStatus::PENDING_STOCK,
         );
@@ -71,7 +71,7 @@ final class OrderTest extends TestCase
 
     public function testReplaceItemsWithEmptyCollectionThrowsException(): void
     {
-        $order = Order::createDraft(new OrderId('order-123'), new BuyerId('buyer-1'));
+        $order = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000123'), new BuyerId('buyer-1'));
 
         $this->expectException(EmptyOrderItemsException::class);
         $order->replaceItems(new OrderItemCollection([]));

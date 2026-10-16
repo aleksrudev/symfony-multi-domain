@@ -18,7 +18,11 @@ final class OrderIdType extends StringType
             return $value->value;
         }
 
-        return is_string($value) ? $value : null;
+        if (is_string($value)) {
+            return new OrderId($value)->value;
+        }
+
+        return null;
     }
 
     public function convertToPHPValue($value, AbstractPlatform $platform): ?OrderId

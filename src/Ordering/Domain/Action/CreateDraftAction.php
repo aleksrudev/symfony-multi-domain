@@ -24,7 +24,7 @@ final readonly class CreateDraftAction
         try {
             return $this->orderDataProvider->findDraftByBuyerId($buyerId);
         } catch (OrderNotFoundException) {
-            $order = Order::createDraft($orderId ?? OrderId::generate(), $buyerId);
+            $order = Order::createDraft($orderId ?? new OrderId(), $buyerId);
             $this->orderRepository->save($order);
 
             return $order;
