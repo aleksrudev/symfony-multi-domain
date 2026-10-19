@@ -14,6 +14,7 @@
 | --- | --- | --- | --- | --- |
 | Shared | Общая техническая основа: контракты и реализации шин, маркер доменного события, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, сборка расписания и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
+| Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, демо-фикстуры остатков. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
 | Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, идемпотентное создание, сага оформления и статусы заказа. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
@@ -31,6 +32,10 @@ Shared содержит только механизмы, независимые 
 `Catalog` владеет товарами (`Product`), их наименованием, ценой целым числом копеек (RUB)
 и признаком публикации. Не владеет складскими остатками (владеет `Inventory`) и историческими
 снимками позиций в заказах (владеет `Ordering`).
+
+`Inventory` владеет складскими позициями (`StockPosition`), физическими остатками (`onHand`),
+резервами (`reserved`) и доступным для заказа остатком (`available`). Не владеет карточками товаров
+и витринными ценами (владеет `Catalog`), корзинами и оформлением заказов (владеет `Ordering`).
 
 `Ordering` владеет заказами (`Order`), их статусами, позициями (`OrderItem`), снимками
 идентификаторов товаров, количествами, черновиком покупателя и идемпотентным созданием.
@@ -59,6 +64,7 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 (метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребитель: модуль `Ordering`
 (при оформлении заказа в задаче `T05`) через собственный адаптер `Ordering/Infrastructure/Integration/Catalog/CatalogOfferProvider.php`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
+Модуль `Inventory` на этапе T06 не зависит от других бизнес-модулей (`Inventory/config/dependencies.php` пуст); публичные контракты резервирования позиций для заказов появятся в задаче T07.
 Модуль `Ordering` зависит от `Catalog` (`Ordering/config/dependencies.php` возвращает `['Catalog']`).
 Shared не зависит от бизнес-модулей и их Contracts.
 

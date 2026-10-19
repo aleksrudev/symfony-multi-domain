@@ -24,6 +24,7 @@ class Kernel extends BaseKernel
         return [
             'Catalog' => __DIR__.'/Catalog',
             'Ordering' => __DIR__.'/Ordering',
+            'Inventory' => __DIR__.'/Inventory',
         ];
     }
 

@@ -1,0 +1,51 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    # Application Command Handlers
+    App\Inventory\Application\Command\ChangeStockOnHand\ChangeStockOnHandHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
+    # Application Query Handlers
+    App\Inventory\Application\Query\GetStockPosition\GetStockPositionHandler:
+        tags:
+            - { name: messenger.message_handler, bus: query.bus }
+
+    # Domain Actions
+    App\Inventory\Domain\Action\ChangeStockOnHandAction: ~
+
+    # Infrastructure Repositories & DataProviders
+    App\Inventory\Infrastructure\Persistence\Doctrine\Repository\StockPositionRepository: ~
+    App\Inventory\Domain\Repository\StockPositionRepositoryInterface:
+        alias: App\Inventory\Infrastructure\Persistence\Doctrine\Repository\StockPositionRepository
+        public: true
+
+    App\Inventory\Infrastructure\Persistence\Doctrine\DataProvider\StockPositionDataProvider: ~
+    App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface:
+        alias: App\Inventory\Infrastructure\Persistence\Doctrine\DataProvider\StockPositionDataProvider
+        public: true
+
+    # Presentation Controllers
+    App\Inventory\Presentation\Http\Controller\Api\:
+        resource: '../Presentation/Http/Controller/Api/'
+        tags: ['controller.service_arguments']
+
+    # Presentation Error Provider
+    App\Inventory\Presentation\Http\Error\InventoryErrorProvider: ~
+
+when@dev:
+    services:
+        App\Inventory\Infrastructure\Persistence\Doctrine\Fixtures\:
+            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
+            autowire: true
+            autoconfigure: true
+
+when@test:
+    services:
+        App\Inventory\Infrastructure\Persistence\Doctrine\Fixtures\:
+            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
+            autowire: true
+            autoconfigure: true
+

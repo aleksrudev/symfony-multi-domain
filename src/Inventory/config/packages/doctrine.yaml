@@ -1,0 +1,14 @@
+doctrine:
+    dbal:
+        types:
+            inventory_product_id: App\Inventory\Infrastructure\Persistence\Doctrine\Type\ProductIdType
+    orm:
+        entity_managers:
+            default:
+                mappings:
+                    Inventory:
+                        type: attribute
+                        is_bundle: false
+                        dir: '%kernel.project_dir%/src/Inventory/Domain/Entity'
+                        prefix: 'App\Inventory\Domain\Entity'
+
