@@ -66,7 +66,8 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 | Доменный Action с бизнес-операцией | `src/<Module>/Domain/Action/` |
 | Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
 | Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
-| Оркестрация доменных операций, сообщения, обработчики и прикладные порты бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Оркестрация доменных операций, сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
 | Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
 | Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
 | Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
