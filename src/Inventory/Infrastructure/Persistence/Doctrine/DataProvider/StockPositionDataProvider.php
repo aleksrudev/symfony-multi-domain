@@ -42,4 +42,3 @@ final readonly class StockPositionDataProvider implements StockPositionDataProvi
         return new StockPositionCollection($items);
     }
 }
-
