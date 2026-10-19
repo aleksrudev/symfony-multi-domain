@@ -25,9 +25,20 @@ services:
         tags:
             - { name: messenger.message_handler, bus: command.bus }
 
+    App\Ordering\Application\Command\SubmitOrder\SubmitOrderHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
     # Domain Actions
     App\Ordering\Domain\Action\CreateDraftAction: ~
     App\Ordering\Domain\Action\ReplaceOrderItemsAction: ~
+    App\Ordering\Domain\Action\SubmitOrderAction: ~
+
+    # Infrastructure Integration
+    App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider: ~
+    App\Ordering\Application\Command\SubmitOrder\OfferProviderInterface:
+        alias: App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider
+        public: true
 
     # Infrastructure Repositories & DataProviders
     App\Ordering\Infrastructure\Persistence\Doctrine\Repository\OrderRepository: ~

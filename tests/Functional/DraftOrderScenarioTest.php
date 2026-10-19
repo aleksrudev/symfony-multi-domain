@@ -76,9 +76,9 @@ final class DraftOrderScenarioTest extends TestCase
         $loginResponse = $this->client->getResponse();
         self::assertSame(200, $loginResponse->getStatusCode());
 
-        /** @var array{authenticated: bool, user: string, roles: list<string>} $loginData */
+        /** @var array{ok: bool, user: string, roles: list<string>} $loginData */
         $loginData = json_decode((string) $loginResponse->getContent(), true);
-        self::assertTrue($loginData['authenticated']);
+        self::assertTrue($loginData['ok']);
         self::assertSame('buyer1', $loginData['user']);
         self::assertContains('ROLE_BUYER', $loginData['roles']);
 
@@ -408,4 +408,3 @@ final class DraftOrderScenarioTest extends TestCase
         return $authSessionData['csrfToken'];
     }
 }
-

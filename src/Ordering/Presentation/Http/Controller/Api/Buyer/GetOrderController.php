@@ -41,6 +41,8 @@ final readonly class GetOrderController
             'buyerId' => $result->buyerId,
             'status' => $result->status,
             'items' => $result->items,
+            'totalAmount' => $result->totalAmount,
+            'currency' => $result->currency,
             'createdAt' => $result->createdAt,
             'updatedAt' => $result->updatedAt,
         ], Response::HTTP_OK);

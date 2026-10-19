@@ -28,10 +28,20 @@ final readonly class GetOrdersHandler
         foreach ($paginated->items as $order) {
             $orderItems = [];
             foreach ($order->items() as $item) {
-                $orderItems[] = [
+                $itemData = [
                     'productId' => $item->productId()->value,
                     'quantity' => $item->quantity(),
                 ];
+                if (null !== $item->productName()) {
+                    $itemData['name'] = $item->productName();
+                }
+                if (null !== $item->priceAmount()) {
+                    $itemData['price'] = $item->priceAmount();
+                }
+                if (null !== $item->currency()) {
+                    $itemData['currency'] = $item->currency()->value;
+                }
+                $orderItems[] = $itemData;
             }
 
             $items[] = new GetOrderQueryResult(
@@ -41,6 +51,8 @@ final readonly class GetOrdersHandler
                 items: $orderItems,
                 createdAt: $order->createdAt()->format(\DateTimeInterface::ATOM),
                 updatedAt: $order->updatedAt()->format(\DateTimeInterface::ATOM),
+                totalAmount: $order->totalAmount(),
+                currency: $order->currency()?->value,
             );
         }
 

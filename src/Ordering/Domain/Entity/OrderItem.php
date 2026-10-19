@@ -35,10 +35,22 @@ class OrderItem
     #[Column(name: 'quantity', type: 'integer')]
     private int $quantity;
 
+    #[Column(name: 'product_name', type: 'string', length: 255, nullable: true)]
+    private ?string $productName = null;
+
+    #[Column(name: 'price_amount', type: 'integer', nullable: true)]
+    private ?int $priceAmount = null;
+
+    #[Column(name: 'currency', type: 'string', length: 3, nullable: true, enumType: \App\Ordering\Domain\Enum\Currency::class)]
+    private ?\App\Ordering\Domain\Enum\Currency $currency = null;
+
     public function __construct(
         ProductId $productId,
         int $quantity,
         ?int $id = null,
+        ?string $productName = null,
+        ?int $priceAmount = null,
+        ?\App\Ordering\Domain\Enum\Currency $currency = null,
     ) {
         if ($quantity <= 0) {
             throw new InvalidOrderItemQuantityException($quantity);
@@ -47,6 +59,9 @@ class OrderItem
         $this->id = $id;
         $this->productId = $productId->value;
         $this->quantity = $quantity;
+        $this->productName = $productName;
+        $this->priceAmount = $priceAmount;
+        $this->currency = $currency;
     }
 
     public function id(): ?int
@@ -62,6 +77,32 @@ class OrderItem
     public function quantity(): int
     {
         return $this->quantity;
+    }
+
+    public function productName(): ?string
+    {
+        return $this->productName;
+    }
+
+    public function priceAmount(): ?int
+    {
+        return $this->priceAmount;
+    }
+
+    public function currency(): ?\App\Ordering\Domain\Enum\Currency
+    {
+        return $this->currency;
+    }
+
+    public function attachSnapshot(string $productName, int $priceAmount, \App\Ordering\Domain\Enum\Currency $currency): void
+    {
+        if ($priceAmount <= 0) {
+            throw new \InvalidArgumentException('Price amount must be positive.');
+        }
+
+        $this->productName = $productName;
+        $this->priceAmount = $priceAmount;
+        $this->currency = $currency;
     }
 
     public function order(): ?Order

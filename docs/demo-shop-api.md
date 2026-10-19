@@ -111,7 +111,7 @@
 * **Ответ `200 OK`**:
   ```json
   {
-    "authenticated": true,
+    "ok": true,
     "user": "buyer1",
     "roles": [
       "ROLE_BUYER"
@@ -126,7 +126,7 @@
 * **Ответ `200 OK`**:
   ```json
   {
-    "authenticated": false
+    "ok": true
   }
   ```
 
@@ -272,6 +272,53 @@
   * `422 Unprocessable Entity` (`invalid_order_item_quantity`) — количество позиции `<= 0`.
   * `422 Unprocessable Entity` (`empty_order_items`) — передан пустой список позиций `[]`.
 
+#### `POST /api/v1/orders/{id}/submission`
+Перевод черновика заказа в оформление (`pending_stock`).
+На этом этапе фиксируются неизменяемые снимки цен и наименований товаров из `Catalog`, рассчитывается итоговая сумма заказа в копейках (`totalAmount`), а в шину `outbox.bus` внутри транзакции публикуется асинхронное сообщение `OrderSubmittedOutboxMessage`.
+Требует `ROLE_BUYER`, `X-CSRF-Token`. Поддерживает `Idempotency-Key`.
+
+* **Заголовки**:
+  * `X-CSRF-Token: <токен>`
+  * `Idempotency-Key: <опциональный_ключ>`
+* **Тело запроса**: пустое или `{}`
+* **Ответ `202 Accepted`**:
+  ```json
+  {
+    "id": "8f2da67c-9ef4-4f8e-b83e-976451e22839",
+    "buyerId": "buyer1",
+    "status": "pending_stock",
+    "items": [
+      {
+        "productId": "prod-keyboard",
+        "quantity": 1,
+        "productName": "Механическая клавиатура",
+        "priceAmount": 799000,
+        "currency": "RUB"
+      },
+      {
+        "productId": "prod-mouse",
+        "quantity": 2,
+        "productName": "Беспроводная мышь",
+        "priceAmount": 249000,
+        "currency": "RUB"
+      }
+    ],
+    "totalAmount": 1297000,
+    "currency": "RUB",
+    "createdAt": "2026-10-19T05:20:00+00:00",
+    "updatedAt": "2026-10-19T05:22:00+00:00"
+  }
+  ```
+* **Инварианты и поведение**:
+  * **BR-03, BR-15, A-04 (Неизменяемость снимков)**: цены и наименования фиксируются в `ordering.order_items` в момент сабмита. Любые последующие изменения каталога не влияют на данный заказ.
+  * **BR-16 (Освобождение слота черновика)**: при переходе в `pending_stock` заказ перестает быть `draft`, поэтому покупатель получает возможность создать новый черновик через `POST /api/v1/orders`.
+  * **Идемпотентность**: повторный запрос с тем же `Idempotency-Key` возвращает сохраненный ответ `202 Accepted` без повторного вызова каталога или дублирования outbox-сообщения.
+* **Ошибки**:
+  * `404 Not Found` (`order_not_found`) — заказ не найден или принадлежит другому покупателю.
+  * `409 Conflict` (`order_not_in_draft_state`) — заказ уже был переведен в статус `pending_stock` или иной отличный от `draft`.
+  * `422 Unprocessable Entity` (`empty_order_items`) — в заказе отсутствуют позиции.
+  * `422 Unprocessable Entity` (`product_not_available`) — один из товаров не найден в каталоге или снят с публикации (`published: false`).
+
 #### `GET /api/v1/orders/{id}`
 Детальная информация о заказе текущего покупателя. Требует `ROLE_BUYER`.
 
@@ -280,21 +327,30 @@
   {
     "id": "8f2da67c-9ef4-4f8e-b83e-976451e22839",
     "buyerId": "buyer1",
-    "status": "draft",
+    "status": "pending_stock",
     "items": [
       {
         "productId": "prod-keyboard",
-        "quantity": 1
+        "quantity": 1,
+        "productName": "Механическая клавиатура",
+        "priceAmount": 799000,
+        "currency": "RUB"
       },
       {
         "productId": "prod-mouse",
-        "quantity": 2
+        "quantity": 2,
+        "productName": "Беспроводная мышь",
+        "priceAmount": 249000,
+        "currency": "RUB"
       }
     ],
+    "totalAmount": 1297000,
+    "currency": "RUB",
     "createdAt": "2026-10-19T05:20:00+00:00",
-    "updatedAt": "2026-10-19T05:21:00+00:00"
+    "updatedAt": "2026-10-19T05:22:00+00:00"
   }
   ```
+  *(для черновика `status: draft`, `totalAmount: null`, `currency: null`, а поля `productName`, `priceAmount`, `currency` в `items` равны `null`)*
 * **Ошибки**: `404 Not Found` (`order_not_found`) при запросе чужого заказа (BR-09, A-11).
 
 #### `GET /api/v1/orders`
@@ -310,15 +366,20 @@
       {
         "id": "8f2da67c-9ef4-4f8e-b83e-976451e22839",
         "buyerId": "buyer1",
-        "status": "draft",
+        "status": "pending_stock",
         "items": [
           {
             "productId": "prod-keyboard",
-            "quantity": 1
+            "quantity": 1,
+            "productName": "Механическая клавиатура",
+            "priceAmount": 799000,
+            "currency": "RUB"
           }
         ],
+        "totalAmount": 799000,
+        "currency": "RUB",
         "createdAt": "2026-10-19T05:20:00+00:00",
-        "updatedAt": "2026-10-19T05:21:00+00:00"
+        "updatedAt": "2026-10-19T05:22:00+00:00"
       }
     ],
     "total": 1,
@@ -332,7 +393,7 @@
 ## 3. Сквозной пошаговый сценарий (CLI / curl)
 
 Сценарий демонстрирует полный путь:
-**Анонимная витрина → Получение сессии → Логин покупателя → Создание черновика → Наполнение корзины → Чтение заказа → Проверка изоляции под вторым покупателем**.
+**Анонимная витрина → Получение сессии → Логин покупателя → Создание черновика → Наполнение корзины → Оформление заказа со снимками цен и outbox → Освобождение слота черновика → Проверка изоляции под вторым покупателем**.
 
 Для работы требуется установленный `curl` и утилита `jq`.
 
@@ -370,7 +431,7 @@ curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
   -H "X-CSRF-Token: $CSRF_TOKEN" \
   -d '{"username": "buyer1", "password": "password"}' | jq .
 ```
-*Ожидаемый ответ*: HTTP 200, `authenticated: true`, `user: "buyer1"`.
+*Ожидаемый ответ*: HTTP 200, `ok: true`, `user: "buyer1"`.
 
 ---
 
@@ -415,16 +476,37 @@ curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
 
 ---
 
-### Шаг 7. Просмотр своего черновика
+### Шаг 7. Оформление заказа (Submission)
+Перевод заказа в `pending_stock` с фиксацией снимков цен и наименований:
 ```bash
-curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
-  "$BASE_URL/api/v1/orders/$ORDER_ID" | jq .
+SUBMIT_RESPONSE=$(curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
+  -X POST "$BASE_URL/api/v1/orders/$ORDER_ID/submission" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $AUTH_CSRF_TOKEN" \
+  -H "Idempotency-Key: submit-step-key-1")
+
+echo "$SUBMIT_RESPONSE" | jq .
 ```
-*Ожидаемый ответ*: HTTP 200, актуальный состав позиций заказа.
+*Ожидаемый ответ*: HTTP 202 Accepted, статус `pending_stock`, зафиксированные снимки товаров в позициях и расчет суммы (`totalAmount: 1297000`, `currency: "RUB"`). В БД в транзакции сохранено outbox-сообщение `OrderSubmittedOutboxMessage`.
 
 ---
 
-### Шаг 8. Проверка изоляции данных вторым покупателем (buyer2)
+### Шаг 8. Проверка освобождения слота черновика (BR-16)
+Так как заказ `$ORDER_ID` перешел в статус `pending_stock`, покупатель может начать новый черновик:
+```bash
+NEW_DRAFT_RESPONSE=$(curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
+  -X POST "$BASE_URL/api/v1/orders" \
+  -H "Content-Type: application/json" \
+  -H "X-CSRF-Token: $AUTH_CSRF_TOKEN")
+
+NEW_DRAFT_ID=$(echo "$NEW_DRAFT_RESPONSE" | jq -r .id)
+echo "Новый черновик успешно создан: $NEW_DRAFT_ID (отличается от $ORDER_ID)"
+```
+*Ожидаемый ответ*: HTTP 201 Created, статус `draft`, новый `id`.
+
+---
+
+### Шаг 9. Проверка изоляции данных вторым покупателем (buyer2)
 Второй покупатель входит в отдельную сессию:
 ```bash
 # Получение сессии buyer2
@@ -438,31 +520,35 @@ curl -s -c "$COOKIE_BUYER2" -b "$COOKIE_BUYER2" \
   -H "X-CSRF-Token: $CSRF_BUYER2" \
   -d '{"username": "buyer2", "password": "password"}' > /dev/null
 
-# Попытка чтения заказа buyer1
+# Попытка чтения заказов buyer1
 curl -s -c "$COOKIE_BUYER2" -b "$COOKIE_BUYER2" \
   -i "$BASE_URL/api/v1/orders/$ORDER_ID"
+
+curl -s -c "$COOKIE_BUYER2" -b "$COOKIE_BUYER2" \
+  -i "$BASE_URL/api/v1/orders/$NEW_DRAFT_ID"
 ```
-*Ожидаемый ответ*: **HTTP 404 Not Found** (`order_not_found`). Данные покупателя `buyer1` надёжно изолированы.
+*Ожидаемый ответ*: В обоих случаях **HTTP 404 Not Found** (`order_not_found`). Данные покупателя `buyer1` надёжно изолированы.
 
 ---
 
-### Шаг 9. Выход из системы
+### Шаг 10. Выход из системы
 ```bash
 curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
   -X POST "$BASE_URL/api/v1/auth/logout" \
   -H "X-CSRF-Token: $AUTH_CSRF_TOKEN" | jq .
 ```
-*Ожидаемый ответ*: HTTP 200, `authenticated: false`.
+*Ожидаемый ответ*: HTTP 200, `{"ok": true}`.
 
 ---
 
 ## 4. Карта развития API в последующих задачах
 
 В следующих задачах декомпозиции в данный документ будут добавлены:
-* **T05**: `POST /api/v1/orders/{id}/submission` (HTTP 202, перевод в `pending_stock`, расчет суммы в копейках и outbox-сообщение).
+* **T05 (Завершено)**: `POST /api/v1/orders/{id}/submission` (HTTP 202, перевод в `pending_stock`, расчет суммы в копейках и outbox-сообщение).
 * **T06–T08**: `PATCH /api/v1/admin/stock/{productId}` (управление складскими остатками `Inventory`).
 * **T09–T10**: `POST /api/v1/orders/{id}/cancellation` (отмена заказа и освобождение остатков), отображение причины отказа склада `rejected`.
 * **T11–T12**: `GET /api/v1/admin/notifications` (постраничный просмотр локального ящика уведомлений).
 * **T13**: `GET /api/v1/admin/diagnostics/orders/{id}` (объединенная картина переходов заказа, склада и уведомлений).
 * **T14**: Полное обновление документации со всеми завершенными сценариями.
+
 

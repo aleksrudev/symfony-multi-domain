@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Ordering\Domain\Entity;
 
 use App\Ordering\Domain\Collection\OrderItemCollection;
+use App\Ordering\Domain\Collection\ProductSnapshotCollection;
+use App\Ordering\Domain\Enum\Currency;
 use App\Ordering\Domain\Enum\OrderStatus;
 use App\Ordering\Domain\Exception\EmptyOrderItemsException;
 use App\Ordering\Domain\Exception\OrderNotModifiableException;
+use App\Ordering\Domain\Exception\ProductNotAvailableException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 use Doctrine\ORM\Mapping\Column;
@@ -30,6 +33,12 @@ class Order
     #[Column(name: 'status', type: 'string', length: 32, enumType: OrderStatus::class)]
     private OrderStatus $status;
 
+    #[Column(name: 'total_amount', type: 'integer', nullable: true)]
+    private ?int $totalAmount = null;
+
+    #[Column(name: 'currency', type: 'string', length: 3, nullable: true, enumType: Currency::class)]
+    private ?Currency $currency = null;
+
     /**
      * @var OrderItemCollection|iterable<OrderItem>
      */
@@ -48,6 +57,8 @@ class Order
         OrderStatus $status = OrderStatus::DRAFT,
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $updatedAt = null,
+        ?int $totalAmount = null,
+        ?Currency $currency = null,
     ) {
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $this->id = $id;
@@ -56,6 +67,8 @@ class Order
         $this->items = new OrderItemCollection();
         $this->createdAt = $createdAt ?? $now;
         $this->updatedAt = $updatedAt ?? $now;
+        $this->totalAmount = $totalAmount;
+        $this->currency = $currency;
     }
 
     public static function createDraft(
@@ -130,6 +143,47 @@ class Order
             $this->items = $newItems;
         }
 
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
+    public function totalAmount(): ?int
+    {
+        return $this->totalAmount;
+    }
+
+    public function currency(): ?Currency
+    {
+        return $this->currency;
+    }
+
+    public function submit(ProductSnapshotCollection $snapshots): void
+    {
+        if (OrderStatus::DRAFT !== $this->status) {
+            throw new OrderNotModifiableException($this->id, $this->status);
+        }
+
+        $items = $this->items();
+        if ($items->isEmpty()) {
+            throw new EmptyOrderItemsException();
+        }
+
+        $totalAmount = 0;
+        $orderCurrency = Currency::RUB;
+
+        foreach ($items as $item) {
+            $snapshot = $snapshots->findByProductId($item->productId()->value);
+            if (null === $snapshot) {
+                throw new ProductNotAvailableException($item->productId());
+            }
+
+            $item->attachSnapshot($snapshot->name, $snapshot->priceAmount, $snapshot->currency);
+            $totalAmount += $item->quantity() * $snapshot->priceAmount;
+            $orderCurrency = $snapshot->currency;
+        }
+
+        $this->totalAmount = $totalAmount;
+        $this->currency = $orderCurrency;
+        $this->status = OrderStatus::PENDING_STOCK;
         $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     }
 }

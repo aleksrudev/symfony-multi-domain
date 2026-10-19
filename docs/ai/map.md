@@ -56,10 +56,10 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 ## Связи модулей
 
 `Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Presentation\Contracts\CatalogContractInterface`
-(метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребители: модуль `Ordering`
-(в этапах оформления/чекаута) через собственный адаптер `Ordering/Infrastructure/Integration`.
+(метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребитель: модуль `Ordering`
+(при оформлении заказа в задаче `T05`) через собственный адаптер `Ordering/Infrastructure/Integration/Catalog/CatalogOfferProvider.php`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
-Модуль `Ordering` на текущем этапе черновика и первого API-сценария (`T03`–`T04`) автономен (`Ordering/config/dependencies.php` пуст).
+Модуль `Ordering` зависит от `Catalog` (`Ordering/config/dependencies.php` возвращает `['Catalog']`).
 Shared не зависит от бизнес-модулей и их Contracts.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять

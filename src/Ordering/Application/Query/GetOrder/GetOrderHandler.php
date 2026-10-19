@@ -31,10 +31,20 @@ final readonly class GetOrderHandler
 
         $items = [];
         foreach ($order->items() as $item) {
-            $items[] = [
+            $itemData = [
                 'productId' => $item->productId()->value,
                 'quantity' => $item->quantity(),
             ];
+            if (null !== $item->productName()) {
+                $itemData['name'] = $item->productName();
+            }
+            if (null !== $item->priceAmount()) {
+                $itemData['price'] = $item->priceAmount();
+            }
+            if (null !== $item->currency()) {
+                $itemData['currency'] = $item->currency()->value;
+            }
+            $items[] = $itemData;
         }
 
         return new GetOrderQueryResult(
@@ -44,6 +54,8 @@ final readonly class GetOrderHandler
             items: $items,
             createdAt: $order->createdAt()->format(\DateTimeInterface::ATOM),
             updatedAt: $order->updatedAt()->format(\DateTimeInterface::ATOM),
+            totalAmount: $order->totalAmount(),
+            currency: $order->currency()?->value,
         );
     }
 }

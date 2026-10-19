@@ -7,5 +7,5 @@ namespace App\Ordering\Domain\Enum;
 enum IdempotencyOperation: string
 {
     case CREATE_DRAFT = 'create_draft';
+    case SUBMIT_ORDER = 'submit_order';
 }
-

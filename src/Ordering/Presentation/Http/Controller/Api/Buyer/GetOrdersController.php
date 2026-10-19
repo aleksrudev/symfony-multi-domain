@@ -47,6 +47,8 @@ final readonly class GetOrdersController
                 'buyerId' => $item->buyerId,
                 'status' => $item->status,
                 'items' => $item->items,
+                'totalAmount' => $item->totalAmount,
+                'currency' => $item->currency,
                 'createdAt' => $item->createdAt,
                 'updatedAt' => $item->updatedAt,
             ],

@@ -9,6 +9,7 @@ use App\Ordering\Domain\Exception\IdempotencyConflictException;
 use App\Ordering\Domain\Exception\InvalidOrderItemQuantityException;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\Exception\OrderNotModifiableException;
+use App\Ordering\Domain\Exception\ProductNotAvailableException;
 use App\Shared\Presentation\Http\Error\DomainErrorProviderInterface;
 
 final class OrderingErrorProvider implements DomainErrorProviderInterface
@@ -34,6 +35,10 @@ final class OrderingErrorProvider implements DomainErrorProviderInterface
             ],
             EmptyOrderItemsException::class => [
                 'error' => 'empty_order_items',
+                'status' => 422,
+            ],
+            ProductNotAvailableException::class => [
+                'error' => 'product_not_available',
                 'status' => 422,
             ],
         ];
