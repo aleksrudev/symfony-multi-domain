@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Application\Command\SubmitOrder;
+namespace App\Ordering\Application\Command\SubmitOrder\Provider;
 
-final readonly class OfferSnapshot
+final readonly class ProductOffer
 {
     public function __construct(
         public string $productId,
@@ -14,4 +14,3 @@ final readonly class OfferSnapshot
     ) {
     }
 }
-

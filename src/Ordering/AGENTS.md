@@ -47,18 +47,22 @@
 Доменные Action:
 - `CreateDraftAction` (`Domain/Action/CreateDraftAction`): проверяет наличие активного черновика через `OrderDataProviderInterface::findDraftByBuyerId()`. Если черновик найден — возвращает его. Если нет — создаёт `Order::createDraft()`, сохраняет через `OrderRepositoryInterface` и возвращает новый черновик.
 - `ReplaceOrderItemsAction` (`Domain/Action/ReplaceOrderItemsAction`): загружает заказ через `OrderDataProviderInterface::findByIdAndBuyerId()`, вызывает доменный метод `$order->replaceItems()`, сохраняет через `OrderRepositoryInterface`.
-- `SubmitOrderAction` (`Domain/Action/SubmitOrderAction`): принимает `Order $order` и `ProductSnapshotCollection $snapshots`, вызывает доменный метод `$order->submit($snapshots)` и сохраняет заказ через `OrderRepositoryInterface`.
+- `SubmitOrderAction` (`Domain/Action/SubmitOrderAction`): принимает `Order $order` и `ProductSnapshotCollection $snapshots`, вызывает доменный метод `$order->submit($snapshots)`, сохраняет заказ через `OrderRepositoryInterface`, создаёт и публикует доменное событие `OrderSubmittedEvent` через `EventBusInterface`.
+
+Доменные события:
+- `OrderSubmittedEvent` (`Domain/Event/OrderSubmittedEvent`): реализует `App\Shared\Domain\Event\EventInterface`. Содержит ссылку на агрегат `Order $order` и момент операции `DateTimeImmutable $eventAt`. Публикуется из `SubmitOrderAction` после вызова `OrderRepositoryInterface::save()`.
 
 Application сценарии:
 - `CreateDraftCommand` / `CreateDraftHandler`: тонкий оркестратор создания/получения черновика. Обеспечивает соблюдение `Idempotency-Key` (повтор с тем же ключом и хэшем тела возвращает тот же заказ; повтор с тем же ключом и другим телом вызывает `IdempotencyConflictException`). Возвращает `CreateDraftResult`.
 - `ReplaceOrderItemsCommand` / `ReplaceOrderItemsHandler`: маппит массив позиций в `OrderItemCollection` и вызывает `ReplaceOrderItemsAction`. Возвращает `ReplaceOrderItemsResult`.
-- `SubmitOrderCommand` / `SubmitOrderHandler`: оркестратор оформления заказа. Проверяет `Idempotency-Key` (операция `submit_order`), загружает заказ покупателя, запрашивает через порт `OfferProviderInterface` снимки цен и наименований товаров, проверяет доступность и публикацию каждого товара (выбрасывает `ProductNotAvailableException`), формирует `ProductSnapshotCollection`, выполняет `SubmitOrderAction`, фиксирует ответ в таблице идемпотентности и публикует `OrderSubmittedOutboxMessage` в `outbox.bus`. Возвращает `SubmitOrderResult`.
+- `SubmitOrderCommand` / `SubmitOrderHandler`: оркестратор оформления заказа. Проверяет `Idempotency-Key` (операция `submit_order`; при совпадении ключа немедленно завершает выполнение без повторной публикации события), загружает заказ покупателя, запрашивает через прикладной провайдер `ProductOfferProviderInterface` актуальные сведения о ценах и наименованиях товаров (`ProductOffer`), проверяет доступность и публикацию каждого товара (выбрасывает `ProductNotAvailableException`), формирует `ProductSnapshotCollection`, выполняет `SubmitOrderAction` и фиксирует ответ в таблице идемпотентности. Не публикует исходящие сообщения напрямую.
 - `GetOrderQuery` / `GetOrderHandler`: загружает заказ через `OrderDataProviderInterface::findByIdAndBuyerId()` и формирует `GetOrderQueryResult`.
 - `GetOrdersQuery` / `GetOrdersHandler`: запрашивает пагинированную выборку через `OrderDataProviderInterface::findByBuyerIdPaginated()` и формирует `GetOrdersQueryResult`.
 
-Порты и сообщения Application:
-- `OfferProviderInterface` (`Application/Command/SubmitOrder/OfferProviderInterface`): порт получения снимков предложений (`OfferSnapshot`) каталога по списку идентификаторов товаров.
-- `OrderSubmittedOutboxMessage` (`Application/Command/SubmitOrder/OrderSubmittedOutboxMessage`): сообщение шины outbox (`OutboxMessageInterface`), публикуемое при успешном переводе заказа в `pending_stock`. Содержит `orderId`, `buyerId`, `items` (снимки с ценами и количествами), `totalAmount`, `currency` и `submittedAt`.
+Прикладные провайдеры, сообщения и реакции Application:
+- `ProductOfferProviderInterface` (`Application/Command/SubmitOrder/Provider/ProductOfferProviderInterface`): интерфейс получения актуальных предложений каталога. Возвращает модель результата сценария `ProductOffer` (`Application/Command/SubmitOrder/Provider/ProductOffer`).
+- `PublishOrderSubmittedMessageListener` (`Application/EventListener/PublishOrderSubmittedMessageListener`): синхронный listener `kernel.event_listener` на `OrderSubmittedEvent`. Извлекает сериализуемые данные из агрегата `$event->order`, собирает `OrderSubmittedOutboxMessage` и публикует его через `OutboxBusInterface` внутри транзакции команды до commit.
+- `OrderSubmittedOutboxMessage` (`Application/Message/OrderSubmittedOutboxMessage`): исходящее сообщение шины outbox (`OutboxMessageInterface`), содержащее самостоятельные сериализуемые скалярные значения (`orderId`, `buyerId`, `items`, `totalAmount`, `currency`, `occurredAt`) без ссылок на агрегат или ORM-коллекции.
 
 ## Публичный API и зависимости
 
@@ -67,7 +71,7 @@ Application сценарии:
 
 Зависимости от других бизнес-модулей:
 - Модуль зависит от `Catalog` (объявлен в `src/Ordering/config/dependencies.php`).
-- Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` реализует `OfferProviderInterface`, вызывая контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
+- Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` реализует `ProductOfferProviderInterface`, вызывая контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
 
 HTTP API контроллеры одного действия:
 - Актор `Buyer` (`Presentation/Http/Controller/Api/Buyer/`):

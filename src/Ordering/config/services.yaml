@@ -29,6 +29,11 @@ services:
         tags:
             - { name: messenger.message_handler, bus: command.bus }
 
+    # Application Event Listeners
+    App\Ordering\Application\EventListener\PublishOrderSubmittedMessageListener:
+        tags:
+            - { name: kernel.event_listener, event: App\Ordering\Domain\Event\OrderSubmittedEvent }
+
     # Domain Actions
     App\Ordering\Domain\Action\CreateDraftAction: ~
     App\Ordering\Domain\Action\ReplaceOrderItemsAction: ~
@@ -36,7 +41,7 @@ services:
 
     # Infrastructure Integration
     App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider: ~
-    App\Ordering\Application\Command\SubmitOrder\OfferProviderInterface:
+    App\Ordering\Application\Command\SubmitOrder\Provider\ProductOfferProviderInterface:
         alias: App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider
         public: true
 

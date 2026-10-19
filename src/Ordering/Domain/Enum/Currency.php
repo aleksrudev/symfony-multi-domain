@@ -8,4 +8,3 @@ enum Currency: string
 {
     case RUB = 'RUB';
 }
-

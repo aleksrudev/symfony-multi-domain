@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Application\Command\SubmitOrder;
+namespace App\Ordering\Application\Message;
 
 use App\Shared\Application\Bus\Outbox\OutboxMessageInterface;
 
@@ -21,4 +21,3 @@ final readonly class OrderSubmittedOutboxMessage implements OutboxMessageInterfa
     ) {
     }
 }
-

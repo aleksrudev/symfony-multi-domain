@@ -15,4 +15,3 @@ final class ProductNotAvailableException extends DomainException
         parent::__construct(sprintf('Product "%s" is not available for purchase.', $id));
     }
 }
-

@@ -107,4 +107,3 @@ final class OrderSubmitTest extends TestCase
         $order->submit($snapshots);
     }
 }
-

@@ -16,4 +16,3 @@ final readonly class SubmitOrderCommand implements CommandInterface
     ) {
     }
 }
-

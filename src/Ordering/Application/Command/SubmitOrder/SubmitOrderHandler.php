@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Application\Command\SubmitOrder;
 
+use App\Ordering\Application\Command\SubmitOrder\Provider\ProductOfferProviderInterface;
 use App\Ordering\Domain\Action\SubmitOrderAction;
 use App\Ordering\Domain\Collection\ProductSnapshotCollection;
 use App\Ordering\Domain\DataProvider\IdempotencyKeyDataProviderInterface;
@@ -18,15 +19,13 @@ use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 use App\Ordering\Domain\ValueObject\ProductSnapshot;
-use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
 
 final readonly class SubmitOrderHandler
 {
     public function __construct(
         private OrderDataProviderInterface $orderDataProvider,
-        private OfferProviderInterface $offerProvider,
+        private ProductOfferProviderInterface $productOfferProvider,
         private SubmitOrderAction $submitOrderAction,
-        private OutboxBusInterface $outboxBus,
         private IdempotencyKeyDataProviderInterface $idempotencyKeyDataProvider,
         private IdempotencyKeyRepositoryInterface $idempotencyKeyRepository,
     ) {
@@ -57,7 +56,7 @@ final readonly class SubmitOrderHandler
 
         $snapshots = [];
         foreach ($order->items() as $item) {
-            $offer = $this->offerProvider->getOffer($item->productId()->value);
+            $offer = $this->productOfferProvider->getOffer($item->productId()->value);
             if (null === $offer) {
                 throw new ProductNotAvailableException($item->productId());
             }
@@ -70,25 +69,7 @@ final readonly class SubmitOrderHandler
             );
         }
 
-        $submittedOrder = ($this->submitOrderAction)($order, new ProductSnapshotCollection($snapshots));
-
-        $itemsPayload = [];
-        foreach ($submittedOrder->items() as $item) {
-            $itemsPayload[] = [
-                'productId' => $item->productId()->value,
-                'quantity' => $item->quantity(),
-            ];
-        }
-
-        $outboxMessage = new OrderSubmittedOutboxMessage(
-            orderId: $submittedOrder->id()->value,
-            buyerId: $submittedOrder->buyerId()->value,
-            items: $itemsPayload,
-            totalAmount: $submittedOrder->totalAmount() ?? 0,
-            currency: ($submittedOrder->currency() ?? Currency::RUB)->value,
-            occurredAt: $submittedOrder->updatedAt()->format(\DateTimeInterface::ATOM),
-        );
-        $this->outboxBus->publish($outboxMessage);
+        ($this->submitOrderAction)($order, new ProductSnapshotCollection($snapshots));
 
         if (null !== $command->idempotencyKey && '' !== trim($command->idempotencyKey)) {
             $idempotencyKey = new IdempotencyKey(

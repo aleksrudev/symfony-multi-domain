@@ -63,4 +63,3 @@ final readonly class SubmitOrderController
         ], Response::HTTP_ACCEPTED);
     }
 }
-

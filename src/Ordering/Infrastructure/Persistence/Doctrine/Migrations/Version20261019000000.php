@@ -32,4 +32,3 @@ final class Version20261019000000 extends AbstractMigration
         $this->addSql('ALTER TABLE ordering.order_items DROP COLUMN IF EXISTS currency');
     }
 }
-

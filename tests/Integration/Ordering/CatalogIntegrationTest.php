@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Tests\Integration\Ordering;
 
 use App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\CatalogFixtures;
-use App\Ordering\Application\Command\SubmitOrder\OfferProviderInterface;
+use App\Ordering\Application\Command\SubmitOrder\Provider\ProductOfferProviderInterface;
 use App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider;
 use Tests\Integration\IntegrationTestCase;
 
 final class CatalogIntegrationTest extends IntegrationTestCase
 {
-    private OfferProviderInterface $offerProvider;
+    private ProductOfferProviderInterface $offerProvider;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->offerProvider = self::getContainer()->get(OfferProviderInterface::class);
+        $this->offerProvider = self::getContainer()->get(ProductOfferProviderInterface::class);
 
         $fixtures = new CatalogFixtures();
         $fixtures->load($this->em);
@@ -52,4 +52,3 @@ final class CatalogIntegrationTest extends IntegrationTestCase
         self::assertNull($offer);
     }
 }
-

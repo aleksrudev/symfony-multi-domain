@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ordering\Application;
 
-use App\Ordering\Application\Command\SubmitOrder\OfferProviderInterface;
-use App\Ordering\Application\Command\SubmitOrder\OfferSnapshot;
-use App\Ordering\Application\Command\SubmitOrder\OrderSubmittedOutboxMessage;
+use App\Ordering\Application\Command\SubmitOrder\Provider\ProductOffer;
+use App\Ordering\Application\Command\SubmitOrder\Provider\ProductOfferProviderInterface;
 use App\Ordering\Application\Command\SubmitOrder\SubmitOrderCommand;
 use App\Ordering\Application\Command\SubmitOrder\SubmitOrderHandler;
 use App\Ordering\Domain\Action\SubmitOrderAction;
@@ -26,7 +25,7 @@ use App\Ordering\Domain\Repository\OrderRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 use App\Ordering\Domain\ValueObject\ProductId;
-use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
+use App\Shared\Domain\Event\EventBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -52,18 +51,17 @@ final class SubmitOrderHandlerTest extends TestCase
             ->method('save')
             ->with($order);
 
-        $action = new SubmitOrderAction($orderRepository);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $eventBus->expects(self::once())
+            ->method('dispatch');
 
-        $offerProvider = $this->createMock(OfferProviderInterface::class);
+        $action = new SubmitOrderAction($orderRepository, $eventBus);
+
+        $offerProvider = $this->createMock(ProductOfferProviderInterface::class);
         $offerProvider->expects(self::once())
             ->method('getOffer')
             ->with('prod-1')
-            ->willReturn(new OfferSnapshot('prod-1', 'Product 1', 10000, 'RUB'));
-
-        $outboxBus = $this->createMock(OutboxBusInterface::class);
-        $outboxBus->expects(self::once())
-            ->method('publish')
-            ->with(self::isInstanceOf(OrderSubmittedOutboxMessage::class));
+            ->willReturn(new ProductOffer('prod-1', 'Product 1', 10000, 'RUB'));
 
         $idempotencyDataProvider = $this->createMock(IdempotencyKeyDataProviderInterface::class);
         $idempotencyDataProvider->expects(self::once())
@@ -79,7 +77,6 @@ final class SubmitOrderHandlerTest extends TestCase
             $dataProvider,
             $offerProvider,
             $action,
-            $outboxBus,
             $idempotencyDataProvider,
             $idempotencyRepository,
         );
@@ -110,16 +107,14 @@ final class SubmitOrderHandlerTest extends TestCase
             ->willReturn($order);
 
         $orderRepository = $this->createMock(OrderRepositoryInterface::class);
-        $action = new SubmitOrderAction($orderRepository);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $action = new SubmitOrderAction($orderRepository, $eventBus);
 
-        $offerProvider = $this->createMock(OfferProviderInterface::class);
+        $offerProvider = $this->createMock(ProductOfferProviderInterface::class);
         $offerProvider->expects(self::once())
             ->method('getOffer')
             ->with('prod-missing')
             ->willReturn(null);
-
-        $outboxBus = $this->createMock(OutboxBusInterface::class);
-        $outboxBus->expects(self::never())->method('publish');
 
         $idempotencyDataProvider = $this->createMock(IdempotencyKeyDataProviderInterface::class);
         $idempotencyRepository = $this->createMock(IdempotencyKeyRepositoryInterface::class);
@@ -128,7 +123,6 @@ final class SubmitOrderHandlerTest extends TestCase
             $dataProvider,
             $offerProvider,
             $action,
-            $outboxBus,
             $idempotencyDataProvider,
             $idempotencyRepository,
         );
@@ -155,13 +149,12 @@ final class SubmitOrderHandlerTest extends TestCase
         $dataProvider->expects(self::never())->method('findByIdAndBuyerId');
 
         $orderRepository = $this->createMock(OrderRepositoryInterface::class);
-        $action = new SubmitOrderAction($orderRepository);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $eventBus->expects(self::never())->method('dispatch');
+        $action = new SubmitOrderAction($orderRepository, $eventBus);
 
-        $offerProvider = $this->createMock(OfferProviderInterface::class);
+        $offerProvider = $this->createMock(ProductOfferProviderInterface::class);
         $offerProvider->expects(self::never())->method('getOffer');
-
-        $outboxBus = $this->createMock(OutboxBusInterface::class);
-        $outboxBus->expects(self::never())->method('publish');
 
         $idempotencyDataProvider = $this->createMock(IdempotencyKeyDataProviderInterface::class);
         $idempotencyDataProvider->expects(self::once())
@@ -175,7 +168,6 @@ final class SubmitOrderHandlerTest extends TestCase
             $dataProvider,
             $offerProvider,
             $action,
-            $outboxBus,
             $idempotencyDataProvider,
             $idempotencyRepository,
         );
@@ -201,9 +193,9 @@ final class SubmitOrderHandlerTest extends TestCase
 
         $dataProvider = $this->createMock(OrderDataProviderInterface::class);
         $orderRepository = $this->createMock(OrderRepositoryInterface::class);
-        $action = new SubmitOrderAction($orderRepository);
-        $offerProvider = $this->createMock(OfferProviderInterface::class);
-        $outboxBus = $this->createMock(OutboxBusInterface::class);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $action = new SubmitOrderAction($orderRepository, $eventBus);
+        $offerProvider = $this->createMock(ProductOfferProviderInterface::class);
 
         $idempotencyDataProvider = $this->createMock(IdempotencyKeyDataProviderInterface::class);
         $idempotencyDataProvider->expects(self::once())
@@ -216,7 +208,6 @@ final class SubmitOrderHandlerTest extends TestCase
             $dataProvider,
             $offerProvider,
             $action,
-            $outboxBus,
             $idempotencyDataProvider,
             $idempotencyRepository,
         );

@@ -459,4 +459,3 @@ final class SubmitOrderControllerTest extends TestCase
         return $authSessionData['csrfToken'];
     }
 }
-
