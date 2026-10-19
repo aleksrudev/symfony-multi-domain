@@ -62,11 +62,14 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 
 | Что добавляется | Куда класть |
 | --- | --- |
-| Агрегат, сущность, бизнесовый value object, доменное событие или исключение, интерфейс репозитория агрегата | `src/<Module>/Domain/` |
+| Агрегат, сущность, бизнесовый value object или исключение, интерфейс репозитория агрегата | `src/<Module>/Domain/` |
 | Доменный Action с бизнес-операцией | `src/<Module>/Domain/Action/` |
+| Доменное событие, публикуемое Action | `src/<Module>/Domain/Event/`; [правила](rules/domain-actions.md#доменные-события-и-реакции) |
 | Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
 | Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
-| Оркестрация доменных операций, сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Оркестрация доменных операций, Command/Query-сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Синхронная прикладная реакция на доменное событие | `src/<Module>/Application/EventListener/` |
+| Внутреннее исходящее сообщение для асинхронного продолжения | `src/<Module>/Application/Message/` |
 | Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
 | Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
 | Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
