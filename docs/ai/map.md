@@ -59,7 +59,7 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 (метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребители: модуль `Ordering`
 (в этапах оформления/чекаута) через собственный адаптер `Ordering/Infrastructure/Integration`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
-Модуль `Ordering` на текущем этапе черновика (`T03`) автономен (`Ordering/config/dependencies.php` пуст).
+Модуль `Ordering` на текущем этапе черновика и первого API-сценария (`T03`–`T04`) автономен (`Ordering/config/dependencies.php` пуст).
 Shared не зависит от бизнес-модулей и их Contracts.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
