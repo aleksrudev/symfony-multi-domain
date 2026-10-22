@@ -52,7 +52,7 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 Их регистрацию и загрузку конфигурации собирает
 [src/Kernel.php](../../src/Kernel.php).
 
-Когда появятся бизнес-модули, указывай здесь потребителя, поставщика и назначение
+При изменении связей указывай здесь потребителя, поставщика и назначение
 связи. Разрешение зависимости проверяй по `src/<Consumer>/config/dependencies.php`,
 а конкретный публичный контракт — по AGENTS.md поставщика.
 
@@ -70,10 +70,12 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 | Оркестрация доменных операций, Command/Query-сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
 | Синхронная прикладная реакция на доменное событие | `src/<Module>/Application/EventListener/` |
 | Внутреннее исходящее сообщение для асинхронного продолжения | `src/<Module>/Application/Message/` |
+| Синхронная адаптация собственного доменного события в публичное и запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
 | Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
 | Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
 | Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
 | Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
+| Публичное межмодульное событие | `src/<Module>/Presentation/Contracts/Event/`; [правила](rules/integration-events.md) |
 | Реализация публичного интерфейса через Command/Query владельца | `src/<Module>/Presentation/Adapter/` |
 | HTTP-контроллер, Request/Response DTO, CLI, адаптация входящего внешнего сообщения | `src/<Module>/Presentation/` |
 | Типизированный DTO входа HTTP с ограничениями Assert для MapRequestPayload/MapQueryString | `src/<Module>/Presentation/Http/Request/` |
