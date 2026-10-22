@@ -45,6 +45,12 @@ PHPStan использует `phpstan.dist.neon`, PHP-CS-Fixer — `.php-cs-fixe
 
 Deptrac проверяет границы слоёв, запрет чужих моделей, зависимости Shared,
 запрет доступа Presentation к Domain/Repository и Application к адаптерам.
+AsMessageHandler и AsEventListener выделены в отдельный слой HandlerAttributes:
+разрешены в Application и внешних слоях, запрещены в Domain и Contracts.
+Исключение не разрешает Application зависеть от MessageBusInterface,
+EventDispatcher и остальных сервисов Symfony. Положительные/отрицательные
+fixtures проверяются `ArchitectureTest::testRegistrationAttributesDoNotExposeFrameworkServicesToInnerLayers`.
+
 DI-код сборки в Infrastructure/Symfony/DependencyInjection может связывать слои
 своего модуля. Domain/Repository — обязательное место репозиторных интерфейсов.
 
@@ -104,6 +110,15 @@ Unit-тесты изолированы от контейнера и БД. Инт
 `Tests\Integration\IntegrationTestCase`; HTTP-тесты — WebTestCase либо прямой
 Kernel для проверки адаптеров. Технические fixtures находятся только в tests.
 
+При изменении DI проверь, что сервисы загружаются узкими ресурсами и не требуют
+дублирующих `Class: ~`, tags, aliases или arguments. Все нужные шины и порты
+разрешаются в реальном контейнере; DTO и другие объекты данных не стали сервисами.
+Учитывай, что атрибут не заменяет service discovery, а единственная реализация
+сама по себе не гарантирует alias. Проверяй private aliases, регистрацию listener
+без повторов, состав tagged iterator и сборку контейнера test/prod.
+Не делай production-сервисы публичными только ради тестов: используй тестовый
+контейнер, а для удалённых при оптимизации сервисов — точечные настройки when@test.
+
 Тесты технической загрузки используют только tests/Fixtures и отдельный Kernel.
 Они не создают production-модули и не регистрируются обычным Kernel. Команды,
 inbox и базовая outbox-маршрутизация проверяются на SQLite in-memory.
@@ -145,7 +160,9 @@ CI подготавливает её отдельно. Тест проверяе
 - Публикацию адаптирует синхронный listener из
   Infrastructure/Messaging/EventListener/. Регистрация и преобразование
   собственного доменного события проверяются через действующий контейнер
-  и EventBus. Application не импортирует Contracts.
+  и EventBus. Предпочтительны AsEventListener, AsMessageHandler и
+  инфраструктурные AsIntegrationEvent/AsIntegrationEventSubscriber;
+  одинаковая регистрация не дублируется YAML-тегами. Application не импортирует Contracts.
 - Формируется самостоятельный неизменяемый снимок со вложенными DTO.
   Последующее изменение агрегата не меняет payload. Worker не загружает
   агрегат для повторного формирования события; eventAt сохраняет время операции.
@@ -156,6 +173,10 @@ CI подготавливает её отдельно. Тест проверяе
   и метаданные при записи и восстановлении общей обёртки. Проверь формат
   eventAt, логические type/source и schemaVersion. Событие остаётся доступным
   получателю без зависимости от внутренних типов владельца.
+- Конфликты схем и subscriberId, неправильные сигнатуры подписчиков
+  и ссылки на незарегистрированные события выявляются при компиляции.
+  В persisted-сообщении нет бизнесовых PHP-классов: вложенные DTO
+  восстанавливаются кодеком из JSON по source/type/schemaVersion.
 - eventId и снимок сохраняются при повторной доставке, восстановлении из failed
   и доставке независимым подписчикам. Получатель обрабатывает дубликаты
   идемпотентно; ошибка одного подписчика не повторяет уже завершённые эффекты
@@ -174,6 +195,13 @@ CI подготавливает её отдельно. Тест проверяе
 
 Это требования к проверке реализуемого механизма, а не утверждение, что
 перечисленные сценарии уже покрыты существующими тестами.
+
+Общий механизм Shared проверяют `IntegrationEventPublisherTest`,
+`IntegrationEventHandlerTest`, `IntegrationEventPassTest`,
+`IntegrationEventDeliveryTest` и `PostgresIntegrationEventTest`.
+Последний проверяет невидимость всех доставок до commit и совместный
+commit/rollback с данными технической схемы alpha через отдельное соединение.
+PostgreSQL-сценарий запускается с выделенной OUTBOX_TEST_DATABASE_URL.
 
 ### HTTP-вход и валидация
 

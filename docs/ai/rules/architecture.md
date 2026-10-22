@@ -98,7 +98,10 @@ Domain не зависит от Symfony, других модулей и адап
 
 Прикладные порты внешних возможностей находятся внутри Command/Query-сценариев
 Application потребителя. Application может использовать
-Validator Constraints. Domain использует PHP и Doctrine-атрибуты маппинга сущностей.
+Validator Constraints и атрибуты регистрации AsMessageHandler/AsEventListener.
+Это узкое исключение для метаданных: прямые зависимости Application от Symfony
+MessageBusInterface, EventDispatcher и остальных сервисов фреймворка запрещены.
+Domain использует PHP и Doctrine-атрибуты маппинга сущностей.
 Дополнительное исключение — `Shared/Domain/Collection/AbstractCollection`,
 наследующий Doctrine `ArrayCollection`. Коллекции сущностей наследуют эту основу;
 прямые импорты Doctrine Collections в остальных доменных классах запрещены.
@@ -135,6 +138,56 @@ Shared — общая техническая основа, не набор об�
 или бизнес-правила ради устранения дублирования.
 Осознанный Shared Kernel не вводится шаблоном заранее.
 
+## Регистрация сервисов и атрибуты
+
+Предпочитай PHP-атрибуты везде, где механизм их поддерживает и позволяет
+граница слоя. Правило касается всех сервисов, а не только событий:
+
+- Обработчики Command/Query и сообщений: `#[AsMessageHandler(bus: 'command.bus')]`
+  или другая явная шина. Например, CreateDraftHandler помечается этим атрибутом,
+  без тега messenger.message_handler в YAML.
+- Синхронные listener: `#[AsEventListener(event: SomeDomainEvent::class)]`.
+- Маршруты и контроллеры: Route и при необходимости AsController;
+  CLI-команды: AsCommand; окружения инфраструктурных сервисов: When/WhenNot.
+- DI в адаптерах: AsAlias для нужного связывания интерфейса, AsDecorator для
+  декорирования, Autowire для неоднозначного аргумента, AutowireIterator для
+  набора помеченных сервисов.
+- Схемы и подписчики межмодульных событий: AsIntegrationEvent и
+  AsIntegrationEventSubscriber по [правилам межмодульных событий](integration-events.md).
+
+Если настройки по умолчанию, autowire/autoconfigure и атрибуты уже обеспечивают
+нужное поведение, запись в конфиг не добавляй. Не заменяй ненужный YAML
+столь же ненужным атрибутом. services.yaml содержит подключение узких ресурсов
+и только необходимые настройки, которые нельзя корректно выразить атрибутами
+или получить автоматически, например сложную сборку сервисов через фабрику.
+Не дублируй атрибуты YAML-тегами: это может вызвать повторную обработку.
+
+Атрибут сам по себе не загружает класс в контейнер. Подключай каталоги сервисов
+узкими `resource` с autowire/autoconfigure, например Domain/Action/,
+Infrastructure/Integration/ или только файлы Application/**/*Handler.php.
+Уже охваченные ресурсом классы не перечисляй отдельно как `Class: ~`.
+Не сканируй весь модуль или Domain; исключай DTO, сообщения, сущности,
+value objects и прочие объекты данных.
+
+Единственная реализация интерфейса не гарантирует автоматический alias:
+важно, какие интерфейсы и реализации попали в service discovery. Если alias
+уже создан загрузчиком, дополнительная регистрация не нужна. Иначе укажи
+`#[AsAlias(ProductOfferProviderInterface::class)]` на инфраструктурном адаптере;
+сам интерфейс остаётся независимым от Symfony. Не вводи неявный выбор
+реализации при неоднозначности. Для DI сервисы и aliases оставляй private;
+`public: true` требует конкретного потребителя с доступом через контейнер,
+а не только желания получить сервис в тесте.
+
+Для единственного подключения Doctrine Connection внедряется по типу.
+Messenger предоставляет именованные зависимости MessageBusInterface
+`$commandBus`, `$queryBus`, `$inboxBus`, `$outboxBus`; при совпадении имён
+и проверенной маршрутизации отдельные arguments/Autowire не нужны.
+
+Границы зависимостей важнее удобства регистрации. AsMessageHandler и
+AsEventListener допустимы в Application и внешних слоях, но запрещены
+в Domain и Presentation/Contracts. Инфраструктурные атрибуты схем/подписок
+размещаются на инфраструктурных сервисах, а не на публичных DTO.
+
 ## Добавление и подключение модуля
 
 1. Определите ответственность, язык, границы агрегатов и опубликованные контракты.
@@ -169,23 +222,21 @@ services:
     _defaults:
         autowire: true
         autoconfigure: true
-    App\Example\Application\DoSomething\Handler:
-        tags:
-            - { name: messenger.message_handler, bus: command.bus }
-    App\Example\Domain\Action\DoSomethingAction: ~
+    App\Example\Application\:
+        resource: '../Application/**/*Handler.php'
+    App\Example\Domain\Action\:
+        resource: '../Domain/Action/'
+    App\Example\Infrastructure\Integration\:
+        resource: '../Infrastructure/Integration/'
     App\Example\Presentation\Http\Controller\Api\:
         resource: '../Presentation/Http/Controller/Api/'
-        tags: [controller.service_arguments]
-    App\Example\Infrastructure\Persistence\Doctrine\ExampleRepository: ~
-    App\Example\Domain\Repository\ExampleRepositoryInterface:
-        alias: App\Example\Infrastructure\Persistence\Doctrine\ExampleRepository
-    App\Example\Infrastructure\Persistence\Doctrine\ExampleDataProvider: ~
-    App\Example\Domain\DataProvider\ExampleDataProviderInterface:
-        alias: App\Example\Infrastructure\Persistence\Doctrine\ExampleDataProvider
 ```
 
-Не сканируйте целиком Domain или весь модуль как сервисы. Сущности, value objects,
-команды/запросы и DTO не являются сервисами. Не переопределяйте сервисы соседей.
+В примере DoSomethingHandler помечен `#[AsMessageHandler(bus: 'command.bus')]`
+в PHP-коде, маршруты контроллеров заданы Route; их теги добавляет autoconfigure.
+Адаптеры при необходимости объявляют AsAlias на реализуемые порты.
+Добавляй только ресурсы существующих каталогов, нужные конкретному модулю.
+Не переопределяй сервисы соседей.
 
 Начальные dev/test-данные загружайте через DoctrineFixturesBundle. Фикстуры
 принадлежат Infrastructure владельца; их размещение и регистрация описаны
@@ -247,8 +298,9 @@ doctrine:
 сущностям шину не внедряйте. Domain не зависит от Application или Symfony
 EventDispatcher; исключение Symfony UID описано в разделе границ выше.
 
-Обработчики сообщений Messenger регистрируются с явным bus. Listener доменных
-событий регистрируются отдельно через `kernel.event_listener`.
+Обработчики Messenger предпочтительно помечаются AsMessageHandler с явным bus,
+listener доменных событий — AsEventListener. Их подключение описано в
+[правилах регистрации сервисов](#регистрация-сервисов-и-атрибуты).
 Входящий внешний формат преобразуется Presentation-адаптером во внутреннюю
 команду или inbox DTO.
 Репозиторий не вызывает flush самостоятельно. Локальный use case — граница
@@ -286,9 +338,12 @@ Presentation/Contracts/Event/. Синхронный инфраструктурн
 через `DispatchAfterCurrentBusStamp` или after-commit: запись после commit
 разрушает атомарность. Worker доставляет сохранённые сообщения после commit.
 
-Общая обёртка публичных событий — требование к интеграционной доставке;
-её наличие в текущем коде и задачи перехода указаны в AGENTS.md владельцев.
-Не объявляйте механизм реализованным только на основании этих правил.
+Публичные события публикует IntegrationEventPublisher из Shared Infrastructure.
+Он фиксирует JSON-снимок и общую идентичность события, записывая отдельную
+IntegrationEventEnvelope на подписчика в той же транзакции. Shared-handler
+на outbox.bus восстанавливает публичный DTO по зарегистрированной схеме
+и вызывает одного подписчика. API, кодеки, состав подписчиков при публикации
+и совместимость описаны в [правилах межмодульных событий](integration-events.md).
 
 Worker запускается `make outbox-worker` (или `messenger:consume outbox`).
 Обработчики исходящих сообщений регистрируются явно на `outbox.bus`;

@@ -169,9 +169,13 @@ listener владельца и outbox по [правилам межмодуль�
 выполняет бизнес-операцию через `Product::changePrice()` и сохраняет через
 Repository. Проверка положительной цены остаётся в Product.
 
-Регистрируй конкретные Action как сервисы явно в конфигурации владельца.
-Не сканируй весь Domain. Action не является обработчиком Messenger;
-теги `messenger.message_handler` относятся к Application-обработчикам.
+Подключай Domain/Action/ узким ресурсом владельца с autowire/autoconfigure;
+каждый Action через `Class: ~` не перечисляй. Не сканируй весь Domain.
+Action не является обработчиком Messenger
+и не получает Symfony-атрибутов регистрации. Обработчики Command/Query
+и прикладных сообщений в Application предпочтительно помечаются
+`#[AsMessageHandler(bus: 'command.bus')]` с соответствующей явной шиной
+по [правилам регистрации](architecture.md#регистрация-сервисов-и-атрибуты).
 
 ## Доменные события и реакции
 
@@ -215,8 +219,9 @@ final readonly class OrderSubmittedEvent implements EventInterface
 адаптирует listener из Infrastructure/Messaging/EventListener/ владельца по
 [правилам межмодульных событий](integration-events.md).
 Одно доменное событие может иметь несколько независимых listener.
-Регистрируй их явно сервисами владельца
-с тегом `kernel.event_listener`, классом события и методом `__invoke()`.
+Подключай их как сервисы владельца с autoconfigure и предпочтительно помечай
+`#[AsEventListener(event: OrderSubmittedEvent::class)]` над классом с `__invoke()`.
+Не дублируй регистрацию атрибута тегом `kernel.event_listener`.
 Это синхронные listener EventDispatcher, а не обработчики Messenger.
 
 Listener внутреннего асинхронного продолжения преобразует доменное событие

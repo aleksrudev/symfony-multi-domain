@@ -43,7 +43,11 @@ Command/Query, вызывает `CommandBusInterface` или `QueryBusInterface`
 возвращает `null` при отсутствии предложения. Преобразовывай только
 согласованные случаи отсутствия и ошибки; не подавляй произвольные сбои.
 
-Связь регистрируется явно в `config/services.yaml` владельца:
+Если автоподключение не создало alias, укажи на CatalogContractAdapter
+`#[AsAlias(CatalogContractInterface::class)]` из
+`Symfony\Component\DependencyInjection\Attribute\AsAlias`.
+
+В `config/services.yaml` владельца достаточно подключить каталог адаптеров:
 
 ```yaml
 services:
@@ -51,10 +55,14 @@ services:
         autowire: true
         autoconfigure: true
 
-    App\Catalog\Presentation\Adapter\CatalogContractAdapter: ~
-    App\Catalog\Presentation\Contracts\CatalogContractInterface:
-        alias: App\Catalog\Presentation\Adapter\CatalogContractAdapter
+    App\Catalog\Presentation\Adapter\:
+        resource: '../Presentation/Adapter/'
 ```
+
+Повторный YAML alias, `Class: ~` и `public: true` для обычного DI не нужны.
+Правило действует также для исходящих адаптеров Infrastructure/Integration
+и их прикладных портов. Подробности — в
+[правилах регистрации](architecture.md#регистрация-сервисов-и-атрибуты).
 
 Путь вызова: интерфейс → входящий адаптер → command.bus/query.bus →
 Application-обработчик → доменный слой. QueryResult преобразуется
@@ -79,6 +87,9 @@ Application/Message/ по [правилам доменных событий](dom
 инфраструктурный listener владельца. Он зависит от собственного Domain
 и Contracts и записывает событие в outbox через общую техническую обёртку.
 Контракт события остаётся независимым от внутренних шин и их маркеров.
+Listener использует IntegrationEventPublisher; кодеки схем и адаптеры подписчиков
+регистрируются инфраструктурными атрибутами AsIntegrationEvent и
+AsIntegrationEventSubscriber. На публичных DTO эти атрибуты не размещаются.
 Снимок данных, метаданные и совместимость определяются
 [правилами межмодульных событий](integration-events.md).
 
