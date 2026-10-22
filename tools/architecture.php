@@ -17,6 +17,7 @@ return static function (string $source, array $dependencies = []): array {
     $uid = $class('^Symfony\\\\Component\\\\Uid\\\\');
     $uidBase = $class('^App\\\\Shared\\\\Domain\\\\ValueObject\\\\(?:UuidId|UlidId)$');
     $validation = $class('^Symfony\\\\Component\\\\Validator\\\\Constraints\\\\');
+    $handlerAttributes = $class('^Symfony\\\\Component\\\\(?:Messenger\\\\Attribute\\\\AsMessageHandler|EventDispatcher\\\\Attribute\\\\AsEventListener)$');
     $layers = [
         ['name' => 'PHP', 'collectors' => [$internal]],
         ['name' => 'ORMMapping', 'collectors' => [$mapping]],
@@ -25,10 +26,11 @@ return static function (string $source, array $dependencies = []): array {
         ['name' => 'SymfonyUid', 'collectors' => [$uid]],
         ['name' => 'UidBase', 'collectors' => [$uidBase]],
         ['name' => 'Validation', 'collectors' => [$validation]],
-        ['name' => 'Vendor', 'collectors' => [['type' => 'bool', 'must' => [$class('^(?!App\\\\).*')], 'must_not' => [$internal, $mapping, $validation, $doctrineCollections, $uid]]]],
+        ['name' => 'HandlerAttributes', 'collectors' => [$handlerAttributes]],
+        ['name' => 'Vendor', 'collectors' => [['type' => 'bool', 'must' => [$class('^(?!App\\\\).*')], 'must_not' => [$internal, $mapping, $validation, $doctrineCollections, $uid, $handlerAttributes]]]],
         ['name' => 'Kernel', 'collectors' => [$class('^App\\\\Kernel$')]],
     ];
-    $rules = ['PHP' => [], 'ORMMapping' => [], 'DoctrineCollections' => [], 'CollectionBase' => ['PHP', 'DoctrineCollections'], 'SymfonyUid' => [], 'UidBase' => ['PHP', 'SymfonyUid'], 'Validation' => [], 'Vendor' => [], 'Kernel' => ['PHP', 'Vendor', 'DoctrineCollections', 'CollectionBase', 'SymfonyUid', 'UidBase']];
+    $rules = ['PHP' => [], 'ORMMapping' => [], 'DoctrineCollections' => [], 'CollectionBase' => ['PHP', 'DoctrineCollections'], 'SymfonyUid' => [], 'UidBase' => ['PHP', 'SymfonyUid'], 'Validation' => [], 'HandlerAttributes' => [], 'Vendor' => [], 'Kernel' => ['PHP', 'Vendor', 'DoctrineCollections', 'CollectionBase', 'SymfonyUid', 'UidBase', 'HandlerAttributes']];
     $modules = ['Shared'];
     foreach (glob($source.'/*', GLOB_ONLYDIR) ?: [] as $directory) {
         $name = basename($directory);
@@ -76,10 +78,10 @@ return static function (string $source, array $dependencies = []): array {
         $rules[$module.'.Domain'] = ['PHP', 'ORMMapping', $module.'.Repository', $module.'.Collection'];
         $rules[$module.'.Collection'] = ['PHP', 'CollectionBase', $module.'.Domain'];
         $rules[$module.'.Repository'] = ['PHP', $module.'.Domain', $module.'.Collection'];
-        $rules[$module.'.Application'] = ['PHP', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Collection'];
-        $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'Validation', $module.'.Application', $module.'.Domain', $module.'.Collection', $module.'.Contracts'];
+        $rules[$module.'.Application'] = ['PHP', 'Validation', 'HandlerAttributes', $module.'.Domain', $module.'.Repository', $module.'.Collection'];
+        $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'Validation', 'HandlerAttributes', $module.'.Application', $module.'.Domain', $module.'.Collection', $module.'.Contracts'];
         foreach (['Infrastructure', 'Integration', 'Wiring'] as $layer) {
-            $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'ORMMapping', 'Validation', $module.'.Domain', $module.'.Repository', $module.'.Collection', $module.'.Application', $module.'.Contracts'];
+            $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'ORMMapping', 'Validation', 'HandlerAttributes', $module.'.Domain', $module.'.Repository', $module.'.Collection', $module.'.Application', $module.'.Contracts'];
         }
         $rules[$module.'.Integration'][] = $module.'.Infrastructure';
         $rules[$module.'.Wiring'] = array_merge($rules[$module.'.Wiring'], [$module.'.Infrastructure', $module.'.Integration', $module.'.Presentation']);

@@ -6,10 +6,12 @@ namespace App\Shared\Infrastructure\Bus\Symfony;
 
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use App\Shared\Application\Bus\Query\QueryInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+#[AsAlias(QueryBusInterface::class)]
 class QueryMessageBus implements QueryBusInterface
 {
     use HandleTrait;

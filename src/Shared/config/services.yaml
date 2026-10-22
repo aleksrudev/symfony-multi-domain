@@ -3,28 +3,17 @@ services:
         autowire: true
         autoconfigure: true
 
-    App\Shared\Infrastructure\Bus\Symfony\CommandMessageBus:
-        arguments: { $commandBus: '@command.bus' }
-    App\Shared\Infrastructure\Bus\Symfony\QueryMessageBus:
-        arguments: { $queryBus: '@query.bus' }
-    App\Shared\Infrastructure\Bus\Symfony\InboxMessageBus:
-        arguments: { $inboxBus: '@inbox.bus' }
-    App\Shared\Infrastructure\Bus\Symfony\OutboxMessageBus:
-        arguments:
-            $outboxBus: '@outbox.bus'
-            $connection: '@doctrine.dbal.default_connection'
-    App\Shared\Infrastructure\Bus\Symfony\EventMessageBus: ~
+    App\Shared\Infrastructure\Bus\Symfony\:
+        resource: '../Infrastructure/Bus/Symfony/'
 
-    App\Shared\Application\Bus\Command\CommandBusInterface: '@App\Shared\Infrastructure\Bus\Symfony\CommandMessageBus'
-    App\Shared\Application\Bus\Query\QueryBusInterface: '@App\Shared\Infrastructure\Bus\Symfony\QueryMessageBus'
-    App\Shared\Application\Bus\Inbox\InboxBusInterface: '@App\Shared\Infrastructure\Bus\Symfony\InboxMessageBus'
-    App\Shared\Application\Bus\Outbox\OutboxBusInterface: '@App\Shared\Infrastructure\Bus\Symfony\OutboxMessageBus'
-    App\Shared\Domain\Event\EventBusInterface: '@App\Shared\Infrastructure\Bus\Symfony\EventMessageBus'
+    App\Shared\Infrastructure\Messaging\:
+        resource: '../Infrastructure/Messaging/*{Handler,Publisher,Registry}.php'
 
-    App\Shared\Presentation\Http\Error\DomainErrorRegistry: ~
-    App\Shared\Presentation\Http\ExceptionListener:
-        tags: [{ name: kernel.event_listener, event: kernel.exception }]
+    App\Shared\Infrastructure\Schedule\:
+        resource: '../Infrastructure/Schedule/'
 
-    App\Shared\Infrastructure\Schedule\Schedule:
-        arguments:
-            $contributors: !tagged_iterator app.schedule_contributor
+    App\Shared\Presentation\Http\:
+        resource: '../Presentation/Http/*Listener.php'
+
+    App\Shared\Presentation\Http\Error\:
+        resource: '../Presentation/Http/Error/*Registry.php'

@@ -24,6 +24,17 @@ final class ArchitectureTest extends TestCase
         }
     }
 
+    public function testRegistrationAttributesDoNotExposeFrameworkServicesToInnerLayers(): void
+    {
+        $allowed = $this->analyse('Allowed');
+        self::assertSame(0, $allowed->getExitCode(), $allowed->getOutput().$allowed->getErrorOutput());
+        $forbidden = $this->analyse('Forbidden');
+        self::assertSame(1, $forbidden->getExitCode(), $forbidden->getOutput().$forbidden->getErrorOutput());
+        foreach (['AttributeLeak', 'AttributeLeakEvent', 'MessengerBusLeak'] as $class) {
+            self::assertStringContainsString($class, $forbidden->getOutput());
+        }
+    }
+
     public function testPublicContractBoundariesAreEnforced(): void
     {
         $process = $this->analyse('Forbidden');
