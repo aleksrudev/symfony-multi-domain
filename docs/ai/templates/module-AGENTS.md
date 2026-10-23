@@ -21,6 +21,9 @@
 и передачу результатов между ними на уровне Application. Для Query,
 возвращающих данные сущности, списка или составного результата, укажи модели
 `<QueryName>Result` и их поля без доменных сущностей и их коллекций.
+Укажи пути сценариев в `Application/Command/<UseCase>/` и
+`Application/Query/<UseCase>/`; остальные каталоги верхнего уровня в Application
+бизнес-модуля не создавай.
 
 Укажи типы идентификаторов, ограничения их формата и версию генерации UUID,
 доменные enum и допустимые значения. Обоснованные отступления от правил
@@ -69,9 +72,10 @@ inbox-обработчики, правила повторной доставки
 Все настройки владельца находятся в config модуля.
 
 Перечисли доменные события, их содержание, смысл eventAt и публикующие их Action.
-Укажи внутренние прикладные listener из Application/EventListener/,
-выполняемые ими реакции, регистрацию и сообщения внутреннего продолжения из
-Application/Message/. Следуй правилам доменных событий из
+Укажи listener собственных доменных событий из
+Infrastructure/Messaging/EventListener/, их регистрацию, вызываемые
+Command/Query и сообщения внутреннего продолжения из
+`Infrastructure/Messaging/Outbox/<Operation>/`. Следуй правилам доменных событий из
 `docs/ai/rules/domain-actions.md`; общие правила не копируй.
 
 Отдельно перечисли listener публикации из Infrastructure/Messaging/EventListener/,
@@ -85,7 +89,10 @@ Application/Message/. Следуй правилам доменных событ�
 Укажи публичные DTO с IntegrationEventInterface и скалярными метаданными,
 логические source/type/schemaVersion и PHP-типы поддерживаемых версий.
 Перечисли AsEventListener-адаптеры приёма, собственные Inbox DTO и handlers
-с AsMessageHandler(bus: 'inbox.bus'). Опиши совместимость PHP-классов в очередях,
+из `Infrastructure/Messaging/Inbox/<Operation>/` с AsMessageHandler(bus: 'inbox.bus')
+и вызываемые ими Command/Query. Для каждой Inbox/Outbox-операции укажи отдельный
+каталог и вспомогательные DTO; файлы непосредственно в Inbox/Outbox запрещены.
+Опиши совместимость PHP-классов в очередях,
 включая failed, и идемпотентность каждого бизнесового получателя.
 
 Перечисли Doctrine-фикстуры начальных dev/test-данных, их регистрацию и
