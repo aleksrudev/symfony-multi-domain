@@ -52,7 +52,7 @@ Doctrine ORM 3, PostgreSQL 16, Messenger и Scheduler. Бизнес-модуле
 Сущности, value objects и DTO не регистрировать как сервисы.
 Предпочтение PHP-атрибутам действует для всех поддерживающих их механизмов:
 обработчиков Command/Query (`AsMessageHandler` с явной шиной), listener,
-маршрутов, CLI-команд, DI aliases и аргументов, интеграционных схем и подписчиков.
+маршрутов, CLI-команд, DI aliases и аргументов, адаптеров межмодульных событий.
 Если autowire, autoconfigure и атрибуты уже решают задачу, запись в конфиг
 не добавлять. Сервисы подключать узкими `resource`, без перечисления каждого
 класса через `Class: ~`; дополнительные aliases и wiring нужны только при
@@ -81,9 +81,16 @@ API-контроллеры находятся в `Presentation/Http/Controller/A
 `OutboxBusInterface` внутри транзакции команды. Они направляются в отдельные
 `outbox.bus` и Doctrine-очередь `outbox`; `make outbox-worker` их обрабатывает.
 Запись outbox после commit нарушает атомарность; доставка выполняется после commit.
-Публичные события находятся в `Presentation/Contracts/Event/`, не зависят от
-транспорта и помещаются в общую техническую обёртку инфраструктурным listener.
-Получатели учитывают повторы.
+Публичные события находятся в `Presentation/Contracts/Event/`, реализуют пустую
+Shared Presentation-метку `IntegrationEventInterface`. Инфраструктурный listener
+владельца вызывает Shared Infrastructure `IntegrationEventDispatcher`, который
+помещает событие в одну `IntegrationEventMessage` для outbox. После commit общий
+handler передаёт DTO в Symfony EventDispatcher. Listener потребителей только
+преобразуют его в собственные Inbox-сообщения. Все они записываются атомарно
+в Doctrine `async` на том же default connection; бизнес-реакции выполняются
+отдельными Inbox handlers. Метаданные — скалярные поля публичного DTO.
+Сериализатор Messenger сохраняет PHP-типы DTO; учитывай совместимость классов
+в outbox, async и failed. Получатели обеспечивают идемпотентность при повторах.
 
 Обработчики Command/Query и сообщений прикладного продолжения остаются в Application
 и помечаются `AsMessageHandler` с явной шиной. Общие технические обработчики

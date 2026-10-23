@@ -6,7 +6,6 @@ namespace App;
 
 use App\Shared\Infrastructure\Schedule\ScheduleContributorInterface;
 use App\Shared\Infrastructure\Symfony\DependencyInjection\DomainErrorMappingPass;
-use App\Shared\Infrastructure\Symfony\DependencyInjection\IntegrationEventPass;
 use App\Shared\Presentation\Http\Error\DomainErrorProviderInterface;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
@@ -31,7 +30,6 @@ class Kernel extends BaseKernel
         $container->registerForAutoconfiguration(DomainErrorProviderInterface::class)->addTag('app.domain_error_provider');
         $container->registerForAutoconfiguration(ScheduleContributorInterface::class)->addTag('app.schedule_contributor');
         $container->addCompilerPass(new DomainErrorMappingPass(), PassConfig::TYPE_BEFORE_REMOVING);
-        IntegrationEventPass::register($container);
     }
 
     protected function configureContainer(ContainerConfigurator $container): void

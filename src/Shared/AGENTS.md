@@ -11,8 +11,10 @@ Shared не является бизнес-контекстом или заран
   и типизированная основа коллекций `Collection/AbstractCollection`,
   основы UUID/ULID `ValueObject/UuidId` и `ValueObject/UlidId`;
 - Application: контракты шин команд, запросов, inbox и outbox;
-- Presentation: общий HTTP listener и расширяемый реестр ошибок;
-- Infrastructure: реализации шин, JSON-снимки и доставка межмодульных событий,
+- Presentation: пустая публичная метка IntegrationEventInterface, общий HTTP listener
+  и расширяемый реестр ошибок;
+- Infrastructure: реализации шин, доставка межмодульных событий через Outbox →
+  EventDispatcher → Inbox,
   сборка расписания, compiler passes;
 - config: регистрация только общих сервисов.
 
@@ -20,7 +22,7 @@ services.yaml подключает узкие ресурсы сервисов б
 Адаптеры шин объявляют private AsAlias; MessageBusInterface внедряется по
 именам аргументов шин, default Connection — по типу. HTTP listener использует
 AsEventListener, расписание — AutowireIterator для поставщиков.
-DTO и дескрипторы Messaging не попадают в ресурсы сервисов.
+Messaging подключает только `*{Dispatcher,Handler}.php`; DTO и метка не сервисы.
 Следуй общим [правилам регистрации](../../docs/ai/rules/architecture.md#регистрация-сервисов-и-атрибуты).
 
 Зависимости от бизнес-модулей, их Contracts и тестовых fixtures запрещены.
@@ -71,34 +73,38 @@ connection. Маркер OutboxMessageInterface не навязывает иде
 [соглашение о контрактах и доставке](../../docs/ai/rules/integration-events.md).
 Реализация находится в `Infrastructure/Messaging/`:
 
-- `IntegrationEventPublisher::publish(object, DateTimeImmutable)` требует
-  активную default-транзакцию, возвращает `IntegrationEventMetadata`, фиксирует
-  JSON-снимок кодеком и отдельную `IntegrationEventEnvelope` на подписчика.
-- `IntegrationEventMetadata` содержит eventId/eventAt/source/type/schemaVersion;
-  envelope добавляет JSON-payload и постоянный subscriberId. Только envelope
-  реализует OutboxMessageInterface. DTO и дескрипторы сервисами не регистрируются.
-- `IntegrationEventCodecInterface` явно кодирует/восстанавливает публичную
-  схему. `IntegrationEventRegistry` связывает логические ключи схем и
-  подписчиков с сервисами; конкретные бизнес-классы Shared не импортирует.
-- `Attribute/AsIntegrationEvent` применяется к инфраструктурному кодеку,
-  `Attribute/AsIntegrationEventSubscriber` — к инфраструктурному адаптеру
-  потребителя. `IntegrationEventPass::register()` вызывается Kernel и собирает
-  регистрации с проверкой конфликтов и сигнатур при компиляции.
-- `IntegrationEventHandler` регистрируется AsMessageHandler на outbox.bus.
-  Его вызов восстанавливает DTO и запускает одного подписчика. Ошибки схемы
-  и адресации unrecoverable; ошибки подписчика сохраняют retry-семантику.
+- `IntegrationEventDispatcher::dispatch(IntegrationEventInterface): void` упаковывает
+  публичный DTO в одну `IntegrationEventMessage` и вызывает OutboxBusInterface.
+  Проверку активной default-транзакции выполняет OutboxMessageBus.
+- `IntegrationEventMessage` — readonly-обёртка с типизированным полем event,
+  реализующая OutboxMessageInterface. Метаданные формирует владелец в публичном DTO.
+- `IntegrationEventHandler` помечен AsMessageHandler на outbox.bus и передаёт
+  сохранённый event в штатный Symfony Component EventDispatcherInterface.
+  Набор listener определяется при доставке. Отсутствие listener допустимо.
+- Listener потребителей с AsEventListener только ставят собственные сообщения
+  в inbox.bus. Doctrine async, как и outbox, использует default connection:
+  все записи inbox в одной доставке коммитятся или откатываются вместе.
+  Бизнесовые Inbox handlers выполняются позже в отдельных транзакциях.
 
-Общих таблиц дедупликации и новых миграций нет. OutboxBusInterface и
-OutboxMessageInterface сохраняют прежние контракты. В message body нет
-PHP-типов бизнесовых DTO. Состав подписчиков определяется при публикации;
-при отсутствии подписчиков записей очереди нет. Метаданные и JSON-снимок
-сохраняются при повторной доставке, включая восстановление из failed.
+`Presentation/Contracts/Event/IntegrationEventInterface` не содержит методов
+и не зависит от фреймворка. Это точечное исключение для зависимости публичных
+Contracts от Shared. Domain и Application не используют эту метку; маркеры
+доменного события, Outbox и Inbox остаются отдельными типами.
+Shared не импортирует бизнесовые классы и не содержит общего реестра,
+кодеков, специальных атрибутов или общей таблицы дедупликации.
 
-Тесты: `tests/Unit/Infrastructure/Messaging/`,
-`tests/Unit/Infrastructure/IntegrationEventPassTest.php`,
-`tests/Integration/IntegrationEventDeliveryTest.php` и
-`tests/Integration/PostgresIntegrationEventTest.php`. Технические Alpha/Beta
-fixtures находятся только в tests. PostgreSQL-тест использует отдельную
+Штатный PHP-сериализатор Messenger сохраняет публичный DTO и вложенные DTO,
+включая их PHP-типы. eventId, eventAt и снимок сохраняются при повторах.
+При смене формата со старого JSON/subscriberId envelope сначала обработай
+pending/failed старой версией, останови старых worker, затем переключи код
+и перезапусти worker. Очереди не очищай; старый формат автоматически не читается.
+Повтор fanout после commit → ack может создать повторные inbox-сообщения;
+идемпотентность обеспечивает каждый бизнесовый получатель.
+
+Тесты: `tests/Integration/IntegrationEventDeliveryTest.php`,
+`tests/Integration/PostgresIntegrationEventTest.php` и архитектурные fixtures
+в `tests/Unit/Architecture/ArchitectureTest.php`. Технические Alpha/Beta
+находятся только в tests. PostgreSQL-тест использует отдельную
 OUTBOX_TEST_DATABASE_URL с проверкой суффикса test-БД; миграции сам не применяет.
 
 Поставщики расписания реализуют ScheduleContributorInterface и возвращают

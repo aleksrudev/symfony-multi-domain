@@ -25,7 +25,11 @@ Contracts содержит только опубликованные интер�
 от Domain, Application, Infrastructure, адаптеров, Symfony или Doctrine.
 Не раскрывай через него сущности, внутренние QueryResult, обработчики
 и другие детали реализации. DTO содержат значения и другие публичные DTO.
-Не регистрируй DTO как сервисы.
+Публичные события реализуют пустой Shared Presentation
+`IntegrationEventInterface` из `Shared/Presentation/Contracts/Event/`.
+Это единственное исключение зависимости Contracts от Shared Contracts;
+внутренние Event/Inbox/Outbox маркеры и остальные Shared-типы не разрешены.
+Не регистрируй DTO и метку как сервисы.
 
 Не создавай отдельный верхнеуровневый каталог `<Module>/Contracts/`.
 Само размещение в Presentation не делает остальной Presentation публичным API.
@@ -87,9 +91,10 @@ Application/Message/ по [правилам доменных событий](dom
 инфраструктурный listener владельца. Он зависит от собственного Domain
 и Contracts и записывает событие в outbox через общую техническую обёртку.
 Контракт события остаётся независимым от внутренних шин и их маркеров.
-Listener использует IntegrationEventPublisher; кодеки схем и адаптеры подписчиков
-регистрируются инфраструктурными атрибутами AsIntegrationEvent и
-AsIntegrationEventSubscriber. На публичных DTO эти атрибуты не размещаются.
+Listener использует тонкий Shared Infrastructure IntegrationEventDispatcher.
+Общий outbox handler передаёт публичный DTO в штатный Symfony EventDispatcher.
+Адаптеры потребителей помечаются AsEventListener и только ставят собственные
+Inbox-сообщения, а бизнесовые handlers — AsMessageHandler с inbox.bus.
 Снимок данных, метаданные и совместимость определяются
 [правилами межмодульных событий](integration-events.md).
 
@@ -100,8 +105,9 @@ AsIntegrationEventSubscriber. На публичных DTO эти атрибут�
 импортирует чужие Presentation/Contracts, получает интерфейс поставщика
 через DI и переводит публичные DTO в собственные типы.
 Для событий адаптер из Infrastructure/Integration потребителя преобразует
-чужой публичный контракт в собственную Command или inbox DTO и вызывает
-соответствующую шину. Прикладной провайдер только ради подписки не нужен.
+чужой публичный контракт в собственный inbox DTO и вызывает InboxBusInterface.
+Бизнесовую реакцию выполняет отдельный Inbox handler. Прикладной провайдер
+только ради подписки не нужен.
 
 Не импортируй чужой Presentation/Adapter и не создавай его вручную.
 Не вызывай чужие обработчики и шины напрямую. Сервисы и DI aliases

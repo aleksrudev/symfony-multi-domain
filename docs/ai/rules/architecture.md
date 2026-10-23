@@ -117,6 +117,10 @@ Domain использует PHP и Doctrine-атрибуты маппинга с
 
 Presentation/Contracts — опубликованный межмодульный API, независимый
 от Symfony/Doctrine. Он не раскрывает сущности и не зависит от внутренних слоёв.
+Публичные события реализуют только точную Shared Presentation-метку
+`IntegrationEventInterface` из `Shared/Presentation/Contracts/Event/`.
+Это исключение не разрешает другие Shared Contracts, транспортные маркеры
+или зависимости Domain/Application от интеграционной метки.
 Реализации синхронных интерфейсов находятся в Presentation/Adapter и вызывают
 собственные Command/Query через шины. Публичные события формируются
 инфраструктурными listener владельца по
@@ -152,8 +156,9 @@ Shared — общая техническая основа, не набор об�
 - DI в адаптерах: AsAlias для нужного связывания интерфейса, AsDecorator для
   декорирования, Autowire для неоднозначного аргумента, AutowireIterator для
   набора помеченных сервисов.
-- Схемы и подписчики межмодульных событий: AsIntegrationEvent и
-  AsIntegrationEventSubscriber по [правилам межмодульных событий](integration-events.md).
+- Адаптеры межмодульных событий: штатный AsEventListener для постановки
+  собственного Inbox-сообщения, AsMessageHandler с inbox.bus для его обработки
+  по [правилам межмодульных событий](integration-events.md).
 
 Если настройки по умолчанию, autowire/autoconfigure и атрибуты уже обеспечивают
 нужное поведение, запись в конфиг не добавляй. Не заменяй ненужный YAML
@@ -338,12 +343,19 @@ Presentation/Contracts/Event/. Синхронный инфраструктурн
 через `DispatchAfterCurrentBusStamp` или after-commit: запись после commit
 разрушает атомарность. Worker доставляет сохранённые сообщения после commit.
 
-Публичные события публикует IntegrationEventPublisher из Shared Infrastructure.
-Он фиксирует JSON-снимок и общую идентичность события, записывая отдельную
-IntegrationEventEnvelope на подписчика в той же транзакции. Shared-handler
-на outbox.bus восстанавливает публичный DTO по зарегистрированной схеме
-и вызывает одного подписчика. API, кодеки, состав подписчиков при публикации
-и совместимость описаны в [правилах межмодульных событий](integration-events.md).
+Публичные события публикует тонкий IntegrationEventDispatcher из Shared
+Infrastructure: одна IntegrationEventMessage в outbox независимо от числа
+listener. Штатный сериализатор Messenger сохраняет снимок публичного DTO
+со скалярными метаданными и вложенными DTO, включая их PHP-типы.
+Shared-handler на outbox.bus передаёт DTO в Symfony EventDispatcher.
+Listener потребителей только переводят его в собственные Inbox-сообщения.
+Doctrine transport async использует тот же default connection: рассылка
+атомарно ставит все Inbox-сообщения в одной транзакции outbox.bus.
+Каждый Inbox handler выполняет бизнес-реакцию позже в своей транзакции.
+Ошибки постановки откатывают всю рассылку; ошибка бизнес-реакции повторяет
+только её сообщение. Повтор fanout после commit → ack может создать дубликаты.
+API, выбор listener при доставке и совместимость сохранённых классов описаны
+в [правилах межмодульных событий](integration-events.md).
 
 Worker запускается `make outbox-worker` (или `messenger:consume outbox`).
 Обработчики исходящих сообщений регистрируются явно на `outbox.bus`;

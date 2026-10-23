@@ -44,6 +44,17 @@ final class ArchitectureTest extends TestCase
         }
     }
 
+    public function testIntegrationMarkerIsTheOnlySharedPublicContractAllowedForEvents(): void
+    {
+        $allowed = $this->analyse('Allowed');
+        self::assertSame(0, $allowed->getExitCode(), $allowed->getOutput().$allowed->getErrorOutput());
+        $forbidden = $this->analyse('Forbidden');
+        self::assertSame(1, $forbidden->getExitCode(), $forbidden->getOutput().$forbidden->getErrorOutput());
+        foreach (['SharedContractLeakEvent', 'DomainIntegrationEventLeak', 'ApplicationIntegrationEventLeak'] as $class) {
+            self::assertStringContainsString($class, $forbidden->getOutput());
+        }
+    }
+
     public function testOnlyTheSharedBaseCanDependOnDoctrineCollections(): void
     {
         $process = $this->analyse('Forbidden');

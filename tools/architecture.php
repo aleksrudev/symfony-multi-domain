@@ -18,6 +18,7 @@ return static function (string $source, array $dependencies = []): array {
     $uidBase = $class('^App\\\\Shared\\\\Domain\\\\ValueObject\\\\(?:UuidId|UlidId)$');
     $validation = $class('^Symfony\\\\Component\\\\Validator\\\\Constraints\\\\');
     $handlerAttributes = $class('^Symfony\\\\Component\\\\(?:Messenger\\\\Attribute\\\\AsMessageHandler|EventDispatcher\\\\Attribute\\\\AsEventListener)$');
+    $integrationEvent = $class('^App\\\\Shared\\\\Presentation\\\\Contracts\\\\Event\\\\IntegrationEventInterface$');
     $layers = [
         ['name' => 'PHP', 'collectors' => [$internal]],
         ['name' => 'ORMMapping', 'collectors' => [$mapping]],
@@ -27,10 +28,11 @@ return static function (string $source, array $dependencies = []): array {
         ['name' => 'UidBase', 'collectors' => [$uidBase]],
         ['name' => 'Validation', 'collectors' => [$validation]],
         ['name' => 'HandlerAttributes', 'collectors' => [$handlerAttributes]],
+        ['name' => 'IntegrationEventContract', 'collectors' => [$integrationEvent]],
         ['name' => 'Vendor', 'collectors' => [['type' => 'bool', 'must' => [$class('^(?!App\\\\).*')], 'must_not' => [$internal, $mapping, $validation, $doctrineCollections, $uid, $handlerAttributes]]]],
         ['name' => 'Kernel', 'collectors' => [$class('^App\\\\Kernel$')]],
     ];
-    $rules = ['PHP' => [], 'ORMMapping' => [], 'DoctrineCollections' => [], 'CollectionBase' => ['PHP', 'DoctrineCollections'], 'SymfonyUid' => [], 'UidBase' => ['PHP', 'SymfonyUid'], 'Validation' => [], 'HandlerAttributes' => [], 'Vendor' => [], 'Kernel' => ['PHP', 'Vendor', 'DoctrineCollections', 'CollectionBase', 'SymfonyUid', 'UidBase', 'HandlerAttributes']];
+    $rules = ['PHP' => [], 'ORMMapping' => [], 'DoctrineCollections' => [], 'CollectionBase' => ['PHP', 'DoctrineCollections'], 'SymfonyUid' => [], 'UidBase' => ['PHP', 'SymfonyUid'], 'Validation' => [], 'HandlerAttributes' => [], 'IntegrationEventContract' => ['PHP'], 'Vendor' => [], 'Kernel' => ['PHP', 'Vendor', 'DoctrineCollections', 'CollectionBase', 'SymfonyUid', 'UidBase', 'HandlerAttributes', 'IntegrationEventContract']];
     $modules = ['Shared'];
     foreach (glob($source.'/*', GLOB_ONLYDIR) ?: [] as $directory) {
         $name = basename($directory);
@@ -64,7 +66,7 @@ return static function (string $source, array $dependencies = []): array {
             'Collection' => [['type' => 'bool', 'must' => [$class($prefix.'Domain\\\\Collection\\\\')], 'must_not' => [$collectionBase]]],
             'Domain' => [['type' => 'bool', 'must' => [$class($prefix.'Domain\\\\')], 'must_not' => [$class($prefix.'Domain\\\\Repository\\\\'), $class($prefix.'Domain\\\\Collection\\\\'), $uidBase]]],
             'Application' => [$class($prefix.'Application\\\\')],
-            'Contracts' => [$class($prefix.'Presentation\\\\Contracts\\\\')],
+            'Contracts' => [['type' => 'bool', 'must' => [$class($prefix.'Presentation\\\\Contracts\\\\')], 'must_not' => [$integrationEvent]]],
             'Presentation' => [['type' => 'bool', 'must' => [$class($prefix.'Presentation\\\\')], 'must_not' => [$class($prefix.'Presentation\\\\Contracts\\\\')]]],
             'Integration' => [$class($prefix.'Infrastructure\\\\Integration\\\\')],
             'Wiring' => [$class($prefix.'Infrastructure\\\\Symfony\\\\DependencyInjection\\\\')],
@@ -78,10 +80,11 @@ return static function (string $source, array $dependencies = []): array {
         $rules[$module.'.Domain'] = ['PHP', 'ORMMapping', $module.'.Repository', $module.'.Collection'];
         $rules[$module.'.Collection'] = ['PHP', 'CollectionBase', $module.'.Domain'];
         $rules[$module.'.Repository'] = ['PHP', $module.'.Domain', $module.'.Collection'];
+        $rules[$module.'.Contracts'][] = 'IntegrationEventContract';
         $rules[$module.'.Application'] = ['PHP', 'Validation', 'HandlerAttributes', $module.'.Domain', $module.'.Repository', $module.'.Collection'];
-        $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'Validation', 'HandlerAttributes', $module.'.Application', $module.'.Domain', $module.'.Collection', $module.'.Contracts'];
+        $rules[$module.'.Presentation'] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'Validation', 'HandlerAttributes', 'IntegrationEventContract', $module.'.Application', $module.'.Domain', $module.'.Collection', $module.'.Contracts'];
         foreach (['Infrastructure', 'Integration', 'Wiring'] as $layer) {
-            $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'ORMMapping', 'Validation', 'HandlerAttributes', $module.'.Domain', $module.'.Repository', $module.'.Collection', $module.'.Application', $module.'.Contracts'];
+            $rules[$module.'.'.$layer] = ['PHP', 'Vendor', 'DoctrineCollections', 'SymfonyUid', 'ORMMapping', 'Validation', 'HandlerAttributes', 'IntegrationEventContract', $module.'.Domain', $module.'.Repository', $module.'.Collection', $module.'.Application', $module.'.Contracts'];
         }
         $rules[$module.'.Integration'][] = $module.'.Infrastructure';
         $rules[$module.'.Wiring'] = array_merge($rules[$module.'.Wiring'], [$module.'.Infrastructure', $module.'.Integration', $module.'.Presentation']);

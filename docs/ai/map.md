@@ -12,7 +12,7 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: шины, доменные события, JSON-снимки и outbox-доставка межмодульных событий, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: шины, доменные события, публичная метка событий и доставка через Outbox → EventDispatcher → Inbox, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 
 Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
 пустой список; Shared подключается отдельно как техническая основа.
@@ -45,10 +45,13 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 расписания настраиваются атрибутами сервисов. Конкретные классы без необходимого
 переопределения в YAML не перечисляются.
 
-Публикация, кодеки, метаданные, общая обёртка и обработчик межмодульной доставки
-находятся в `src/Shared/Infrastructure/Messaging/`. Схемы и подписчики объявляются
-атрибутами инфраструктурных сервисов; их собирает
-`src/Shared/Infrastructure/Symfony/DependencyInjection/IntegrationEventPass.php`.
+Пустая публичная метка `IntegrationEventInterface` находится в
+`src/Shared/Presentation/Contracts/Event/`. Тонкий `IntegrationEventDispatcher`,
+общая `IntegrationEventMessage` и `IntegrationEventHandler` находятся в
+`src/Shared/Infrastructure/Messaging/`. Handler использует штатный Symfony
+EventDispatcher; listener потребителей ставят собственные сообщения в Inbox.
+Outbox и Inbox используют Doctrine transport на одном default connection.
+Собственного реестра, кодеков или compiler pass межмодульных событий нет.
 Семантика публикации и подключения — в
 [правилах межмодульных событий](rules/integration-events.md).
 
@@ -92,6 +95,7 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 | API-контроллер одного действия с `__invoke()` | `src/<Module>/Presentation/Http/Controller/Api/<Actor>/` |
 | Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
 | Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
+| Listener преобразования чужого публичного события в собственное Inbox-сообщение | `src/<Module>/Infrastructure/Integration/<Owner>/`; [правила](rules/integration-events.md) |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |
 | Сервисы, маршруты, mappings и настройки интеграций модуля | `src/<Module>/config/` |
 
