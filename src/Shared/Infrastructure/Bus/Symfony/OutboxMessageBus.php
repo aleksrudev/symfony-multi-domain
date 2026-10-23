@@ -7,8 +7,10 @@ namespace App\Shared\Infrastructure\Bus\Symfony;
 use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
 use App\Shared\Application\Bus\Outbox\OutboxMessageInterface;
 use Doctrine\DBAL\Connection;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+#[AsAlias(OutboxBusInterface::class)]
 final readonly class OutboxMessageBus implements OutboxBusInterface
 {
     public function __construct(

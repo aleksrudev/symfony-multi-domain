@@ -11,9 +11,19 @@ Shared не является бизнес-контекстом или заран
   и типизированная основа коллекций `Collection/AbstractCollection`,
   основы UUID/ULID `ValueObject/UuidId` и `ValueObject/UlidId`;
 - Application: контракты шин команд, запросов, inbox и outbox;
-- Presentation: общий HTTP listener и расширяемый реестр ошибок;
-- Infrastructure: реализации шин, сборка расписания, compiler passes;
+- Presentation: пустая публичная метка IntegrationEventInterface, общий HTTP listener
+  и расширяемый реестр ошибок;
+- Infrastructure: реализации шин, доставка межмодульных событий через Outbox →
+  EventDispatcher → Inbox,
+  сборка расписания, compiler passes;
 - config: регистрация только общих сервисов.
+
+services.yaml подключает узкие ресурсы сервисов без перечисления классов.
+Адаптеры шин объявляют private AsAlias; MessageBusInterface внедряется по
+именам аргументов шин, default Connection — по типу. HTTP listener использует
+AsEventListener, расписание — AutowireIterator для поставщиков.
+Messaging подключает только `*Handler.php`; DTO и метка не сервисы.
+Следуй общим [правилам регистрации](../../docs/ai/rules/architecture.md#регистрация-сервисов-и-атрибуты).
 
 Зависимости от бизнес-модулей, их Contracts и тестовых fixtures запрещены.
 Не добавляй общие Entity, Customer, Money, бизнесовые идентификаторы или
@@ -45,8 +55,9 @@ ID как сервисов. Регрессионные тесты — `tests/Uni
 `Domain/Event/EventBusInterface` принимает только `EventInterface`; реализация
 через Symfony находится в Infrastructure. Шина выполняет обработчики синхронно
 до commit внутри контекста владельца. Событие доменной операции создаёт
-и публикует выполняющий её Action; сущностям шину не внедряй. Реакции выполняют
-Application listener, в том числе запись исходящих сообщений через Outbox.
+и публикует выполняющий её Action; сущностям шину не внедряй. Внутренние
+прикладные реакции выполняют Application listener. Публичные события
+адаптируют синхронные инфраструктурные listener владельцев.
 Следуй [правилам доменных событий](../../docs/ai/rules/domain-actions.md#доменные-события-и-реакции).
 
 Новые модульные ошибки регистрируются провайдером владельца. Провайдер возвращает
@@ -57,6 +68,44 @@ OutboxBusInterface публикует только внутри активной
 connection. Маркер OutboxMessageInterface не навязывает идентификатор сообщения: ключ
 идемпотентности определяет конкретный получатель. Outbox-сообщения идут в
 `outbox.bus` и Doctrine transport `outbox`, отдельно от inbox.
+
+Для публичных межмодульных событий действует
+[соглашение о контрактах и доставке](../../docs/ai/rules/integration-events.md).
+Реализация находится в `Infrastructure/Messaging/`:
+
+- `IntegrationEventMessage` — readonly-обёртка с типизированным полем event,
+  реализующая OutboxMessageInterface. Метаданные формирует владелец в публичном DTO.
+  Инфраструктурный listener владельца напрямую вызывает
+  `OutboxBusInterface::publish(new IntegrationEventMessage($publicEvent))`.
+  Проверку активной default-транзакции выполняет OutboxMessageBus.
+- `IntegrationEventHandler` помечен AsMessageHandler на outbox.bus и передаёт
+  сохранённый event в штатный Symfony Component EventDispatcherInterface.
+  Набор listener определяется при доставке. Отсутствие listener допустимо.
+- Listener потребителей с AsEventListener только ставят собственные сообщения
+  в inbox.bus. Doctrine async, как и outbox, использует default connection:
+  все записи inbox в одной доставке коммитятся или откатываются вместе.
+  Бизнесовые Inbox handlers выполняются позже в отдельных транзакциях.
+
+`Presentation/Contracts/Event/IntegrationEventInterface` не содержит методов
+и не зависит от фреймворка. Это точечное исключение для зависимости публичных
+Contracts от Shared. Domain и Application не используют эту метку; маркеры
+доменного события, Outbox и Inbox остаются отдельными типами.
+Shared не импортирует бизнесовые классы и не содержит общего реестра,
+кодеков, специальных атрибутов или общей таблицы дедупликации.
+
+Штатный PHP-сериализатор Messenger сохраняет публичный DTO и вложенные DTO,
+включая их PHP-типы. eventId, eventAt и снимок сохраняются при повторах.
+При смене формата со старого JSON/subscriberId envelope сначала обработай
+pending/failed старой версией, останови старых worker, затем переключи код
+и перезапусти worker. Очереди не очищай; старый формат автоматически не читается.
+Повтор fanout после commit → ack может создать повторные inbox-сообщения;
+идемпотентность обеспечивает каждый бизнесовый получатель.
+
+Тесты: `tests/Integration/IntegrationEventDeliveryTest.php`,
+`tests/Integration/PostgresIntegrationEventTest.php` и архитектурные fixtures
+в `tests/Unit/Architecture/ArchitectureTest.php`. Технические Alpha/Beta
+находятся только в tests. PostgreSQL-тест использует отдельную
+OUTBOX_TEST_DATABASE_URL с проверкой суффикса test-БД; миграции сам не применяет.
 
 Поставщики расписания реализуют ScheduleContributorInterface и возвращают
 RecurringMessage. Домен и Application не зависят от этого Symfony-контракта.

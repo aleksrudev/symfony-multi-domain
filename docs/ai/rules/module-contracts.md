@@ -8,7 +8,9 @@
 ## Публичный API
 
 Публичные интерфейсы размещай в `src/<Module>/Presentation/Contracts/`,
-неизменяемые DTO — в `Presentation/Contracts/Dto/`. Например:
+неизменяемые DTO — в `Presentation/Contracts/Dto/`, межмодульные события —
+в `Presentation/Contracts/Event/`. Для событий обязательно прочитай
+[правила формирования и доставки](integration-events.md). Например:
 
 ```text
 Catalog/Presentation/
@@ -19,11 +21,15 @@ Catalog/Presentation/
     └── CatalogContractAdapter.php
 ```
 
-Contracts содержит только опубликованные интерфейсы и DTO. Он не зависит
+Contracts содержит только опубликованные интерфейсы, DTO и события. Он не зависит
 от Domain, Application, Infrastructure, адаптеров, Symfony или Doctrine.
 Не раскрывай через него сущности, внутренние QueryResult, обработчики
 и другие детали реализации. DTO содержат значения и другие публичные DTO.
-Не регистрируй DTO как сервисы.
+Публичные события реализуют пустой Shared Presentation
+`IntegrationEventInterface` из `Shared/Presentation/Contracts/Event/`.
+Это единственное исключение зависимости Contracts от Shared Contracts;
+внутренние Event/Inbox/Outbox маркеры и остальные Shared-типы не разрешены.
+Не регистрируй DTO и метку как сервисы.
 
 Не создавай отдельный верхнеуровневый каталог `<Module>/Contracts/`.
 Само размещение в Presentation не делает остальной Presentation публичным API.
@@ -41,7 +47,11 @@ Command/Query, вызывает `CommandBusInterface` или `QueryBusInterface`
 возвращает `null` при отсутствии предложения. Преобразовывай только
 согласованные случаи отсутствия и ошибки; не подавляй произвольные сбои.
 
-Связь регистрируется явно в `config/services.yaml` владельца:
+Если автоподключение не создало alias, укажи на CatalogContractAdapter
+`#[AsAlias(CatalogContractInterface::class)]` из
+`Symfony\Component\DependencyInjection\Attribute\AsAlias`.
+
+В `config/services.yaml` владельца достаточно подключить каталог адаптеров:
 
 ```yaml
 services:
@@ -49,10 +59,14 @@ services:
         autowire: true
         autoconfigure: true
 
-    App\Catalog\Presentation\Adapter\CatalogContractAdapter: ~
-    App\Catalog\Presentation\Contracts\CatalogContractInterface:
-        alias: App\Catalog\Presentation\Adapter\CatalogContractAdapter
+    App\Catalog\Presentation\Adapter\:
+        resource: '../Presentation/Adapter/'
 ```
+
+Повторный YAML alias, `Class: ~` и `public: true` для обычного DI не нужны.
+Правило действует также для исходящих адаптеров Infrastructure/Integration
+и их прикладных портов. Подробности — в
+[правилах регистрации](architecture.md#регистрация-сервисов-и-атрибуты).
 
 Путь вызова: интерфейс → входящий адаптер → command.bus/query.bus →
 Application-обработчик → доменный слой. QueryResult преобразуется
@@ -71,17 +85,32 @@ Application не импортирует
 сохраняют структуру Shared/Application/Bus.
 
 Внутренние доменные события и их listener не являются публичным API модуля.
-Listener преобразует событие в собственное исходящее сообщение из
+Application listener может создавать сообщение внутреннего продолжения из
 Application/Message/ по [правилам доменных событий](domain-actions.md#доменные-события-и-реакции).
-Публичное интеграционное событие остаётся отдельным DTO в Presentation/Contracts/Dto/;
-оно не раскрывает агрегаты или внутреннее доменное событие.
+Публичное интеграционное событие из Presentation/Contracts/Event/ формирует
+инфраструктурный listener владельца. Он зависит от собственного Domain
+и Contracts и записывает событие в outbox через общую техническую обёртку.
+Контракт события остаётся независимым от внутренних шин и их маркеров.
+Listener напрямую вызывает
+`OutboxBusInterface::publish(new IntegrationEventMessage($publicEvent))`.
+Зависимость от технической обёртки допустима в Infrastructure владельца;
+публичный DTO остаётся независимым от транспортного маркера.
+Общий outbox handler передаёт публичный DTO в штатный Symfony EventDispatcher.
+Адаптеры потребителей помечаются AsEventListener и только ставят собственные
+Inbox-сообщения, а бизнесовые handlers — AsMessageHandler с inbox.bus.
+Снимок данных, метаданные и совместимость определяются
+[правилами межмодульных событий](integration-events.md).
 
-Потребитель объявляет поставщика в `config/dependencies.php` и использует
-собственный прикладной провайдер в `Application/Command/<UseCase>/Provider/`
+Потребитель объявляет поставщика в `config/dependencies.php`. Для синхронного
+получения данных он использует собственный прикладной провайдер в `Application/Command/<UseCase>/Provider/`
 или `Application/Query/<UseCase>/Provider/`. Реализация этого
 порта находится в `Infrastructure/Integration/` потребителя: только она
 импортирует чужие Presentation/Contracts, получает интерфейс поставщика
 через DI и переводит публичные DTO в собственные типы.
+Для событий адаптер из Infrastructure/Integration потребителя преобразует
+чужой публичный контракт в собственный inbox DTO и вызывает InboxBusInterface.
+Бизнесовую реакцию выполняет отдельный Inbox handler. Прикладной провайдер
+только ради подписки не нужен.
 
 Не импортируй чужой Presentation/Adapter и не создавай его вручную.
 Не вызывай чужие обработчики и шины напрямую. Сервисы и DI aliases
@@ -89,16 +118,20 @@ Application/Message/ по [правилам доменных событий](dom
 
 ## Проверки
 
-- Публичные интерфейсы и DTO находятся в Presentation/Contracts и независимы
+- Публичные интерфейсы, DTO и события находятся в Presentation/Contracts и независимы
   от внутренних слоёв и фреймворков.
-- Реализация находится в Presentation/Adapter и связана с интерфейсом DI alias.
-- Адаптер вызывает собственные Command/Query через шины и преобразует
+- Реализация синхронного интерфейса находится в Presentation/Adapter
+  и связана с интерфейсом DI alias.
+- Адаптер синхронного интерфейса вызывает собственные Command/Query через шины и преобразует
   результат Application в публичный DTO без доменных сущностей.
-- Application не зависит от Contracts; сценарии, listener и внутренние исходящие
-  сообщения размещены в соответствующих каталогах Application.
+- Application не зависит от Contracts; сценарии, внутренние прикладные listener
+  и сообщения размещены в соответствующих каталогах Application. Listener
+  формирования публичных событий находится в Infrastructure владельца.
 - Потребитель использует опубликованный API только через свой
   Infrastructure/Integration при объявленной зависимости.
 - Интерфейс провайдера и его собственная модель результата находятся в
   `<UseCase>/Provider/` потребителя и не импортируют Contracts поставщика.
 - Интеграционные тесты проверяют разрешение интерфейса через DI, выполнение
   сценария и результат внешнего контракта, включая согласованное отсутствие.
+- Для публичных событий выполни также
+  [проверки формирования, совместимости и доставки](checks.md#межмодульные-события).
