@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Infrastructure\Integration\Inventory;
+namespace App\Inventory\Infrastructure\Integration\Ordering;
 
-use App\Inventory\Presentation\Contracts\Dto\ReservationItemRequest;
-use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
-use App\Inventory\Presentation\Contracts\InventoryContractInterface;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxItem;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxMessage;
 use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent;
+use App\Shared\Application\Bus\Inbox\InboxBusInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 #[AsEventListener(event: OrderSubmittedEvent::class)]
-final readonly class OrderSubmittedInventoryListener
+final readonly class OrderSubmittedEventListener
 {
     public function __construct(
-        private InventoryContractInterface $inventoryContract,
+        private InboxBusInterface $inboxBus,
     ) {
     }
 
@@ -22,16 +22,15 @@ final readonly class OrderSubmittedInventoryListener
     {
         $items = [];
         foreach ($event->items as $item) {
-            $items[] = new ReservationItemRequest(
+            $items[] = new ReserveStockInboxItem(
                 productId: $item->productId,
                 quantity: $item->quantity,
             );
         }
 
-        $this->inventoryContract->requestReservation(new ReservationRequest(
+        $this->inboxBus->dispatch(new ReserveStockInboxMessage(
             orderId: $event->orderId,
             items: $items,
         ));
     }
 }
-

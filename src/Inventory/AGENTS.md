@@ -49,18 +49,22 @@
 - `ReleaseStockAction` (`Domain/Action/ReleaseStockAction`): идемпотентно освобождает зарезервированные позиции или создаёт защитную запись `RELEASED` при отсутствии резервации.
 
 Application сценарии:
-- `ChangeStockOnHandCommand` / `ChangeStockOnHandHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор изменения остатка.
-- `ReserveStockCommand` / `ReserveStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор резервирования остатков по заказу.
-- `ReleaseStockCommand` / `ReleaseStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор освобождения остатков по заказу.
-- `GetStockPositionQuery` / `GetStockPositionHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает позицию и преобразует её в модель `GetStockPositionQueryResult`.
-- `GetReservationQuery` / `GetReservationHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает результат резервации по заказу и преобразует его в `GetReservationQueryResult`.
-- Сообщения Inbox (`Application/Message/`):
-  - `ReserveStockInboxMessage` / `ReserveStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): ставит `ReserveStockCommand` в `command.bus` в отдельной транзакции воркера.
-  - `ReleaseStockInboxMessage` / `ReleaseStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): ставит `ReleaseStockCommand` в `command.bus` в отдельной транзакции воркера.
+- В Application бизнес-модуля разрешены только `Command/` и `Query/`:
+  - `ChangeStockOnHandCommand` / `ChangeStockOnHandHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор изменения остатка.
+  - `ReserveStockCommand` / `ReserveStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор резервирования остатков по заказу.
+  - `ReleaseStockCommand` / `ReleaseStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор освобождения остатков по заказу.
+  - `GetStockPositionQuery` / `GetStockPositionHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает позицию и преобразует её в модель `GetStockPositionQueryResult`.
+  - `GetReservationQuery` / `GetReservationHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает результат резервации по заказу и преобразует его в `GetReservationQueryResult`.
+- Каталоги `Application/Message`, `Application/EventListener` и `Application/Service` запрещены.
+
+Сообщения Inbox (`Infrastructure/Messaging/Inbox/<Operation>/`):
+- `ReserveStock`: `ReserveStockInboxMessage` + `ReserveStockInboxItem` + `ReserveStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): транслирует входящее сообщение в `ReserveStockCommand` на `command.bus` в отдельной транзакции воркера.
+- `ReleaseStock`: `ReleaseStockInboxMessage` + `ReleaseStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): транслирует входящее сообщение в `ReleaseStockCommand` на `command.bus` в отдельной транзакции воркера.
 
 ## Публичный API и зависимости
 
-- Модуль `Inventory` не зависит от других бизнес-модулей (`config/dependencies.php` пуст).
+- Модуль зависит от `Ordering` (объявлен в `config/dependencies.php`).
+- Адаптер `OrderSubmittedEventListener` в `Infrastructure/Integration/Ordering/OrderSubmittedEventListener.php` помечен `#[AsEventListener(event: OrderSubmittedEvent::class)]` и транслирует публичное событие оформления заказа владельца `Ordering` во внутреннее сообщение `ReserveStockInboxMessage` шины `inbox.bus` без синхронных изменений в таблицах склада.
 - Экспортируемый контракт `InventoryContractInterface` (`Presentation/Contracts/InventoryContractInterface.php`):
   - `requestReservation(ReservationRequest $request): void` — долговечно принимает запрос в очередь `inbox.bus`, возвращает void без блокировок и синхронной модификации остатков;
   - `requestRelease(ReleaseRequest $request): void` — принимает запрос освобождения в очередь `inbox.bus`;

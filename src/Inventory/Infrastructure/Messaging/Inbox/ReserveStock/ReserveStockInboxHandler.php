@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Inventory\Application\Message;
+namespace App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock;
 
 use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
 use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;

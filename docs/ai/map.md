@@ -79,16 +79,16 @@ Outbox и Inbox используют Doctrine transport на одном default 
 (при оформлении заказа в задаче `T05`) через собственный адаптер `Ordering/Infrastructure/Integration/Catalog/CatalogOfferProvider.php`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
 `Inventory` экспортирует публичный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
-(методы `requestReservation`, `requestRelease`, `getReservationResult`). Поставщик: `Inventory`. Потребитель: модуль `Ordering`
-через адаптер `Ordering/Infrastructure/Integration/Inventory/OrderSubmittedInventoryListener.php`.
-Сам `Inventory` не зависит от других бизнес-модулей (`Inventory/config/dependencies.php` пуст).
-Модуль `Ordering` зависит от `Catalog` и `Inventory` (`Ordering/config/dependencies.php` возвращает `['Catalog', 'Inventory']`).
+(методы `requestReservation`, `requestRelease`, `getReservationResult`).
+Модуль `Inventory` зависит от `Ordering` (`Inventory/config/dependencies.php` возвращает `['Ordering']`).
+Модуль `Ordering` зависит от `Catalog` (`Ordering/config/dependencies.php` возвращает `['Catalog']`).
 Shared не зависит от бизнес-модулей и их Contracts.
 
 `Ordering` экспортирует публичное межмодульное событие `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`
 (реализует Shared `IntegrationEventInterface`), формируемое и публикуемое через `IntegrationEventMessage`
-в `outbox.bus` инфраструктурным listener при переводе заказа в `pending_stock`. При доставке через Outbox
-событие слушает адаптер `OrderSubmittedInventoryListener` в `Ordering`, который вызывает контракт склада `requestReservation()`.
+в `outbox.bus` инфраструктурным listener при переводе заказа в `pending_stock`.
+Потребитель события — контекст `Inventory`: адаптер `Inventory/Infrastructure/Integration/Ordering/OrderSubmittedEventListener.php`
+слушает `OrderSubmittedEvent` и транслирует его в `ReserveStockInboxMessage` шины `inbox.bus` склада.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
 общие механизмы через провайдеры HTTP-ошибок и поставщиков расписания.

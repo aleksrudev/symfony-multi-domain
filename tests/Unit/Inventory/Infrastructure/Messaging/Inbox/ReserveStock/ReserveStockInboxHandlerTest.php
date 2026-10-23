@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Inventory\Application\Message;
+namespace Tests\Unit\Inventory\Infrastructure\Messaging\Inbox\ReserveStock;
 
 use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
-use App\Inventory\Application\Message\ReserveStockInboxHandler;
-use App\Inventory\Application\Message\ReserveStockInboxItem;
-use App\Inventory\Application\Message\ReserveStockInboxMessage;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxHandler;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxItem;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxMessage;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;

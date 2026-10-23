@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Inventory\Presentation\Adapter;
 
-use App\Inventory\Application\Message\ReleaseStockInboxMessage;
-use App\Inventory\Application\Message\ReserveStockInboxItem;
-use App\Inventory\Application\Message\ReserveStockInboxMessage;
+use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
+use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
+use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
 use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
 use App\Inventory\Application\Query\GetReservation\GetReservationQueryResult;
 use App\Inventory\Domain\Exception\ReservationNotFoundException;
@@ -15,7 +15,7 @@ use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationResult;
 use App\Inventory\Presentation\Contracts\Dto\ReservationResultItem;
 use App\Inventory\Presentation\Contracts\InventoryContractInterface;
-use App\Shared\Application\Bus\Inbox\InboxBusInterface;
+use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
@@ -23,30 +23,30 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 final readonly class InventoryContractAdapter implements InventoryContractInterface
 {
     public function __construct(
-        private InboxBusInterface $inboxBus,
+        private CommandBusInterface $commandBus,
         private QueryBusInterface $queryBus,
     ) {
     }
 
     public function requestReservation(ReservationRequest $request): void
     {
-        $inboxItems = [];
+        $items = [];
         foreach ($request->items as $item) {
-            $inboxItems[] = new ReserveStockInboxItem(
+            $items[] = new ReservationItemInput(
                 productId: $item->productId,
                 quantity: $item->quantity,
             );
         }
 
-        $this->inboxBus->dispatch(new ReserveStockInboxMessage(
+        $this->commandBus->dispatch(new ReserveStockCommand(
             orderId: $request->orderId,
-            items: $inboxItems,
+            items: $items,
         ));
     }
 
     public function requestRelease(ReleaseRequest $request): void
     {
-        $this->inboxBus->dispatch(new ReleaseStockInboxMessage(
+        $this->commandBus->dispatch(new ReleaseStockCommand(
             orderId: $request->orderId,
         ));
     }
@@ -81,4 +81,3 @@ final readonly class InventoryContractAdapter implements InventoryContractInterf
         }
     }
 }
-

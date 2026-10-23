@@ -18,6 +18,12 @@ services:
     App\Inventory\Infrastructure\Persistence\Doctrine\Fixtures\:
         resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
 
+    App\Inventory\Infrastructure\Integration\:
+        resource: '../Infrastructure/Integration/'
+
+    App\Inventory\Infrastructure\Messaging\Inbox\:
+        resource: '../Infrastructure/Messaging/Inbox/**/*Handler.php'
+
     App\Inventory\Presentation\Adapter\:
         resource: '../Presentation/Adapter/'
 

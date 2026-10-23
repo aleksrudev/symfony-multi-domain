@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Inventory\Application\Message;
+namespace Tests\Unit\Inventory\Infrastructure\Messaging\Inbox\ReleaseStock;
 
 use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
-use App\Inventory\Application\Message\ReleaseStockInboxHandler;
-use App\Inventory\Application\Message\ReleaseStockInboxMessage;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReleaseStock\ReleaseStockInboxHandler;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReleaseStock\ReleaseStockInboxMessage;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;

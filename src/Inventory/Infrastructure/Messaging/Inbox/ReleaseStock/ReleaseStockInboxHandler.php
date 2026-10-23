@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Inventory\Application\Message;
+namespace App\Inventory\Infrastructure\Messaging\Inbox\ReleaseStock;
 
 use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
 use App\Shared\Application\Bus\Command\CommandBusInterface;

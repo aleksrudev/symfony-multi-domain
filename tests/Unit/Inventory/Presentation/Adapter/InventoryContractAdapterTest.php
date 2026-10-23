@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inventory\Presentation\Adapter;
 
-use App\Inventory\Application\Message\ReleaseStockInboxMessage;
-use App\Inventory\Application\Message\ReserveStockInboxMessage;
+use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
+use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
 use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
 use App\Inventory\Application\Query\GetReservation\GetReservationQueryResult;
 use App\Inventory\Domain\Exception\ReservationNotFoundException;
@@ -13,7 +13,7 @@ use App\Inventory\Presentation\Adapter\InventoryContractAdapter;
 use App\Inventory\Presentation\Contracts\Dto\ReleaseRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationItemRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
-use App\Shared\Application\Bus\Inbox\InboxBusInterface;
+use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
@@ -21,18 +21,18 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(InventoryContractAdapter::class)]
 final class InventoryContractAdapterTest extends TestCase
 {
-    private InboxBusInterface $inboxBus;
+    private CommandBusInterface $commandBus;
     private QueryBusInterface $queryBus;
     private InventoryContractAdapter $adapter;
 
     protected function setUp(): void
     {
-        $this->inboxBus = $this->createMock(InboxBusInterface::class);
+        $this->commandBus = $this->createMock(CommandBusInterface::class);
         $this->queryBus = $this->createMock(QueryBusInterface::class);
-        $this->adapter = new InventoryContractAdapter($this->inboxBus, $this->queryBus);
+        $this->adapter = new InventoryContractAdapter($this->commandBus, $this->queryBus);
     }
 
-    public function testRequestReservationDispatchesInboxMessage(): void
+    public function testRequestReservationDispatchesCommand(): void
     {
         $orderId = '00000000-0000-4000-8000-000000000001';
         $request = new ReservationRequest(
@@ -43,29 +43,29 @@ final class InventoryContractAdapterTest extends TestCase
             ],
         );
 
-        $this->inboxBus
+        $this->commandBus
             ->expects(self::once())
             ->method('dispatch')
-            ->with(self::callback(static function (ReserveStockInboxMessage $msg) use ($orderId): bool {
-                return $msg->orderId === $orderId
-                    && 2 === count($msg->items)
-                    && 'prod-1' === $msg->items[0]->productId
-                    && 2 === $msg->items[0]->quantity;
+            ->with(self::callback(static function (ReserveStockCommand $cmd) use ($orderId): bool {
+                return $cmd->orderId === $orderId
+                    && 2 === count($cmd->items)
+                    && 'prod-1' === $cmd->items[0]->productId
+                    && 2 === $cmd->items[0]->quantity;
             }));
 
         $this->adapter->requestReservation($request);
     }
 
-    public function testRequestReleaseDispatchesInboxMessage(): void
+    public function testRequestReleaseDispatchesCommand(): void
     {
         $orderId = '00000000-0000-4000-8000-000000000001';
         $request = new ReleaseRequest(orderId: $orderId);
 
-        $this->inboxBus
+        $this->commandBus
             ->expects(self::once())
             ->method('dispatch')
-            ->with(self::callback(static function (ReleaseStockInboxMessage $msg) use ($orderId): bool {
-                return $msg->orderId === $orderId;
+            ->with(self::callback(static function (ReleaseStockCommand $cmd) use ($orderId): bool {
+                return $cmd->orderId === $orderId;
             }));
 
         $this->adapter->requestRelease($request);
@@ -117,4 +117,3 @@ final class InventoryContractAdapterTest extends TestCase
         self::assertCount(0, $result->items);
     }
 }
-

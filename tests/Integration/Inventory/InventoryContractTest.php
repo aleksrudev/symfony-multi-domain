@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Inventory;
 
-use App\Inventory\Application\Message\ReleaseStockInboxHandler;
-use App\Inventory\Application\Message\ReleaseStockInboxMessage;
-use App\Inventory\Application\Message\ReserveStockInboxHandler;
-use App\Inventory\Application\Message\ReserveStockInboxItem;
-use App\Inventory\Application\Message\ReserveStockInboxMessage;
 use App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface;
 use App\Inventory\Domain\Entity\StockPosition;
 use App\Inventory\Domain\Repository\StockPositionRepositoryInterface;
 use App\Inventory\Domain\ValueObject\ProductId;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReleaseStock\ReleaseStockInboxHandler;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReleaseStock\ReleaseStockInboxMessage;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxHandler;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxItem;
+use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxMessage;
 use App\Inventory\Presentation\Contracts\Dto\ReleaseRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationItemRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
 use App\Inventory\Presentation\Contracts\InventoryContractInterface;
+use App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem;
+use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tests\Integration\IntegrationTestCase;
 
 final class InventoryContractTest extends IntegrationTestCase
@@ -63,20 +66,7 @@ final class InventoryContractTest extends IntegrationTestCase
 
         $orderId = '00000000-0000-4000-b000-000000000002';
 
-        // 1. requestReservation does not modify stock tables synchronously
-        $this->contract->requestReservation(new ReservationRequest(
-            orderId: $orderId,
-            items: [
-                new ReservationItemRequest($prodA->value, 3),
-            ],
-        ));
-
-        // Position reserved remains 0 before inbox handler executes
-        $posBefore = $this->stockProvider->findByProductId($prodA);
-        self::assertSame(0, $posBefore->reserved());
-        self::assertSame(10, $posBefore->available());
-
-        // 2. Worker executes ReserveStockInboxHandler
+        // 1. Worker executes ReserveStockInboxHandler
         $inboxMessage = new ReserveStockInboxMessage(
             orderId: $orderId,
             items: [
@@ -97,7 +87,7 @@ final class InventoryContractTest extends IntegrationTestCase
         self::assertCount(1, $statusReserved->items);
         self::assertSame(3, $statusReserved->items[0]->quantity);
 
-        // 3. Redelivery of the inbox message is safe and idempotent
+        // 2. Redelivery of the inbox message is safe and idempotent
         ($this->reserveInboxHandler)($inboxMessage);
         $this->em->flush();
         $this->em->clear();
@@ -105,8 +95,7 @@ final class InventoryContractTest extends IntegrationTestCase
         $posAfterRepeat = $this->stockProvider->findByProductId($prodA);
         self::assertSame(3, $posAfterRepeat->reserved()); // Not double-reserved!
 
-        // 4. Release via inbox message
-        $this->contract->requestRelease(new ReleaseRequest($orderId));
+        // 3. Release via inbox message
         $releaseInboxMessage = new ReleaseStockInboxMessage($orderId);
         ($this->releaseInboxHandler)($releaseInboxMessage);
         $this->em->flush();
@@ -119,5 +108,54 @@ final class InventoryContractTest extends IntegrationTestCase
         $statusReleased = $this->contract->getReservationResult($orderId);
         self::assertSame('released', $statusReleased->status);
     }
-}
 
+    public function testOrderSubmittedEventTriggersReservationViaInbox(): void
+    {
+        $prodA = new ProductId('test-contract-event-a');
+        $this->stockRepo->save(new StockPosition($prodA, onHand: 15, reserved: 0));
+        $this->em->flush();
+        $this->em->clear();
+
+        $orderId = '00000000-0000-4000-b000-000000000003';
+        $event = new OrderSubmittedEvent(
+            eventId: '00000000-0000-7000-8000-000000000001',
+            eventAt: '2026-10-23T10:00:00.000000Z',
+            type: 'ordering.order_submitted',
+            source: 'ordering',
+            schemaVersion: 1,
+            orderId: $orderId,
+            buyerId: 'buyer-1',
+            items: [
+                new SubmittedOrderItem($prodA->value, 5, 'Product A', 10000),
+            ],
+            totalAmount: 50000,
+            currency: 'RUB',
+        );
+
+        /** @var EventDispatcherInterface $dispatcher */
+        $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
+        $dispatcher->dispatch($event);
+
+        // Before inbox handler execution, stock is not modified synchronously
+        $posBefore = $this->stockProvider->findByProductId($prodA);
+        self::assertSame(0, $posBefore->reserved());
+
+        // Process inbox message
+        $inboxMessage = new ReserveStockInboxMessage(
+            orderId: $orderId,
+            items: [
+                new ReserveStockInboxItem($prodA->value, 5),
+            ],
+        );
+        ($this->reserveInboxHandler)($inboxMessage);
+        $this->em->flush();
+        $this->em->clear();
+
+        $posAfter = $this->stockProvider->findByProductId($prodA);
+        self::assertSame(5, $posAfter->reserved());
+        self::assertSame(10, $posAfter->available());
+
+        $reservationResult = $this->contract->getReservationResult($orderId);
+        self::assertSame('reserved', $reservationResult->status);
+    }
+}
