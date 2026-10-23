@@ -9,7 +9,7 @@ use App\Shared\Application\Bus\Command\CommandInterface;
 final readonly class ReplaceOrderItemsCommand implements CommandInterface
 {
     /**
-     * @param list<array{productId: string, quantity: int}> $items
+     * @param list<ReplaceOrderItemInput> $items
      */
     public function __construct(
         public string $orderId,

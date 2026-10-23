@@ -6,6 +6,7 @@ namespace Tests\Unit\Ordering\Application;
 
 use App\Ordering\Application\Command\CreateDraft\CreateDraftCommand;
 use App\Ordering\Application\Command\CreateDraft\CreateDraftHandler;
+use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemInput;
 use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsCommand;
 use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsHandler;
 use App\Ordering\Application\Query\GetDraft\GetDraftHandler;
@@ -150,7 +151,7 @@ final class HandlerTest extends TestCase
         $handler = new ReplaceOrderItemsHandler($action);
 
         $handler(new ReplaceOrderItemsCommand(self::ORDER_ID_1, 'buyer-1', [
-            ['productId' => 'prod-1', 'quantity' => 2],
+            new ReplaceOrderItemInput('prod-1', 2),
         ]));
 
         self::assertCount(1, $order->items());
@@ -174,8 +175,8 @@ final class HandlerTest extends TestCase
         self::assertSame(self::ORDER_ID_1, $result->id);
         self::assertSame('buyer-1', $result->buyerId);
         self::assertCount(1, $result->items);
-        self::assertSame('prod-1', $result->items[0]['productId']);
-        self::assertSame(5, $result->items[0]['quantity']);
+        self::assertSame('prod-1', $result->items[0]->productId);
+        self::assertSame(5, $result->items[0]->quantity);
     }
 
     public function testGetDraftHandler(): void

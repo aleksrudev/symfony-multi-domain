@@ -13,4 +13,3 @@ final class StockPositionNotFoundException extends DomainException
         parent::__construct(sprintf('Stock position for product "%s" not found.', $productId));
     }
 }
-

@@ -11,7 +11,9 @@ use App\Ordering\Domain\Enum\IdempotencyOperation;
 use App\Ordering\Domain\Exception\IdempotencyKeyNotFoundException;
 use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class CreateDraftHandler
 {
     public function __construct(

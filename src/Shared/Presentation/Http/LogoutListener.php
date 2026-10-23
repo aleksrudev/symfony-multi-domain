@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Shared\Presentation\Http;
 
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Security\Http\Event\LogoutEvent;
 
-final class LogoutListener implements EventSubscriberInterface
+#[AsEventListener(event: LogoutEvent::class, method: 'onLogout', priority: 128)]
+final readonly class LogoutListener
 {
     public function onLogout(LogoutEvent $event): void
     {
@@ -20,10 +21,8 @@ final class LogoutListener implements EventSubscriberInterface
         $event->setResponse(new JsonResponse(['ok' => true]));
     }
 
-    public static function getSubscribedEvents(): array
+    public function __invoke(LogoutEvent $event): void
     {
-        return [
-            LogoutEvent::class => ['onLogout', 128],
-        ];
+        $this->onLogout($event);
     }
 }

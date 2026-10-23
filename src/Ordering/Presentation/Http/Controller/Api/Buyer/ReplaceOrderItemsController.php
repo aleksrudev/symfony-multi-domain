@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Ordering\Presentation\Http\Controller\Api\Buyer;
 
+use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemInput;
 use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsCommand;
 use App\Ordering\Application\Query\GetOrder\GetOrderQuery;
 use App\Ordering\Application\Query\GetOrder\GetOrderQueryResult;
+use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
 use App\Ordering\Presentation\Http\Request\OrderItemInput;
 use App\Ordering\Presentation\Http\Request\ReplaceOrderItemsRequest;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
@@ -17,7 +19,9 @@ use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+#[IsGranted('ROLE_BUYER')]
 final readonly class ReplaceOrderItemsController
 {
     public function __construct(
@@ -32,17 +36,13 @@ final readonly class ReplaceOrderItemsController
         #[MapRequestPayload(acceptFormat: 'json')]
         ReplaceOrderItemsRequest $request,
         #[CurrentUser]
-        ?UserInterface $user,
+        UserInterface $user,
     ): JsonResponse {
-        if (null === $user) {
-            return new JsonResponse(['text' => 'Unauthorized.', 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
-        }
-
         $items = array_map(
-            static fn (OrderItemInput $input): array => [
-                'productId' => $input->productId,
-                'quantity' => $input->quantity,
-            ],
+            static fn (OrderItemInput $input): ReplaceOrderItemInput => new ReplaceOrderItemInput(
+                productId: $input->productId,
+                quantity: $input->quantity,
+            ),
             $request->items,
         );
 
@@ -62,7 +62,7 @@ final readonly class ReplaceOrderItemsController
             'id' => $result->id,
             'buyerId' => $result->buyerId,
             'status' => $result->status,
-            'items' => $result->items,
+            'items' => array_map(static fn (OrderItemQueryResult $item): array => $item->toArray(), $result->items),
             'totalAmount' => $result->totalAmount,
             'currency' => $result->currency,
             'createdAt' => $result->createdAt,

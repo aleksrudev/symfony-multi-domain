@@ -19,7 +19,7 @@
 ## Модель и инварианты
 
 Агрегат `Product` (`id: ProductId`, `name: string`, `priceAmount: int`, `currency: Currency`, `published: bool`, `createdAt: DateTimeImmutable`).
-- `ProductId` — `final readonly` value object в `Domain/ValueObject/ProductId`, оборачивает непустую строку. Использование скалярной строки обосновано согласованными строковыми идентификаторами товаров (`prod-1`, `prod-keyboard`) без внешних ключей между витриной, складом и заказами.
+- `ProductId` — `final readonly` value object в `Domain/ValueObject/ProductId`, оборачивает непустую строку, реализует `equals(self $other): bool`. Использование скалярной строки обосновано согласованными строковыми идентификаторами товаров (`prod-1`, `prod-keyboard`) без внешних ключей между витриной, складом и заказами.
 - `Currency` — backed enum в `Domain/Enum/Currency` (`case RUB = 'RUB'`).
 - Инвариант цены: `priceAmount` — строго положительное целое число копеек (> 0).
 - Инвариант публикации (BR-01): коммерческим предложением (`Offer`) является только опубликованный товар (`isPublished() === true`). Скрытый товар не выводится на витрину и возвращает `null` в публичном контракте.
@@ -29,25 +29,26 @@
 - `UpdateProductAction` (`Domain/Action/UpdateProductAction`): загружает товар через `ProductDataProviderInterface`, применяет обновление цены (`Product::changePrice()`) и/или публикацию (`Product::publish() / Product::unpublish()`), сохраняет через `ProductRepositoryInterface`. Инварианты допустимости цены защищает сам `Product`.
 
 Application сценарии:
-- `UpdateProductCommand` / `UpdateProductHandler`: тонкий оркестратор, вызывает `UpdateProductAction`.
-- `GetProductQuery` / `GetProductHandler`: запрашивает товар через `ProductDataProviderInterface` и преобразует в модель `GetProductQueryResult` (`productId`, `name`, `priceAmount`, `currency`, `published`).
-- `GetProductsQuery` / `GetProductsHandler`: запрашивает пагинированную выборку через `ProductDataProviderInterface` и формирует модель `GetProductsQueryResult` (`items: list<GetProductQueryResult>`, `total`, `page`, `limit`). Доменные сущности наружу не раскрываются.
+- `UpdateProductCommand` / `UpdateProductHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): тонкий оркестратор, вызывает `UpdateProductAction`.
+- `GetProductQuery` / `GetProductHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает товар через `ProductDataProviderInterface` и преобразует в модель `GetProductQueryResult` (`productId`, `name`, `priceAmount`, `currency`, `published`).
+- `GetProductsQuery` / `GetProductsHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает пагинированную выборку через `ProductDataProviderInterface` и формирует модель `GetProductsQueryResult` (`items: list<GetProductQueryResult>`, `total`, `page`, `limit`). Доменные сущности наружу не раскрываются.
 
 ## Публичный API и зависимости
 
 Экспортируемый контракт:
 - Интерфейс `App\Catalog\Presentation\Contracts\CatalogContractInterface` с методом `getOffer(string $productId): ?Offer`.
 - Неизменяемый DTO `App\Catalog\Presentation\Contracts\Dto\Offer` (`productId`, `name`, `priceAmount`, `currency`).
-- Входящий адаптер `App\Catalog\Presentation\Adapter\CatalogContractAdapter`: вызывает `GetProductQuery(productId, onlyPublished: true)` через `query.bus` и преобразует `GetProductQueryResult` в `Offer`, при `ProductNotFoundException` возвращает `null`.
-- Связь DI: `CatalogContractInterface` ассоциирован через alias с `CatalogContractAdapter` (`public: true`).
+- Входящий адаптер `App\Catalog\Presentation\Adapter\CatalogContractAdapter`: помечен `#[AsAlias(CatalogContractInterface::class)]`, вызывает `GetProductQuery(productId, onlyPublished: true)` через `query.bus` и преобразует `GetProductQueryResult` в `Offer`, при `ProductNotFoundException` возвращает `null`.
+- Связь DI: `CatalogContractInterface` привязан к `CatalogContractAdapter` через `#[AsAlias]`.
+- Автоподключение: узкие `resource` в `services.yaml` по слоям (`Application/**/*Handler.php`, `Domain/Action/`, `Infrastructure/...`, `Presentation/...`). Все сервисы и алиасы по умолчанию private.
 - Зависимости от других бизнес-модулей отсутствуют (`config/dependencies.php` возвращает пустой массив).
 
 HTTP API контроллеры одного действия:
 - Актор `Visitor` (`Presentation/Http/Controller/Api/Visitor/`):
-  - `GetProductsController::__invoke(GetProductsRequest $request)`: `GET /api/v1/products` (format: `json`), имя маршрута `products_list`, доступ публичный. Маппинг через `#[MapQueryString(validationFailedStatusCode: 422)]`.
-  - `GetProductController::__invoke(string $id)`: `GET /api/v1/products/{id}` (format: `json`), имя маршрута `products_item`, доступ публичный.
+  - `GetProductsController::__invoke(GetProductsRequest $request)`: `GET /api/v1/products` (format: `json`), имя маршрута `catalog_products_list`, доступ публичный. Маппинг через `#[MapQueryString(validationFailedStatusCode: 422)]`.
+  - `GetProductController::__invoke(string $id)`: `GET /api/v1/products/{id}` (format: `json`), имя маршрута `catalog_products_item`, доступ публичный.
 - Актор `Admin` (`Presentation/Http/Controller/Api/Admin/`):
-  - `UpdateProductController::__invoke(string $id, UpdateProductRequest $request)`: `PATCH /api/v1/admin/products/{id}` (format: `json`), имя маршрута `admin_products_update`, доступ `IS_AUTHENTICATED_FULLY` (защищён security-конфигурацией). Маппинг через `#[MapRequestPayload(acceptFormat: 'json')]`.
+  - `UpdateProductController::__invoke(string $id, UpdateProductRequest $request)`: `PATCH /api/v1/admin/products/{id}` (format: `json`), имя маршрута `catalog_admin_products_update`, доступ `ROLE_ADMIN` (защищён security access_control). Маппинг через `#[MapRequestPayload(acceptFormat: 'json')]`.
 
 HTTP Request DTO и валидация (`Presentation/Http/Request/`):
 - `GetProductsRequest`:
@@ -62,7 +63,7 @@ HTTP Request DTO и валидация (`Presentation/Http/Request/`):
 Семантика PATCH:
 - Отсутствие поля в JSON-теле запроса (`null` в DTO по умолчанию) — свойство товара не изменяется и сохраняет своё текущее значение.
 - Значение `false` для `published` — явная команда на деактивацию публикации (`unpublish()`), не являющаяся отсутствием поля.
-- Значение `null` — сущность `Product` не поддерживает `null` для цены и публикации; передача `null` в качестве цены отклоняется валидацией.
+- Положительное целое число для `price` — обновление цены; неположительные числа отклоняются валидацией (HTTP 422).
 - Ошибки типов данных и нарушение Assert-ограничений возвращают HTTP 422 в формате JSON.
 - Некорректный синтаксис JSON возвращает HTTP 400.
 - Неподдерживаемый `Content-Type` возвращает HTTP 415.
@@ -73,12 +74,12 @@ HTTP Request DTO и валидация (`Presentation/Http/Request/`):
 - Собственная схема PostgreSQL: `catalog`.
 - Таблица: `catalog.products` с индексом по `(published, created_at)`.
 - Маппинг `ProductId` зарегистрирован через DBAL-тип `product_id` (`ProductIdType`).
-- Репозиторий: `ProductRepositoryInterface` в `Domain/Repository/` содержит только `save(Product $product): void` и `remove(Product $product): void`. Реализация в `Infrastructure/Persistence/Doctrine/Repository/ProductRepository`.
-- DataProvider: `ProductDataProviderInterface` в `Domain/DataProvider/` содержит `findById()`, `findPublishedById()` (выбрасывают `ProductNotFoundException` при отсутствии/скрытии) и `findPublishedPaginated()`. Реализация в `Infrastructure/Persistence/Doctrine/DataProvider/ProductDataProvider`.
+- Репозиторий: `ProductRepositoryInterface` в `Domain/Repository/` содержит только `save(Product $product): void` и `remove(Product $product): void`. Реализация в `Infrastructure/Persistence/Doctrine/Repository/ProductRepository` с `#[AsAlias]`.
+- DataProvider: `ProductDataProviderInterface` в `Domain/DataProvider/` содержит `findById()`, `findPublishedById()` (выбрасывают `ProductNotFoundException` при отсутствии/скрытии) и `findPublishedPaginated()`. Реализация в `Infrastructure/Persistence/Doctrine/DataProvider/ProductDataProvider` с `#[AsAlias]`.
 - Коллекции:
   - `ProductCollection` в `Domain/Collection/ProductCollection` — коллекция сущностей `Product`, наследует `App\Shared\Domain\Collection\AbstractCollection<Product>`, возвращает `Product::class` в `elementClass()`.
   - `ProductPaginatedCollection` в `Domain/Collection/ProductPaginatedCollection` — readonly-оболочка выборки с пагинацией (`ProductCollection $items`, `int $count`).
-- Начальные dev/test-данные: `CatalogFixtures` в `Infrastructure/Persistence/Doctrine/Fixtures/CatalogFixtures.php`. Зарегистрированы в `services.yaml` под `when@dev` и `when@test`. Согласованные идентификаторы: `prod-keyboard`, `prod-mouse`, `prod-monitor`, `prod-headphones` (неопубликован).
+- Начальные dev/test-данные: `CatalogFixtures` в `Infrastructure/Persistence/Doctrine/Fixtures/CatalogFixtures.php`, помечен `#[When('dev')]` и `#[When('test')]`. Согласованные идентификаторы: `prod-keyboard`, `prod-mouse`, `prod-monitor`, `prod-headphones` (неопубликован).
 - Доменные исключения `ProductNotFoundException` (404) и `InvalidProductPriceException` (422) маппятся через `CatalogErrorProvider`.
 
 ## Проверки и изменения

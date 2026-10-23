@@ -82,9 +82,9 @@ Outbox и Inbox используют Doctrine transport на одном default 
 Модуль `Ordering` зависит от `Catalog` (`Ordering/config/dependencies.php` возвращает `['Catalog']`).
 Shared не зависит от бизнес-модулей и их Contracts.
 
-Общий механизм публичных событий доступен в Shared. Ordering пока использует
-внутреннее OrderSubmittedOutboxMessage и не экспортирует публичное событие;
-переход бизнес-модуля на новые правила остаётся отдельной задачей.
+`Ordering` экспортирует публичное межмодульное событие `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`
+(реализует Shared `IntegrationEventInterface`), формируемое и публикуемое через `IntegrationEventMessage`
+в `outbox.bus` инфраструктурным listener при переводе заказа в `pending_stock`. Потребители события появятся в задаче T08 (Inventory).
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
 общие механизмы через провайдеры HTTP-ошибок и поставщиков расписания.

@@ -9,7 +9,9 @@ use App\Ordering\Domain\Entity\IdempotencyKey;
 use App\Ordering\Domain\Exception\IdempotencyKeyNotFoundException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(IdempotencyKeyDataProviderInterface::class)]
 final readonly class IdempotencyKeyDataProvider implements IdempotencyKeyDataProviderInterface
 {
     public function __construct(

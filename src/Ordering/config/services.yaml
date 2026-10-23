@@ -3,73 +3,26 @@ services:
         autowire: true
         autoconfigure: true
 
-    # Application Query Handlers
-    App\Ordering\Application\Query\GetOrders\GetOrdersHandler:
-        tags:
-            - { name: messenger.message_handler, bus: query.bus }
+    App\Ordering\Application\:
+        resource: '../Application/**/*Handler.php'
 
-    App\Ordering\Application\Query\GetOrder\GetOrderHandler:
-        tags:
-            - { name: messenger.message_handler, bus: query.bus }
+    App\Ordering\Domain\Action\:
+        resource: '../Domain/Action/'
 
-    App\Ordering\Application\Query\GetDraft\GetDraftHandler:
-        tags:
-            - { name: messenger.message_handler, bus: query.bus }
+    App\Ordering\Infrastructure\Integration\:
+        resource: '../Infrastructure/Integration/'
 
-    # Application Command Handlers
-    App\Ordering\Application\Command\CreateDraft\CreateDraftHandler:
-        tags:
-            - { name: messenger.message_handler, bus: command.bus }
+    App\Ordering\Infrastructure\Messaging\EventListener\:
+        resource: '../Infrastructure/Messaging/EventListener/'
 
-    App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsHandler:
-        tags:
-            - { name: messenger.message_handler, bus: command.bus }
+    App\Ordering\Infrastructure\Persistence\Doctrine\Repository\:
+        resource: '../Infrastructure/Persistence/Doctrine/Repository/'
 
-    App\Ordering\Application\Command\SubmitOrder\SubmitOrderHandler:
-        tags:
-            - { name: messenger.message_handler, bus: command.bus }
+    App\Ordering\Infrastructure\Persistence\Doctrine\DataProvider\:
+        resource: '../Infrastructure/Persistence/Doctrine/DataProvider/'
 
-    # Application Event Listeners
-    App\Ordering\Application\EventListener\PublishOrderSubmittedMessageListener:
-        tags:
-            - { name: kernel.event_listener, event: App\Ordering\Domain\Event\OrderSubmittedEvent }
-
-    # Domain Actions
-    App\Ordering\Domain\Action\CreateDraftAction: ~
-    App\Ordering\Domain\Action\ReplaceOrderItemsAction: ~
-    App\Ordering\Domain\Action\SubmitOrderAction: ~
-
-    # Infrastructure Integration
-    App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider: ~
-    App\Ordering\Application\Command\SubmitOrder\Provider\ProductOfferProviderInterface:
-        alias: App\Ordering\Infrastructure\Integration\Catalog\CatalogOfferProvider
-        public: true
-
-    # Infrastructure Repositories & DataProviders
-    App\Ordering\Infrastructure\Persistence\Doctrine\Repository\OrderRepository: ~
-    App\Ordering\Domain\Repository\OrderRepositoryInterface:
-        alias: App\Ordering\Infrastructure\Persistence\Doctrine\Repository\OrderRepository
-        public: true
-
-    App\Ordering\Infrastructure\Persistence\Doctrine\DataProvider\OrderDataProvider: ~
-    App\Ordering\Domain\DataProvider\OrderDataProviderInterface:
-        alias: App\Ordering\Infrastructure\Persistence\Doctrine\DataProvider\OrderDataProvider
-        public: true
-
-    App\Ordering\Infrastructure\Persistence\Doctrine\Repository\IdempotencyKeyRepository: ~
-    App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface:
-        alias: App\Ordering\Infrastructure\Persistence\Doctrine\Repository\IdempotencyKeyRepository
-        public: true
-
-    App\Ordering\Infrastructure\Persistence\Doctrine\DataProvider\IdempotencyKeyDataProvider: ~
-    App\Ordering\Domain\DataProvider\IdempotencyKeyDataProviderInterface:
-        alias: App\Ordering\Infrastructure\Persistence\Doctrine\DataProvider\IdempotencyKeyDataProvider
-        public: true
-
-    # Presentation Controllers
     App\Ordering\Presentation\Http\Controller\Api\:
         resource: '../Presentation/Http/Controller/Api/'
-        tags: ['controller.service_arguments']
 
-    # Presentation Error Provider
-    App\Ordering\Presentation\Http\Error\OrderingErrorProvider: ~
+    App\Ordering\Presentation\Http\Error\:
+        resource: '../Presentation/Http/Error/'

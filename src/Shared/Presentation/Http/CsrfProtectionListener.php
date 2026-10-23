@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Shared\Presentation\Http;
 
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
+#[AsEventListener(event: KernelEvents::REQUEST, priority: 16)]
 final readonly class CsrfProtectionListener
 {
     private const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];

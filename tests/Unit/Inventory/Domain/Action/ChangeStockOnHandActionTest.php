@@ -80,4 +80,3 @@ final class ChangeStockOnHandActionTest extends TestCase
         $action($productId, 3);
     }
 }
-

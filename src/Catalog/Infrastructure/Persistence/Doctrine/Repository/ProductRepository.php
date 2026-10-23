@@ -7,7 +7,9 @@ namespace App\Catalog\Infrastructure\Persistence\Doctrine\Repository;
 use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(ProductRepositoryInterface::class)]
 final readonly class ProductRepository implements ProductRepositoryInterface
 {
     public function __construct(

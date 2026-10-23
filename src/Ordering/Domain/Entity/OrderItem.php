@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\Entity;
 
+use App\Ordering\Domain\Enum\Currency;
 use App\Ordering\Domain\Exception\InvalidOrderItemQuantityException;
 use App\Ordering\Domain\ValueObject\ProductId;
 use Doctrine\ORM\Mapping\Column;
@@ -41,8 +42,8 @@ class OrderItem
     #[Column(name: 'price_amount', type: 'integer', nullable: true)]
     private ?int $priceAmount = null;
 
-    #[Column(name: 'currency', type: 'string', length: 3, nullable: true, enumType: \App\Ordering\Domain\Enum\Currency::class)]
-    private ?\App\Ordering\Domain\Enum\Currency $currency = null;
+    #[Column(name: 'currency', type: 'string', length: 3, nullable: true, enumType: Currency::class)]
+    private ?Currency $currency = null;
 
     public function __construct(
         ProductId $productId,
@@ -50,7 +51,7 @@ class OrderItem
         ?int $id = null,
         ?string $productName = null,
         ?int $priceAmount = null,
-        ?\App\Ordering\Domain\Enum\Currency $currency = null,
+        ?Currency $currency = null,
     ) {
         if ($quantity <= 0) {
             throw new InvalidOrderItemQuantityException($quantity);
@@ -89,12 +90,12 @@ class OrderItem
         return $this->priceAmount;
     }
 
-    public function currency(): ?\App\Ordering\Domain\Enum\Currency
+    public function currency(): ?Currency
     {
         return $this->currency;
     }
 
-    public function attachSnapshot(string $productName, int $priceAmount, \App\Ordering\Domain\Enum\Currency $currency): void
+    public function attachSnapshot(string $productName, int $priceAmount, Currency $currency): void
     {
         if ($priceAmount <= 0) {
             throw new \InvalidArgumentException('Price amount must be positive.');

@@ -19,7 +19,9 @@ use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 use App\Ordering\Domain\ValueObject\ProductSnapshot;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class SubmitOrderHandler
 {
     public function __construct(

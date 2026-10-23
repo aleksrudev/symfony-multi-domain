@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Shared\Presentation\Http;
 
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\TooManyLoginAttemptsAuthenticationException;
 use Symfony\Component\Security\Http\Event\LoginFailureEvent;
 
-final class LoginFailureListener implements EventSubscriberInterface
+#[AsEventListener(event: LoginFailureEvent::class, method: 'onLoginFailure')]
+final readonly class LoginFailureListener
 {
     public function onLoginFailure(LoginFailureEvent $event): void
     {
@@ -22,10 +23,8 @@ final class LoginFailureListener implements EventSubscriberInterface
         }
     }
 
-    public static function getSubscribedEvents(): array
+    public function __invoke(LoginFailureEvent $event): void
     {
-        return [
-            LoginFailureEvent::class => 'onLoginFailure',
-        ];
+        $this->onLoginFailure($event);
     }
 }

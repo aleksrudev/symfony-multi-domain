@@ -171,7 +171,7 @@ class Order
         $orderCurrency = Currency::RUB;
 
         foreach ($items as $item) {
-            $snapshot = $snapshots->findByProductId($item->productId()->value);
+            $snapshot = $snapshots->findByProductId($item->productId());
             if (null === $snapshot) {
                 throw new ProductNotAvailableException($item->productId());
             }

@@ -11,7 +11,9 @@ use App\Inventory\Domain\Exception\StockPositionNotFoundException;
 use App\Inventory\Domain\ValueObject\ProductId;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(StockPositionDataProviderInterface::class)]
 final readonly class StockPositionDataProvider implements StockPositionDataProviderInterface
 {
     public function __construct(

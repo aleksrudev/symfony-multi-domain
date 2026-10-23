@@ -28,7 +28,9 @@ final readonly class UpdateStockOnHandController
         #[MapRequestPayload(acceptFormat: 'json')]
         UpdateStockOnHandRequest $request,
     ): JsonResponse {
-        \assert(null !== $request->onHand);
+        if (null === $request->onHand) {
+            throw new \InvalidArgumentException('onHand is required.');
+        }
 
         $this->commandBus->dispatch(new ChangeStockOnHandCommand(
             productId: $productId,
@@ -47,4 +49,3 @@ final readonly class UpdateStockOnHandController
         ]);
     }
 }
-

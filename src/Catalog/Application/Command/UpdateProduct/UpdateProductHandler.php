@@ -6,7 +6,9 @@ namespace App\Catalog\Application\Command\UpdateProduct;
 
 use App\Catalog\Domain\Action\UpdateProductAction;
 use App\Catalog\Domain\ValueObject\ProductId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class UpdateProductHandler
 {
     public function __construct(

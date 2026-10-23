@@ -13,4 +13,3 @@ final class StockOnHandBelowReservedException extends DomainException
         parent::__construct(sprintf('Cannot set on-hand stock to %d because it is below reserved quantity %d.', $onHand, $reserved));
     }
 }
-

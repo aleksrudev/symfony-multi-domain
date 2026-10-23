@@ -11,7 +11,9 @@ use App\Catalog\Domain\Entity\Product;
 use App\Catalog\Domain\Exception\ProductNotFoundException;
 use App\Catalog\Domain\ValueObject\ProductId;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(ProductDataProviderInterface::class)]
 final readonly class ProductDataProvider implements ProductDataProviderInterface
 {
     public function __construct(

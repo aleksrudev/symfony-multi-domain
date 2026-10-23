@@ -7,7 +7,7 @@ namespace App\Ordering\Application\Query\GetOrder;
 final readonly class GetOrderQueryResult
 {
     /**
-     * @param list<array{productId: string, quantity: int, name?: ?string, price?: ?int, currency?: ?string}> $items
+     * @param list<OrderItemQueryResult> $items
      */
     public function __construct(
         public string $id,

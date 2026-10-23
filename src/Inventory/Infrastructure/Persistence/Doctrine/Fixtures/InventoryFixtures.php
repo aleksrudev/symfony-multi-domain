@@ -8,7 +8,10 @@ use App\Inventory\Domain\Entity\StockPosition;
 use App\Inventory\Domain\ValueObject\ProductId;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
+use Symfony\Component\DependencyInjection\Attribute\When;
 
+#[When('dev')]
+#[When('test')]
 final class InventoryFixtures extends Fixture
 {
     public const string PRODUCT_KEYBOARD = 'prod-keyboard';

@@ -101,4 +101,3 @@ final class StockPositionTest extends TestCase
         $position->changeOnHand(4);
     }
 }
-

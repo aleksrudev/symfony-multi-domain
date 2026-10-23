@@ -18,4 +18,3 @@ interface StockPositionDataProviderInterface
 
     public function findAll(): StockPositionCollection;
 }
-

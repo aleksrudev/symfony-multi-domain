@@ -24,4 +24,3 @@ final class InventoryErrorProvider implements DomainErrorProviderInterface
         ];
     }
 }
-

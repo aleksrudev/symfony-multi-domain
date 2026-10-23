@@ -7,7 +7,9 @@ namespace App\Inventory\Application\Query\GetStockPosition;
 use App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface;
 use App\Inventory\Domain\Exception\StockPositionNotFoundException;
 use App\Inventory\Domain\ValueObject\ProductId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'query.bus')]
 final readonly class GetStockPositionHandler
 {
     public function __construct(
@@ -34,4 +36,3 @@ final readonly class GetStockPositionHandler
         );
     }
 }
-

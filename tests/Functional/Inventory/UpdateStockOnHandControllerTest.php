@@ -225,4 +225,3 @@ final class UpdateStockOnHandControllerTest extends TestCase
         return $authSessionData['csrfToken'];
     }
 }
-

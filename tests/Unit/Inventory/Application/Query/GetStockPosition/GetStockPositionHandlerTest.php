@@ -50,4 +50,3 @@ final class GetStockPositionHandlerTest extends TestCase
         $handler(new GetStockPositionQuery(''));
     }
 }
-

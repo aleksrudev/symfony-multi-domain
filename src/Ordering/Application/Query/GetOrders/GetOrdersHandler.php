@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Ordering\Application\Query\GetOrders;
 
 use App\Ordering\Application\Query\GetOrder\GetOrderQueryResult;
+use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
 use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'query.bus')]
 final readonly class GetOrdersHandler
 {
     public function __construct(
@@ -28,20 +31,13 @@ final readonly class GetOrdersHandler
         foreach ($paginated->items as $order) {
             $orderItems = [];
             foreach ($order->items() as $item) {
-                $itemData = [
-                    'productId' => $item->productId()->value,
-                    'quantity' => $item->quantity(),
-                ];
-                if (null !== $item->productName()) {
-                    $itemData['name'] = $item->productName();
-                }
-                if (null !== $item->priceAmount()) {
-                    $itemData['price'] = $item->priceAmount();
-                }
-                if (null !== $item->currency()) {
-                    $itemData['currency'] = $item->currency()->value;
-                }
-                $orderItems[] = $itemData;
+                $orderItems[] = new OrderItemQueryResult(
+                    productId: $item->productId()->value,
+                    quantity: $item->quantity(),
+                    productName: $item->productName(),
+                    priceAmount: $item->priceAmount(),
+                    currency: $item->currency()?->value,
+                );
             }
 
             $items[] = new GetOrderQueryResult(

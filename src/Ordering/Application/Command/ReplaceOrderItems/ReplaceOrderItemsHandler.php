@@ -11,7 +11,9 @@ use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 use App\Ordering\Domain\ValueObject\ProductId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class ReplaceOrderItemsHandler
 {
     public function __construct(
@@ -30,10 +32,10 @@ final readonly class ReplaceOrderItemsHandler
         $buyerId = new BuyerId($command->buyerId);
 
         $domainItems = [];
-        foreach ($command->items as $itemData) {
+        foreach ($command->items as $item) {
             $domainItems[] = new OrderItem(
-                productId: new ProductId($itemData['productId']),
-                quantity: $itemData['quantity'],
+                productId: new ProductId($item->productId),
+                quantity: $item->quantity,
             );
         }
 

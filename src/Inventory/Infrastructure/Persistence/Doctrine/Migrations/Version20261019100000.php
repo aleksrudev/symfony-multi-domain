@@ -36,4 +36,3 @@ final class Version20261019100000 extends AbstractMigration
         $this->addSql('DROP SCHEMA IF EXISTS inventory');
     }
 }
-

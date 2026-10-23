@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Ordering\Presentation\Http\Controller\Api\Buyer;
 
 use App\Ordering\Application\Query\GetOrder\GetOrderQueryResult;
+use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
 use App\Ordering\Application\Query\GetOrders\GetOrdersQuery;
 use App\Ordering\Application\Query\GetOrders\GetOrdersQueryResult;
 use App\Ordering\Presentation\Http\Request\GetOrdersRequest;
@@ -15,7 +16,9 @@ use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+#[IsGranted('ROLE_BUYER')]
 final readonly class GetOrdersController
 {
     public function __construct(
@@ -26,14 +29,10 @@ final readonly class GetOrdersController
     #[Route('/orders', name: 'orders_list', methods: ['GET'], format: 'json')]
     public function __invoke(
         #[CurrentUser]
-        ?UserInterface $user,
+        UserInterface $user,
         #[MapQueryString(validationFailedStatusCode: Response::HTTP_UNPROCESSABLE_ENTITY)]
         GetOrdersRequest $request = new GetOrdersRequest(),
     ): JsonResponse {
-        if (null === $user) {
-            return new JsonResponse(['text' => 'Unauthorized.', 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
-        }
-
         /** @var GetOrdersQueryResult $result */
         $result = $this->queryBus->dispatch(new GetOrdersQuery(
             buyerId: $user->getUserIdentifier(),
@@ -46,7 +45,7 @@ final readonly class GetOrdersController
                 'id' => $item->id,
                 'buyerId' => $item->buyerId,
                 'status' => $item->status,
-                'items' => $item->items,
+                'items' => array_map(static fn (OrderItemQueryResult $orderItem): array => $orderItem->toArray(), $item->items),
                 'totalAmount' => $item->totalAmount,
                 'currency' => $item->currency,
                 'createdAt' => $item->createdAt,

@@ -20,6 +20,3 @@ services:
 
     App\Shared\Presentation\Http\AuthController:
         tags: [controller.service_arguments]
-
-    App\Shared\Presentation\Http\CsrfProtectionListener:
-        tags: [{ name: kernel.event_listener, event: kernel.request, priority: 16 }]

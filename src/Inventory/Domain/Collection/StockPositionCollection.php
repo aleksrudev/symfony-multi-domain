@@ -17,4 +17,3 @@ final class StockPositionCollection extends AbstractCollection
         return StockPosition::class;
     }
 }
-

@@ -3,58 +3,26 @@ services:
         autowire: true
         autoconfigure: true
 
-    # Application Query Handlers
-    App\Catalog\Application\Query\GetProducts\GetProductsHandler:
-        tags:
-            - { name: messenger.message_handler, bus: query.bus }
+    App\Catalog\Application\:
+        resource: '../Application/**/*Handler.php'
 
-    App\Catalog\Application\Query\GetProduct\GetProductHandler:
-        tags:
-            - { name: messenger.message_handler, bus: query.bus }
+    App\Catalog\Domain\Action\:
+        resource: '../Domain/Action/'
 
-    # Application Command Handlers
-    App\Catalog\Application\Command\UpdateProduct\UpdateProductHandler:
-        tags:
-            - { name: messenger.message_handler, bus: command.bus }
+    App\Catalog\Infrastructure\Persistence\Doctrine\Repository\:
+        resource: '../Infrastructure/Persistence/Doctrine/Repository/'
 
-    # Domain Actions
-    App\Catalog\Domain\Action\UpdateProductAction: ~
+    App\Catalog\Infrastructure\Persistence\Doctrine\DataProvider\:
+        resource: '../Infrastructure/Persistence/Doctrine/DataProvider/'
 
-    # Public Contracts Adapter
-    App\Catalog\Presentation\Adapter\CatalogContractAdapter: ~
-    App\Catalog\Presentation\Contracts\CatalogContractInterface:
-        alias: App\Catalog\Presentation\Adapter\CatalogContractAdapter
-        public: true
+    App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\:
+        resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
 
-    # Infrastructure Repositories & DataProviders
-    App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository: ~
-    App\Catalog\Domain\Repository\ProductRepositoryInterface:
-        alias: App\Catalog\Infrastructure\Persistence\Doctrine\Repository\ProductRepository
-        public: true
+    App\Catalog\Presentation\Adapter\:
+        resource: '../Presentation/Adapter/'
 
-    App\Catalog\Infrastructure\Persistence\Doctrine\DataProvider\ProductDataProvider: ~
-    App\Catalog\Domain\DataProvider\ProductDataProviderInterface:
-        alias: App\Catalog\Infrastructure\Persistence\Doctrine\DataProvider\ProductDataProvider
-        public: true
-
-    # Presentation Controllers
     App\Catalog\Presentation\Http\Controller\Api\:
         resource: '../Presentation/Http/Controller/Api/'
-        tags: ['controller.service_arguments']
 
-    # Presentation Error Provider
-    App\Catalog\Presentation\Http\Error\CatalogErrorProvider: ~
-
-when@dev:
-    services:
-        App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\:
-            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
-            autowire: true
-            autoconfigure: true
-
-when@test:
-    services:
-        App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\:
-            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
-            autowire: true
-            autoconfigure: true
+    App\Catalog\Presentation\Http\Error\:
+        resource: '../Presentation/Http/Error/'

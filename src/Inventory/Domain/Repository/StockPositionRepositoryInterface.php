@@ -12,4 +12,3 @@ interface StockPositionRepositoryInterface
 
     public function remove(StockPosition $position): void;
 }
-

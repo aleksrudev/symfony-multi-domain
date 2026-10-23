@@ -13,7 +13,9 @@ use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(OrderDataProviderInterface::class)]
 final readonly class OrderDataProvider implements OrderDataProviderInterface
 {
     public function __construct(
@@ -86,6 +88,7 @@ final readonly class OrderDataProvider implements OrderDataProviderInterface
             ->where('o.buyerId = :buyerId')
             ->setParameter('buyerId', $buyerId->value)
             ->orderBy('o.createdAt', 'DESC')
+            ->addOrderBy('o.id', 'ASC')
             ->setFirstResult($offset)
             ->setMaxResults($limit)
             ->getQuery()

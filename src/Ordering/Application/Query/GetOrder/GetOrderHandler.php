@@ -8,7 +8,9 @@ use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'query.bus')]
 final readonly class GetOrderHandler
 {
     public function __construct(
@@ -31,20 +33,13 @@ final readonly class GetOrderHandler
 
         $items = [];
         foreach ($order->items() as $item) {
-            $itemData = [
-                'productId' => $item->productId()->value,
-                'quantity' => $item->quantity(),
-            ];
-            if (null !== $item->productName()) {
-                $itemData['name'] = $item->productName();
-            }
-            if (null !== $item->priceAmount()) {
-                $itemData['price'] = $item->priceAmount();
-            }
-            if (null !== $item->currency()) {
-                $itemData['currency'] = $item->currency()->value;
-            }
-            $items[] = $itemData;
+            $items[] = new OrderItemQueryResult(
+                productId: $item->productId()->value,
+                quantity: $item->quantity(),
+                productName: $item->productName(),
+                priceAmount: $item->priceAmount(),
+                currency: $item->currency()?->value,
+            );
         }
 
         return new GetOrderQueryResult(

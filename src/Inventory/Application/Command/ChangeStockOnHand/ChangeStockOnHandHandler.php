@@ -7,7 +7,9 @@ namespace App\Inventory\Application\Command\ChangeStockOnHand;
 use App\Inventory\Domain\Action\ChangeStockOnHandAction;
 use App\Inventory\Domain\Exception\StockPositionNotFoundException;
 use App\Inventory\Domain\ValueObject\ProductId;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'command.bus')]
 final readonly class ChangeStockOnHandHandler
 {
     public function __construct(
@@ -26,4 +28,3 @@ final readonly class ChangeStockOnHandHandler
         ($this->changeStockOnHandAction)($productId, $command->onHand);
     }
 }
-

@@ -7,7 +7,9 @@ namespace App\Ordering\Infrastructure\Persistence\Doctrine\Repository;
 use App\Ordering\Domain\Entity\IdempotencyKey;
 use App\Ordering\Domain\Repository\IdempotencyKeyRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(IdempotencyKeyRepositoryInterface::class)]
 final readonly class IdempotencyKeyRepository implements IdempotencyKeyRepositoryInterface
 {
     public function __construct(

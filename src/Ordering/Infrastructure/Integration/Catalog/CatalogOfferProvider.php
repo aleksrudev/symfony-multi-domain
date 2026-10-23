@@ -7,7 +7,9 @@ namespace App\Ordering\Infrastructure\Integration\Catalog;
 use App\Catalog\Presentation\Contracts\CatalogContractInterface;
 use App\Ordering\Application\Command\SubmitOrder\Provider\ProductOffer;
 use App\Ordering\Application\Command\SubmitOrder\Provider\ProductOfferProviderInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(ProductOfferProviderInterface::class)]
 final readonly class CatalogOfferProvider implements ProductOfferProviderInterface
 {
     public function __construct(

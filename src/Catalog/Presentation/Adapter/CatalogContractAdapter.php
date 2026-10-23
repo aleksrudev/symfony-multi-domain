@@ -10,7 +10,9 @@ use App\Catalog\Domain\Exception\ProductNotFoundException;
 use App\Catalog\Presentation\Contracts\CatalogContractInterface;
 use App\Catalog\Presentation\Contracts\Dto\Offer;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(CatalogContractInterface::class)]
 final readonly class CatalogContractAdapter implements CatalogContractInterface
 {
     public function __construct(

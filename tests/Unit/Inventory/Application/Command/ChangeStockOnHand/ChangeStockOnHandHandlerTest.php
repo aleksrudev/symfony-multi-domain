@@ -59,4 +59,3 @@ final class ChangeStockOnHandHandlerTest extends TestCase
         $handler(new ChangeStockOnHandCommand('   ', 50));
     }
 }
-

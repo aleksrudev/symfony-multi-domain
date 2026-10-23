@@ -7,7 +7,9 @@ namespace App\Ordering\Infrastructure\Persistence\Doctrine\Repository;
 use App\Ordering\Domain\Entity\Order;
 use App\Ordering\Domain\Repository\OrderRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
+#[AsAlias(OrderRepositoryInterface::class)]
 final readonly class OrderRepository implements OrderRepositoryInterface
 {
     public function __construct(

@@ -7,7 +7,9 @@ namespace App\Catalog\Application\Query\GetProducts;
 use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
 use App\Catalog\Domain\DataProvider\ProductDataProviderInterface;
 use App\Catalog\Domain\Entity\Product;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
+#[AsMessageHandler(bus: 'query.bus')]
 final readonly class GetProductsHandler
 {
     public function __construct(

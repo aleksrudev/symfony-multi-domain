@@ -274,7 +274,7 @@
 
 #### `POST /api/v1/orders/{id}/submission`
 Перевод черновика заказа в оформление (`pending_stock`).
-На этом этапе фиксируются неизменяемые снимки цен и наименований товаров из `Catalog`, рассчитывается итоговая сумма заказа в копейках (`totalAmount`), а в шину `outbox.bus` внутри транзакции публикуется асинхронное сообщение `OrderSubmittedOutboxMessage`.
+На этом этапе фиксируются неизменяемые снимки цен и наименований товаров из `Catalog`, рассчитывается итоговая сумма заказа в копейках (`totalAmount`), а в шину `outbox.bus` внутри транзакции публикуется публичное интеграционное событие `OrderSubmittedEvent` (в обёртке `IntegrationEventMessage`).
 Требует `ROLE_BUYER`, `X-CSRF-Token`. Поддерживает `Idempotency-Key`.
 
 * **Заголовки**:
@@ -523,7 +523,7 @@ SUBMIT_RESPONSE=$(curl -s -c "$COOKIE_BUYER1" -b "$COOKIE_BUYER1" \
 
 echo "$SUBMIT_RESPONSE" | jq .
 ```
-*Ожидаемый ответ*: HTTP 202 Accepted, статус `pending_stock`, зафиксированные снимки товаров в позициях и расчет суммы (`totalAmount: 1297000`, `currency: "RUB"`). В БД в транзакции сохранено outbox-сообщение `OrderSubmittedOutboxMessage`.
+*Ожидаемый ответ*: HTTP 202 Accepted, статус `pending_stock`, зафиксированные снимки товаров в позициях и расчет суммы (`totalAmount: 1297000`, `currency: "RUB"`). В БД в транзакции сохранено outbox-сообщение с публичным событием `OrderSubmittedEvent`.
 
 ---
 
