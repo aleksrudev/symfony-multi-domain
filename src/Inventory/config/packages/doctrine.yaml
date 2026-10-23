@@ -2,6 +2,7 @@ doctrine:
     dbal:
         types:
             inventory_product_id: App\Inventory\Infrastructure\Persistence\Doctrine\Type\ProductIdType
+            inventory_order_id: App\Inventory\Infrastructure\Persistence\Doctrine\Type\OrderIdType
     orm:
         entity_managers:
             default:

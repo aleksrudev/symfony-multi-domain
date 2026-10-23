@@ -6,6 +6,8 @@
 - Учётом складских остатков товаров (`onHand`);
 - Учётом зарезервированного количества товаров (`reserved`);
 - Расчётом доступного для заказа остатка (`available = max(0, onHand - reserved)`);
+- Атомарным резервированием всех позиций заказа (`Reserve`) и освобождением резерва (`Release`);
+- Защитной записью отмены при получении `Release` до `Reserve`;
 - Администраторским изменением физических остатков (`PATCH /api/v1/admin/stock/{productId}`);
 - Демо-фикстурами складских остатков для товаров.
 
@@ -18,7 +20,8 @@
 - `StockPosition` — складская позиция конкретного товара;
 - `onHand` — физический остаток товара на складе (фактическое наличие);
 - `reserved` — зарезервированное количество товара под заказы;
-- `available` — доступное для оформления количество (`max(0, onHand - reserved)`).
+- `available` — доступное для оформления количество (`max(0, onHand - reserved)`);
+- `Reservation` — результат операции резервирования по заказу (`orderId`, `status: pending|reserved|rejected|released`, позиции `items`, `rejectionReason`).
 
 ## Модель и инварианты
 
@@ -27,17 +30,30 @@
 - Инвариант неотрицательности остатков (BR-06, A-12): `onHand >= 0` и `reserved >= 0`. Попытка задать отрицательное значение отклоняется `InvalidArgumentException`.
 - Инвариант баланса (BR-06, A-12): физический остаток никогда не может опускаться ниже зарезервированного количества (`onHand >= reserved`). Попытка уменьшить `onHand` ниже `reserved` вызывает доменное исключение `StockOnHandBelowReservedException`.
 - Инвариант доступности: `available = max(0, onHand - reserved)`. Доступное количество никогда не бывает отрицательным.
+- Операции `reserve(int $quantity)` и `release(int $quantity)` изменяют `reserved` с контролем инвариантов.
 - Защита на уровне PostgreSQL: таблица `inventory.stock_positions` снабжена CHECK-ограничениями:
   - `CONSTRAINT check_stock_on_hand_gte_zero CHECK (on_hand >= 0)`
   - `CONSTRAINT check_stock_reserved_gte_zero CHECK (reserved >= 0)`
   - `CONSTRAINT check_stock_on_hand_gte_reserved CHECK (on_hand >= reserved)`
 
+Агрегат `Reservation` (`orderId: OrderId`, `status: ReservationStatus`, `items: ReservationItemCollection`, `rejectionReason: ?ReservationRejectionReason`, `createdAt`, `updatedAt`):
+- `OrderId` — `final readonly` value object в `Domain/ValueObject/OrderId`, наследует `App\Shared\Domain\ValueObject\UuidId`.
+- Инвариант атомарности (BR-05, A-02): операция резервирует либо все позиции заказа, либо ни одной. Частичное резервирование запрещено.
+- Инвариант порядка блокировок (BR-06, BR-07, deadlock-free): позиции блокируются пессимистически (`LockMode::PESSIMISTIC_WRITE`) строго по возрастанию `productId`.
+- Инвариант идемпотентности (BR-14, A-09): повтор `Reserve` с тем же составом возвращает прежний результат; повтор с другим составом вызывает `ReservationConflictException`.
+- Инвариант защитной отмены (BR-10, BR-11, A-07): `Release`, пришедший до `Reserve`, создаёт запись `released` по `orderId`. Поздний `Reserve` видит `released` и не удерживает товар.
+
 Доменные Action:
 - `ChangeStockOnHandAction` (`Domain/Action/ChangeStockOnHandAction`): загружает позицию через `StockPositionDataProviderInterface::findByProductId` с пессимистической блокировкой на запись (`lock: true`), изменяет `onHand` через `StockPosition::changeOnHand($newOnHand)`, сохраняет через `StockPositionRepositoryInterface::save($position)`.
+- `ReserveStockAction` (`Domain/Action/ReserveStockAction`): проверяет существующую резервацию, блокирует позиции по возрастанию `productId`, проверяет доступность всех позиций, атомарно резервирует остаток (`RESERVED`) либо фиксирует отказ (`REJECTED`).
+- `ReleaseStockAction` (`Domain/Action/ReleaseStockAction`): идемпотентно освобождает зарезервированные позиции или создаёт защитную запись `RELEASED` при отсутствии резервации.
 
 Application сценарии:
-- `ChangeStockOnHandCommand` / `ChangeStockOnHandHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор изменения остатка. При невалидном `productId` выбрасывает `StockPositionNotFoundException`. Тонкий обработчик вызывает `ChangeStockOnHandAction`.
-- `GetStockPositionQuery` / `GetStockPositionHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает позицию через `StockPositionDataProviderInterface::findByProductId` и преобразует её в модель `GetStockPositionQueryResult` (`productId`, `onHand`, `reserved`, `available`, `updatedAt: string` в формате ATOM). Доменные сущности наружу не раскрываются.
+- `ChangeStockOnHandCommand` / `ChangeStockOnHandHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор изменения остатка.
+- `ReserveStockCommand` / `ReserveStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор резервирования остатков по заказу.
+- `ReleaseStockCommand` / `ReleaseStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор освобождения остатков по заказу.
+- `GetStockPositionQuery` / `GetStockPositionHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает позицию и преобразует её в модель `GetStockPositionQueryResult`.
+- `GetReservationQuery` / `GetReservationHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает результат резервации по заказу и преобразует его в `GetReservationQueryResult`.
 
 ## Публичный API и зависимости
 
@@ -67,15 +83,18 @@ HTTP Request DTO и валидация (`Presentation/Http/Request/`):
 ## Хранение, сообщения и конфигурация
 
 - Собственная схема PostgreSQL: `inventory`.
-- Таблица: `inventory.stock_positions` с первичным ключом `product_id`.
-- Маппинг `ProductId` зарегистрирован через DBAL-тип `inventory_product_id` (`ProductIdType`).
-- Репозиторий: `StockPositionRepositoryInterface` в `Domain/Repository/` содержит `save(StockPosition $position): void` и `remove(StockPosition $position): void`. Реализация в `Infrastructure/Persistence/Doctrine/Repository/StockPositionRepository` с `#[AsAlias]`.
-- DataProvider: `StockPositionDataProviderInterface` в `Domain/DataProvider/` содержит:
-  - `findByProductId(ProductId $productId, bool $lock = false): StockPosition` (выбрасывает `StockPositionNotFoundException` при отсутствии);
-  - `findAll(): StockPositionCollection`.
-  Реализация в `Infrastructure/Persistence/Doctrine/DataProvider/StockPositionDataProvider` с `#[AsAlias]`.
+- Таблицы: `inventory.stock_positions` с первичным ключом `product_id`, `inventory.reservations` с первичным ключом `order_id` и `inventory.reservation_items`.
+- Маппинги зарегистрированы через DBAL-типы `inventory_product_id` (`ProductIdType`) и `inventory_order_id` (`OrderIdType`).
+- Репозитории:
+  - `StockPositionRepositoryInterface` в `Domain/Repository/` содержит `save(StockPosition $position): void` и `remove(StockPosition $position): void`.
+  - `ReservationRepositoryInterface` в `Domain/Repository/` содержит `save(Reservation $reservation): void` и `remove(Reservation $reservation): void`.
+- DataProviders:
+  - `StockPositionDataProviderInterface` в `Domain/DataProvider/`: `findByProductId(ProductId $productId, bool $lock = false): StockPosition` и `findAll(): StockPositionCollection`.
+  - `ReservationDataProviderInterface` в `Domain/DataProvider/`: `findByOrderId(OrderId $orderId, bool $lock = false): Reservation`.
 - Коллекции:
-  - `StockPositionCollection` в `Domain/Collection/StockPositionCollection` — строго типизированная коллекция сущностей `StockPosition`, наследует `App\Shared\Domain\Collection\AbstractCollection<StockPosition>`, возвращает `StockPosition::class` в `elementClass()`.
+  - `StockPositionCollection` в `Domain/Collection/StockPositionCollection` (`StockPosition::class`).
+  - `ReservationCollection` в `Domain/Collection/ReservationCollection` (`Reservation::class`).
+  - `ReservationItemCollection` в `Domain/Collection/ReservationItemCollection` (`ReservationItem::class`).
 - Фикстуры: `InventoryFixtures` в `Infrastructure/Persistence/Doctrine/Fixtures/InventoryFixtures` помечен `#[When('dev')]` и `#[When('test')]`, наполняет склад начальными остатками для демо-товаров (`prod-keyboard`: 10, `prod-mouse`: 20, `prod-monitor`: 5, `prod-headphones`: 0).
 - Доменные исключения маппятся в HTTP-статусы через `InventoryErrorProvider`.
 

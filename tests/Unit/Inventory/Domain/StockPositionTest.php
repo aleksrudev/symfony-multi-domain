@@ -100,4 +100,63 @@ final class StockPositionTest extends TestCase
 
         $position->changeOnHand(4);
     }
+
+    public function testReserveSuccess(): void
+    {
+        $position = new StockPosition(new ProductId('prod-1'), 10, 2);
+        $position->reserve(3);
+
+        self::assertSame(10, $position->onHand());
+        self::assertSame(5, $position->reserved());
+        self::assertSame(5, $position->available());
+    }
+
+    public function testReserveThrowsOnZeroOrNegativeQuantity(): void
+    {
+        $position = new StockPosition(new ProductId('prod-1'), 10, 2);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Quantity to reserve must be positive.');
+
+        $position->reserve(0);
+    }
+
+    public function testReserveThrowsOnInsufficientStock(): void
+    {
+        $position = new StockPosition(new ProductId('prod-1'), 10, 8);
+
+        $this->expectException(\App\Inventory\Domain\Exception\InsufficientStockException::class);
+
+        $position->reserve(3);
+    }
+
+    public function testReleaseSuccess(): void
+    {
+        $position = new StockPosition(new ProductId('prod-1'), 10, 5);
+        $position->release(3);
+
+        self::assertSame(10, $position->onHand());
+        self::assertSame(2, $position->reserved());
+        self::assertSame(8, $position->available());
+    }
+
+    public function testReleaseExceedingReservedCapsAtZero(): void
+    {
+        $position = new StockPosition(new ProductId('prod-1'), 10, 2);
+        $position->release(5);
+
+        self::assertSame(10, $position->onHand());
+        self::assertSame(0, $position->reserved());
+        self::assertSame(10, $position->available());
+    }
+
+    public function testReleaseThrowsOnZeroOrNegativeQuantity(): void
+    {
+        $position = new StockPosition(new ProductId('prod-1'), 10, 2);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Quantity to release must be positive.');
+
+        $position->release(-1);
+    }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inventory\Domain\Entity;
 
+use App\Inventory\Domain\Exception\InsufficientStockException;
 use App\Inventory\Domain\Exception\StockOnHandBelowReservedException;
 use App\Inventory\Domain\ValueObject\ProductId;
 use Doctrine\ORM\Mapping\Column;
@@ -104,6 +105,30 @@ class StockPosition
         }
 
         $this->onHand = $newOnHand;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
+    public function reserve(int $quantity): void
+    {
+        if ($quantity <= 0) {
+            throw new \InvalidArgumentException('Quantity to reserve must be positive.');
+        }
+
+        if ($this->available() < $quantity) {
+            throw new InsufficientStockException($this->productId->value, $quantity, $this->available());
+        }
+
+        $this->reserved += $quantity;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
+    public function release(int $quantity): void
+    {
+        if ($quantity <= 0) {
+            throw new \InvalidArgumentException('Quantity to release must be positive.');
+        }
+
+        $this->reserved = max(0, $this->reserved - $quantity);
         $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     }
 }

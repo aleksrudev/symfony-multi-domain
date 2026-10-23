@@ -78,7 +78,7 @@ Outbox и Inbox используют Doctrine transport на одном default 
 (метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребитель: модуль `Ordering`
 (при оформлении заказа в задаче `T05`) через собственный адаптер `Ordering/Infrastructure/Integration/Catalog/CatalogOfferProvider.php`.
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
-Модуль `Inventory` на этапе T06 не зависит от других бизнес-модулей (`Inventory/config/dependencies.php` пуст); публичные контракты резервирования позиций для заказов появятся в задаче T07.
+Модуль `Inventory` на этапе T07 реализует атомарное резервирование позиций (`Reserve`, `Release`) и не зависит от других бизнес-модулей (`Inventory/config/dependencies.php` пуст); публичные контракты резервирования позиций для заказов появятся в задаче T08.
 Модуль `Ordering` зависит от `Catalog` (`Ordering/config/dependencies.php` возвращает `['Catalog']`).
 Shared не зависит от бизнес-модулей и их Contracts.
 
