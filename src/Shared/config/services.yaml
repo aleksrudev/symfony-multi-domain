@@ -7,7 +7,7 @@ services:
         resource: '../Infrastructure/Bus/Symfony/'
 
     App\Shared\Infrastructure\Messaging\:
-        resource: '../Infrastructure/Messaging/*{Dispatcher,Handler}.php'
+        resource: '../Infrastructure/Messaging/*Handler.php'
 
     App\Shared\Infrastructure\Schedule\:
         resource: '../Infrastructure/Schedule/'

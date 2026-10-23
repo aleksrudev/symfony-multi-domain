@@ -343,9 +343,12 @@ Presentation/Contracts/Event/. Синхронный инфраструктурн
 через `DispatchAfterCurrentBusStamp` или after-commit: запись после commit
 разрушает атомарность. Worker доставляет сохранённые сообщения после commit.
 
-Публичные события публикует тонкий IntegrationEventDispatcher из Shared
-Infrastructure: одна IntegrationEventMessage в outbox независимо от числа
-listener. Штатный сериализатор Messenger сохраняет снимок публичного DTO
+Инфраструктурный listener владельца напрямую вызывает
+`OutboxBusInterface::publish(new IntegrationEventMessage($publicEvent))`:
+одна обёртка в outbox независимо от числа listener. Знание Outbox и технической
+обёртки относится к ответственности Infrastructure. Отдельный сервис,
+который только упаковывает событие и делегирует publish, не нужен.
+Штатный сериализатор Messenger сохраняет снимок публичного DTO
 со скалярными метаданными и вложенными DTO, включая их PHP-типы.
 Shared-handler на outbox.bus передаёт DTO в Symfony EventDispatcher.
 Listener потребителей только переводят его в собственные Inbox-сообщения.

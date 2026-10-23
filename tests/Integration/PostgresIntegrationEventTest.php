@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration;
 
-use App\Shared\Infrastructure\Messaging\IntegrationEventDispatcher;
+use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
 use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\Connection;
@@ -46,14 +46,14 @@ final class PostgresIntegrationEventTest extends TestCase
             $db->executeStatement('CREATE SCHEMA IF NOT EXISTS alpha');
             $db->executeStatement('CREATE TABLE IF NOT EXISTS alpha.local_event_probe (event_id VARCHAR(36) PRIMARY KEY, value INTEGER NOT NULL)');
             $observer = DriverManager::getConnection($db->getParams());
-            $dispatcher = $container->get('test.integration_event_dispatcher');
-            self::assertInstanceOf(IntegrationEventDispatcher::class, $dispatcher);
+            $outbox = $container->get(OutboxBusInterface::class);
+            self::assertInstanceOf(OutboxBusInterface::class, $outbox);
             $event = new ProbePublishedEvent(7, [new ProbeItem('item-1', 3)], Uuid::v4()->toRfc4122(), '2026-10-22T09:30:00.123456Z');
             $eventIds[] = $event->eventId;
 
             $db->beginTransaction();
             $db->insert('alpha.local_event_probe', ['event_id' => $event->eventId, 'value' => 7]);
-            $dispatcher->dispatch($event);
+            $outbox->publish(new IntegrationEventMessage($event));
             self::assertCount(1, $this->messageIds($db, $event->eventId, 'outbox'));
             self::assertSame([], $this->messageIds($observer, $event->eventId));
             self::assertSame(0, $observer->fetchOne('SELECT COUNT(*) FROM alpha.local_event_probe WHERE event_id = ?', [$event->eventId]));
@@ -81,7 +81,7 @@ final class PostgresIntegrationEventTest extends TestCase
             $eventIds[] = $rolledBack->eventId;
             $db->beginTransaction();
             $db->insert('alpha.local_event_probe', ['event_id' => $rolledBack->eventId, 'value' => 8]);
-            $dispatcher->dispatch($rolledBack);
+            $outbox->publish(new IntegrationEventMessage($rolledBack));
             self::assertCount(1, $this->messageIds($db, $rolledBack->eventId, 'outbox'));
             $db->rollBack();
             self::assertSame([], $this->messageIds($observer, $rolledBack->eventId));

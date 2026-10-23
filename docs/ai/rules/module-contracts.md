@@ -91,7 +91,10 @@ Application/Message/ по [правилам доменных событий](dom
 инфраструктурный listener владельца. Он зависит от собственного Domain
 и Contracts и записывает событие в outbox через общую техническую обёртку.
 Контракт события остаётся независимым от внутренних шин и их маркеров.
-Listener использует тонкий Shared Infrastructure IntegrationEventDispatcher.
+Listener напрямую вызывает
+`OutboxBusInterface::publish(new IntegrationEventMessage($publicEvent))`.
+Зависимость от технической обёртки допустима в Infrastructure владельца;
+публичный DTO остаётся независимым от транспортного маркера.
 Общий outbox handler передаёт публичный DTO в штатный Symfony EventDispatcher.
 Адаптеры потребителей помечаются AsEventListener и только ставят собственные
 Inbox-сообщения, а бизнесовые handlers — AsMessageHandler с inbox.bus.

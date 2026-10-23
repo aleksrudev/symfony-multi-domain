@@ -83,9 +83,9 @@ API-контроллеры находятся в `Presentation/Http/Controller/A
 Запись outbox после commit нарушает атомарность; доставка выполняется после commit.
 Публичные события находятся в `Presentation/Contracts/Event/`, реализуют пустую
 Shared Presentation-метку `IntegrationEventInterface`. Инфраструктурный listener
-владельца вызывает Shared Infrastructure `IntegrationEventDispatcher`, который
-помещает событие в одну `IntegrationEventMessage` для outbox. После commit общий
-handler передаёт DTO в Symfony EventDispatcher. Listener потребителей только
+владельца оборачивает событие в Shared Infrastructure `IntegrationEventMessage`
+и напрямую вызывает `OutboxBusInterface::publish()` внутри транзакции.
+После commit общий handler передаёт DTO в Symfony EventDispatcher. Listener потребителей только
 преобразуют его в собственные Inbox-сообщения. Все они записываются атомарно
 в Doctrine `async` на том же default connection; бизнес-реакции выполняются
 отдельными Inbox handlers. Метаданные — скалярные поля публичного DTO.

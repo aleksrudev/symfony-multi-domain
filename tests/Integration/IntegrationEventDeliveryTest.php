@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Shared\Application\Bus\Command\CommandBusInterface;
-use App\Shared\Infrastructure\Messaging\IntegrationEventDispatcher;
+use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
 use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -58,7 +58,7 @@ final class IntegrationEventDeliveryTest extends TestCase
         $this->kernel->shutdown();
     }
 
-    public function testDispatcherQueuesOnePublicEventBeforeRecipientsRun(): void
+    public function testPublishingQueuesOnePublicEventBeforeRecipientsRun(): void
     {
         $this->container->get(CommandBusInterface::class)->dispatch(new PublishProbeEventCommand(7));
         self::assertSame(1, $this->countQueue('outbox'));
@@ -80,7 +80,7 @@ final class IntegrationEventDeliveryTest extends TestCase
         $this->removeRecipients();
         $event = new ProbePublishedEvent(7, [], Uuid::v4()->toRfc4122(), '2026-10-22T09:30:00.123456Z');
         $this->expectException(\LogicException::class);
-        $this->container->get('test.integration_event_dispatcher')->dispatch($event);
+        $this->container->get(OutboxBusInterface::class)->publish(new IntegrationEventMessage($event));
     }
 
     public function testOutboxWorkerOnlyEnqueuesIndependentInboxSnapshots(): void
@@ -204,7 +204,7 @@ final class IntegrationEventDeliveryTest extends TestCase
         for ($delivery = 0; $delivery < 2; ++$delivery) {
             if (1 === $delivery) {
                 $this->db->beginTransaction();
-                $this->container->get('test.integration_event_dispatcher')->dispatch($event);
+                $this->container->get(OutboxBusInterface::class)->publish(new IntegrationEventMessage($event));
                 $this->db->commit();
             }
             self::assertNull($this->runOne('outbox')['failure']);
@@ -226,10 +226,10 @@ final class IntegrationEventDeliveryTest extends TestCase
     {
         $items = [new ProbeItem('item-1', 3)];
         $event = new ProbePublishedEvent(7, $items, Uuid::v4()->toRfc4122(), '2026-10-22T09:30:00.123456Z');
-        $dispatcher = $this->container->get('test.integration_event_dispatcher');
-        self::assertInstanceOf(IntegrationEventDispatcher::class, $dispatcher);
+        $outbox = $this->container->get(OutboxBusInterface::class);
+        self::assertInstanceOf(OutboxBusInterface::class, $outbox);
         $this->db->beginTransaction();
-        $dispatcher->dispatch($event);
+        $outbox->publish(new IntegrationEventMessage($event));
         $this->db->commit();
         $items[0] = new ProbeItem('changed', 99);
         $restored = $this->queuedPublicEvent();

@@ -106,24 +106,30 @@ Domain и Presentation/Contracts; Application остаётся независи�
 `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]` над классом
 с методом `__invoke()`.
 
-Listener синхронно формирует публичный DTO, включая метаданные, и вызывает
-Shared Infrastructure `IntegrationEventDispatcher::dispatch(IntegrationEventInterface)`.
-Dispatcher упаковывает DTO в одну `IntegrationEventMessage` и вызывает
-OutboxBusInterface. Он не выбирает получателей, не генерирует метаданные
-и не начинает транзакцию. OutboxMessageBus отклоняет вызов вне активной
-транзакции default connection, в том числе при отсутствии listener.
+Listener синхронно формирует публичный DTO, включая метаданные, упаковывает
+его в Shared Infrastructure `IntegrationEventMessage` и напрямую вызывает
+OutboxBusInterface:
+
+```php
+$this->outboxBus->publish(new IntegrationEventMessage($publicEvent));
+```
+
+Listener не выбирает получателей и не начинает транзакцию. OutboxMessageBus
+отклоняет вызов вне активной транзакции default connection, в том числе
+при отсутствии listener.
 
 IntegrationEventMessage — общая readonly-обёртка, реализующая
 OutboxMessageInterface; поле event типизировано IntegrationEventInterface.
 Не создавай отдельный OrderSubmittedOutboxMessage только ради этого маркера.
-Listener владельца не знает о технической обёртке и OutboxBus.
-Shared не импортирует конкретные бизнес-события.
+Знание Outbox и технической обёртки допустимо в Infrastructure владельца.
+Дополнительный сервис, который только упаковывает DTO и делегирует publish,
+не вводи. Shared не импортирует конкретные бизнес-события.
 
 ```text
 command.bus: транзакция владельца
   → Action: изменение агрегата и собственное доменное событие
   → синхронный инфраструктурный listener: публичный DTO с метаданными
-  → IntegrationEventDispatcher → одна IntegrationEventMessage → Doctrine outbox
+  → одна IntegrationEventMessage → OutboxBusInterface → Doctrine outbox
 commit
   → outbox worker: IntegrationEventHandler → Symfony EventDispatcher
   → listener каждого потребителя → собственное сообщение в Doctrine async

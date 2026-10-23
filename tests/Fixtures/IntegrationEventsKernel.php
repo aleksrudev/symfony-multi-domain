@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
-use App\Shared\Infrastructure\Messaging\IntegrationEventDispatcher;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Tests\Fixtures\Modules\Alpha\Application\PublishProbeEventHandler;
 use Tests\Fixtures\Modules\Alpha\Infrastructure\Messaging\PublishProbeEventListener;
@@ -30,6 +29,5 @@ class IntegrationEventsKernel extends ModuleKernel
         $services->set(EnqueueFailingProbeListener::class);
         $services->set(RecordProbeHandler::class)->public();
         $services->set(FailProbeHandler::class)->public();
-        $services->alias('test.integration_event_dispatcher', IntegrationEventDispatcher::class)->public();
     }
 }

@@ -22,7 +22,7 @@ services.yaml подключает узкие ресурсы сервисов б
 Адаптеры шин объявляют private AsAlias; MessageBusInterface внедряется по
 именам аргументов шин, default Connection — по типу. HTTP listener использует
 AsEventListener, расписание — AutowireIterator для поставщиков.
-Messaging подключает только `*{Dispatcher,Handler}.php`; DTO и метка не сервисы.
+Messaging подключает только `*Handler.php`; DTO и метка не сервисы.
 Следуй общим [правилам регистрации](../../docs/ai/rules/architecture.md#регистрация-сервисов-и-атрибуты).
 
 Зависимости от бизнес-модулей, их Contracts и тестовых fixtures запрещены.
@@ -73,11 +73,11 @@ connection. Маркер OutboxMessageInterface не навязывает иде
 [соглашение о контрактах и доставке](../../docs/ai/rules/integration-events.md).
 Реализация находится в `Infrastructure/Messaging/`:
 
-- `IntegrationEventDispatcher::dispatch(IntegrationEventInterface): void` упаковывает
-  публичный DTO в одну `IntegrationEventMessage` и вызывает OutboxBusInterface.
-  Проверку активной default-транзакции выполняет OutboxMessageBus.
 - `IntegrationEventMessage` — readonly-обёртка с типизированным полем event,
   реализующая OutboxMessageInterface. Метаданные формирует владелец в публичном DTO.
+  Инфраструктурный listener владельца напрямую вызывает
+  `OutboxBusInterface::publish(new IntegrationEventMessage($publicEvent))`.
+  Проверку активной default-транзакции выполняет OutboxMessageBus.
 - `IntegrationEventHandler` помечен AsMessageHandler на outbox.bus и передаёт
   сохранённый event в штатный Symfony Component EventDispatcherInterface.
   Набор listener определяется при доставке. Отсутствие listener допустимо.

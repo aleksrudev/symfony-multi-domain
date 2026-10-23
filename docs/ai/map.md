@@ -46,10 +46,11 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 переопределения в YAML не перечисляются.
 
 Пустая публичная метка `IntegrationEventInterface` находится в
-`src/Shared/Presentation/Contracts/Event/`. Тонкий `IntegrationEventDispatcher`,
-общая `IntegrationEventMessage` и `IntegrationEventHandler` находятся в
-`src/Shared/Infrastructure/Messaging/`. Handler использует штатный Symfony
-EventDispatcher; listener потребителей ставят собственные сообщения в Inbox.
+`src/Shared/Presentation/Contracts/Event/`. Общая `IntegrationEventMessage`
+и `IntegrationEventHandler` находятся в `src/Shared/Infrastructure/Messaging/`.
+Инфраструктурный listener владельца отправляет обёртку напрямую через
+OutboxBusInterface. Handler использует штатный Symfony EventDispatcher; listener потребителей
+ставят собственные сообщения через InboxBusInterface.
 Outbox и Inbox используют Doctrine transport на одном default connection.
 Собственного реестра, кодеков или compiler pass межмодульных событий нет.
 Семантика публикации и подключения — в
