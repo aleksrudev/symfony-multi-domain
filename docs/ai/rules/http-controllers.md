@@ -21,7 +21,9 @@ Catalog/Presentation/Http/Controller/Api/
 
 Например, вместо `AdminProductController::update()` создавай
 `App\Catalog\Presentation\Http\Controller\Api\Admin\UpdateProductController::__invoke()`.
-Маршрут задавай атрибутом класса/`__invoke()` либо конфигурацией владельца.
+Маршрут предпочтительно задавай Route-атрибутом класса/`__invoke()`;
+конфигурация владельца нужна для общих префиксов или иных необходимых настроек.
+При autoconfigure Route уже добавляет теги контроллера; не дублируй их в YAML.
 При разделении контроллера сохраняй URL, имена маршрутов, HTTP-методы
 и ограничения доступа, если задача явно не меняет API.
 

@@ -6,10 +6,13 @@ namespace App\Shared\Presentation\Http;
 
 use App\Shared\Domain\Exception\DomainException;
 use App\Shared\Presentation\Http\Error\DomainErrorRegistry;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
+#[AsEventListener(event: KernelEvents::EXCEPTION)]
 final readonly class ExceptionListener
 {
     public function __construct(private DomainErrorRegistry $registry)

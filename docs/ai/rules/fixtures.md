@@ -15,28 +15,23 @@ Bundle включён только в окружениях dev и test.
 в общем `src/DataFixtures/`; перенеси туда, куда указывает владелец,
 результат генерации `make:fixtures`.
 
-Регистрируй фикстуры явно в `config/services.yaml` модуля только для dev/test
-с `autowire: true` и `autoconfigure: true`: autoconfigure добавляет
-тег `doctrine.fixture.orm`. Например:
+Фикстуры должны загружаться только в dev/test. Предпочитай атрибуты
+`#[When('dev')]` и `#[When('test')]` из Symfony DependencyInjection на классах
+фикстур, а каталог подключай одним узким ресурсом с autowire/autoconfigure.
+Autoconfigure добавляет тег `doctrine.fixture.orm`; явный тег не нужен.
+Например, для классов с этими атрибутами:
 
 ```yaml
-when@dev:
-    services:
-        App\Example\Infrastructure\Persistence\Doctrine\Fixtures\:
-            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
-            autowire: true
-            autoconfigure: true
-
-when@test:
-    services:
-        App\Example\Infrastructure\Persistence\Doctrine\Fixtures\:
-            resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
-            autowire: true
-            autoconfigure: true
+services:
+    App\Example\Infrastructure\Persistence\Doctrine\Fixtures\:
+        resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
+        autowire: true
+        autoconfigure: true
 ```
 
 Добавляй регистрацию вместе с реальными фикстурами. Пустые фикстуры-заглушки
-в шаблоне не нужны.
+в шаблоне не нужны. Если атрибуты окружений использовать нельзя, допустимы
+узкие ресурсы в when@dev/when@test. Не подключай классы фикстур в prod.
 
 ## Данные и загрузка
 

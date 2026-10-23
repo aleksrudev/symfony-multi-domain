@@ -6,10 +6,12 @@ namespace App\Shared\Infrastructure\Bus\Symfony;
 
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Command\CommandInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\HandleTrait;
 use Symfony\Component\Messenger\MessageBusInterface;
 
+#[AsAlias(CommandBusInterface::class)]
 class CommandMessageBus implements CommandBusInterface
 {
     use HandleTrait;
