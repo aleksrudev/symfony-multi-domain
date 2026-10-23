@@ -111,8 +111,9 @@ Shared не зависит от бизнес-модулей и их Contracts.
 | Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
 | Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
 | Оркестрация доменных операций, Command/Query-сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
-| Синхронная прикладная реакция на доменное событие | `src/<Module>/Application/EventListener/` |
-| Внутреннее исходящее сообщение для асинхронного продолжения | `src/<Module>/Application/Message/` |
+| Listener собственного доменного события: вызов прикладного сценария или запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/` |
+| Внутреннее Inbox-сообщение, handler и вспомогательные DTO операции | `src/<Module>/Infrastructure/Messaging/Inbox/<Operation>/` |
+| Внутреннее Outbox-сообщение, handler и вспомогательные DTO операции | `src/<Module>/Infrastructure/Messaging/Outbox/<Operation>/` |
 | Синхронная адаптация собственного доменного события в публичное и запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
 | Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
 | Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
@@ -128,6 +129,13 @@ Shared не зависит от бизнес-модулей и их Contracts.
 | Listener преобразования чужого публичного события в собственное Inbox-сообщение | `src/<Module>/Infrastructure/Integration/<Owner>/`; [правила](rules/integration-events.md) |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |
 | Сервисы, маршруты, mappings и настройки интеграций модуля | `src/<Module>/config/` |
+
+В Application бизнес-модуля разрешены только Command/ и Query/ с группировкой
+типов по сценарию. Application/Message, Application/EventListener и
+Application/Service запрещены. Inbox/Outbox группируются по операциям;
+файлы непосредственно в этих каталогах не размещаются.
+Shared/Application/Bus и общая доставка в Shared/Infrastructure/Messaging
+сохраняют техническую структуру Shared.
 
 Общий технический механизм для нескольких модулей относится к `src/Shared/`,
 если соответствует его инструкции. Бизнесовый код относится к модулю владельца;

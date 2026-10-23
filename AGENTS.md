@@ -88,20 +88,29 @@ Shared Presentation-метку `IntegrationEventInterface`. Инфраструк
 После commit общий handler передаёт DTO в Symfony EventDispatcher. Listener потребителей только
 преобразуют его в собственные Inbox-сообщения. Все они записываются атомарно
 в Doctrine `async` на том же default connection; бизнес-реакции выполняются
-отдельными Inbox handlers. Метаданные — скалярные поля публичного DTO.
+через собственные Command/Query из инфраструктурных Inbox handlers.
+Метаданные — скалярные поля публичного DTO.
 Сериализатор Messenger сохраняет PHP-типы DTO; учитывай совместимость классов
 в outbox, async и failed. Получатели обеспечивают идемпотентность при повторах.
 
-Обработчики Command/Query и сообщений прикладного продолжения остаются в Application
-и помечаются `AsMessageHandler` с явной шиной. Общие технические обработчики
-доставки принадлежат Shared Infrastructure. Репозитории не вызывают
-flush самостоятельно. Доменные события
+В Application бизнес-модуля разрешены только `Command/` и `Query/`:
+сообщение, обработчик, входные DTO, модели результата и прикладные порты
+группируются по сценарию. `Application/Message`, `Application/EventListener`
+и `Application/Service` запрещены. Inbox/Outbox-сообщения, их обработчики
+и вспомогательные DTO находятся
+в `Infrastructure/Messaging/Inbox/<Operation>/` или `Outbox/<Operation>/`;
+файлы непосредственно в Inbox/Outbox не размещать. Обработчик бизнесового
+продолжения преобразует сообщение в собственный Command/Query и вызывает шину.
+Обработчики помечаются `AsMessageHandler` с явной шиной. Исключение для общей
+технической основы — `Shared/Application/Bus` и доставка в Shared Infrastructure.
+Репозитории не вызывают flush самостоятельно. Доменные события
 реализуют Shared Domain `EventInterface`; их синхронная шина основана на
 EventDispatcher. Listener ограничены своим контекстом, выполняются до commit
-и не производят внешних побочных эффектов. Прикладные реакции находятся в
-Application, адаптация публичных событий — в Infrastructure владельца.
-Outbox использует то же подключение
-PostgreSQL и таблицу `messenger_messages`; отдельной бизнес-модели в Shared нет.
+и не производят внешних побочных эффектов. Listener находятся в Infrastructure
+владельца: адаптируют события, вызывают собственные прикладные сценарии
+или записывают outbox. Бизнесовые решения в listener и транспортных handlers
+запрещены. Outbox использует то же подключение PostgreSQL и таблицу
+`messenger_messages`; отдельной бизнес-модели в Shared нет.
 
 Ожидаемые доменные исключения наследуют Shared Domain `DomainException`.
 HTTP-маппинг задаёт модульный Presentation-провайдер

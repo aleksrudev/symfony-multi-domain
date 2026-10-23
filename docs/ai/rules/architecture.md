@@ -26,9 +26,7 @@ src/<Module>/
 │   └── Event/
 ├── Application/
 │   ├── Command/
-│   ├── Query/
-│   ├── EventListener/
-│   └── Message/
+│   └── Query/
 ├── Presentation/
 │   ├── Contracts/
 │   │   ├── Dto/
@@ -43,7 +41,10 @@ src/<Module>/
 │   ├── Persistence/Doctrine/
 │   │   └── Fixtures/
 │   ├── Integration/
-│   ├── Messaging/EventListener/
+│   ├── Messaging/
+│   │   ├── EventListener/
+│   │   ├── Inbox/<Operation>/
+│   │   └── Outbox/<Operation>/
 │   └── Symfony/DependencyInjection/
 └── config/
     ├── services.yaml
@@ -52,11 +53,18 @@ src/<Module>/
     └── packages/
 ```
 
-Создавайте каталоги по необходимости. В Application бизнес-модуля находятся
-каталоги Command, Query, EventListener и Message. Command/Query-сообщения,
-обработчики, модели результатов и необходимые прикладные порты группируются
-внутри соответствующего сценария. Внутренние прикладные реакции на доменные
-события находятся в EventListener/, сообщения внутреннего продолжения — в Message/.
+Создавайте каталоги по необходимости. В Application бизнес-модуля разрешены
+только Command/ и Query/. Сообщение, обработчик, входные DTO, модели результатов
+и необходимые прикладные порты группируются внутри соответствующего сценария.
+Не создавай Application/Message, Application/EventListener, Application/Service
+и другие каталоги верхнего уровня в Application бизнес-модуля.
+Listener собственных доменных событий находятся в Infrastructure/Messaging/EventListener/.
+Inbox/Outbox-сообщения, их обработчики и вспомогательные DTO группируются
+по операции в `Infrastructure/Messaging/Inbox/<Operation>/` или
+`Infrastructure/Messaging/Outbox/<Operation>/`. Файлы непосредственно в Inbox/
+и Outbox/ запрещены. Обработчик бизнесового продолжения преобразует сообщение
+в собственный Command/Query и вызывает соответствующую шину; оркестрация
+остаётся в Application, бизнесовые решения — в Domain.
 Listener публикации публичного события находится в Infrastructure/Messaging/EventListener/,
 само событие — в Presentation/Contracts/Event/. Подробности — в
 [правилах межмодульных событий](integration-events.md).
@@ -75,10 +83,10 @@ Command/Query-обработчики оркестрируют доменные �
 | Слой | Ответственность |
 | --- | --- |
 | Domain | Агрегаты, сущности, Action с бизнес-операциями, value objects, коллекции сущностей, доменные события и исключения, интерфейсы репозиториев и DataProvider. |
-| Application | Command/Query-сценарии как оркестраторы доменного слоя, прикладные порты, listener внутренних прикладных реакций на доменные события и сообщения внутреннего продолжения. |
+| Application | Только Command/Query-сценарии как оркестраторы доменного слоя, их входные DTO, модели результата и прикладные порты внутри сценария. |
 | Presentation/Contracts | Публичный межмодульный API: интерфейсы, неизменяемые DTO в Dto/ и события в Event/. |
 | Presentation | Реализации публичных интерфейсов в Adapter/, HTTP-контроллеры и Request/Response DTO, CLI, адаптация входящих внешних сообщений. |
-| Infrastructure | Doctrine-репозитории, внешние и межмодульные адаптеры, listener формирования и публикации публичных событий. |
+| Infrastructure | Doctrine-репозитории, внешние и межмодульные адаптеры, listener событий, транспортные Inbox/Outbox-сообщения и их обработчики. |
 | config | Сервисы, маршруты, mappings и настройки интеграций владельца. |
 
 Зависимости: `Presentation -> Application -> Domain`. Infrastructure реализует
@@ -98,9 +106,10 @@ Domain не зависит от Symfony, других модулей и адап
 
 Прикладные порты внешних возможностей находятся внутри Command/Query-сценариев
 Application потребителя. Application может использовать
-Validator Constraints и атрибуты регистрации AsMessageHandler/AsEventListener.
+Validator Constraints и AsMessageHandler для Command/Query с явной шиной.
 Это узкое исключение для метаданных: прямые зависимости Application от Symfony
 MessageBusInterface, EventDispatcher и остальных сервисов фреймворка запрещены.
+Listener с AsEventListener размещаются во внешних слоях, вне Application.
 Domain использует PHP и Doctrine-атрибуты маппинга сущностей.
 Дополнительное исключение — `Shared/Domain/Collection/AbstractCollection`,
 наследующий Doctrine `ArrayCollection`. Коллекции сущностей наследуют эту основу;
@@ -135,6 +144,11 @@ HTTP Request/Response и адаптация входящих внешних фо
 импортирует чужие Presentation/Contracts. Публичные события другого модуля
 также принимает Infrastructure/Integration потребителя по
 [правилам межмодульных событий](integration-events.md).
+
+Ограничение Application каталогами Command/Query относится к бизнес-модулям.
+Shared сохраняет технические контракты в Shared/Application/Bus и общую доставку
+в Shared/Infrastructure/Messaging. IntegrationEventMessage и IntegrationEventHandler
+не являются операциями бизнес-модуля и не требуют каталогов Inbox/Outbox.
 
 Shared — общая техническая основа, не набор общих бизнес-моделей. Бизнесовые
 идентификаторы, Money, Customer и репозитории принадлежат конкретным контекстам.
@@ -174,6 +188,11 @@ Infrastructure/Integration/ или только файлы Application/**/*Handl
 Не сканируй весь модуль или Domain; исключай DTO, сообщения, сущности,
 value objects и прочие объекты данных.
 
+Для Inbox/Outbox handlers подключай только файлы `*Handler.php` рекурсивно
+из соответствующих каталогов Infrastructure/Messaging/Inbox/ и Outbox/.
+Listener подключай отдельным ресурсом Infrastructure/Messaging/EventListener/.
+Транспортные сообщения и вспомогательные DTO не должны становиться сервисами.
+
 Единственная реализация интерфейса не гарантирует автоматический alias:
 важно, какие интерфейсы и реализации попали в service discovery. Если alias
 уже создан загрузчиком, дополнительная регистрация не нужна. Иначе укажи
@@ -188,9 +207,11 @@ Messenger предоставляет именованные зависимост
 `$commandBus`, `$queryBus`, `$inboxBus`, `$outboxBus`; при совпадении имён
 и проверенной маршрутизации отдельные arguments/Autowire не нужны.
 
-Границы зависимостей важнее удобства регистрации. AsMessageHandler и
-AsEventListener допустимы в Application и внешних слоях, но запрещены
-в Domain и Presentation/Contracts. Инфраструктурные атрибуты схем/подписок
+Границы зависимостей важнее удобства регистрации. В Application AsMessageHandler
+регистрирует только Command/Query handlers; Inbox/Outbox handlers находятся
+в Infrastructure. AsEventListener размещается во внешних слоях.
+Оба атрибута запрещены в Domain и Presentation/Contracts.
+Инфраструктурные атрибуты схем/подписок
 размещаются на инфраструктурных сервисах, а не на публичных DTO.
 
 ## Добавление и подключение модуля
@@ -313,9 +334,11 @@ listener доменных событий — AsEventListener. Их подклю�
 
 Доменные события обрабатываются только внутри своего контекста до commit;
 исключение обработчика откатывает транзакцию. Не выполняйте здесь HTTP, email
-или другие внешние побочные эффекты. Внутренние прикладные реакции реализуют
-listener Application, которые могут записывать сообщения внутреннего продолжения
-в outbox в той же транзакции. Содержание доменного события, eventAt
+или другие внешние побочные эффекты. Listener собственных доменных событий
+находятся в Infrastructure/Messaging/EventListener/: преобразуют данные в
+собственный Command/Query либо записывают сообщение внутреннего продолжения
+в outbox в той же транзакции. Оркестрацию выполняет вызываемый прикладной сценарий,
+бизнесовые решения — доменный слой. Содержание доменного события, eventAt
 и допустимые ссылки на агрегаты описаны в
 [правилах доменных событий](domain-actions.md#доменные-события-и-реакции).
 Интеграционные события — отдельные версионируемые контракты в
@@ -330,9 +353,9 @@ Presentation/Contracts/Event/. Синхронный инфраструктурн
 `messageId()`. Его реализуют внутренние сообщения и общая техническая обёртка
 публичных событий; сами публичные события от маркера не зависят.
 `OutboxBusInterface::publish()` вызывается внутри активной транзакции `command.bus`
-или явной транзакции того же Doctrine-подключения. Для внутренних реакций это
-делает Application listener, для публичных событий — инфраструктурный listener
-владельца. Реализация отклоняет вызов вне транзакции. Domain EventBus
+или явной транзакции того же Doctrine-подключения. Для внутренних реакций
+и публичных событий это делает инфраструктурный listener владельца.
+Реализация отклоняет вызов вне транзакции. Domain EventBus
 остаётся синхронным и не служит транспортом для межмодульных сообщений.
 
 `outbox.bus` направляет сообщения в Doctrine transport `outbox` с
@@ -354,7 +377,8 @@ Shared-handler на outbox.bus передаёт DTO в Symfony EventDispatcher.
 Listener потребителей только переводят его в собственные Inbox-сообщения.
 Doctrine transport async использует тот же default connection: рассылка
 атомарно ставит все Inbox-сообщения в одной транзакции outbox.bus.
-Каждый Inbox handler выполняет бизнес-реакцию позже в своей транзакции.
+Каждый Inbox handler позже вызывает собственный прикладной сценарий
+в своей транзакции inbox.bus.
 Ошибки постановки откатывают всю рассылку; ошибка бизнес-реакции повторяет
 только её сообщение. Повтор fanout после commit → ack может создать дубликаты.
 API, выбор listener при доставке и совместимость сохранённых классов описаны

@@ -12,13 +12,14 @@ Command/Query-сценарии в Application — оркестраторы до�
 адаптируют итог и взаимодействуют с прикладными портами. Отдельные объекты
 сообщений Command и Query остаются неизменяемыми носителями входных данных.
 
-В Application бизнес-модуля используй Command/, Query/, EventListener/ и Message/
-по назначению. Сообщение Command/Query, обработчик и модель результата сценария
-находятся непосредственно в его каталоге. Прикладные провайдеры и их модели
+В Application бизнес-модуля разрешены только Command/ и Query/.
+Сообщение Command/Query, обработчик, входные DTO и модели результата сценария
+находятся в его каталоге. Прикладные провайдеры и их модели
 результатов размещай в подкаталоге
 `<UseCase>/Provider/` по правилам ниже.
-Не создавай Application/Service для реализации публичного
-межмодульного интерфейса: это задача Presentation/Adapter по
+Не создавай Application/Message, Application/EventListener, Application/Service
+или другие каталоги верхнего уровня в Application. Реализация публичного
+межмодульного интерфейса — задача Presentation/Adapter по
 [правилам контрактов](module-contracts.md).
 Контракты шин Command, Query, Inbox и Outbox остаются в Shared/Application/Bus;
 контракт шины доменных событий находится в Shared/Domain/Event.
@@ -32,7 +33,9 @@ Command/Query-сценарии в Application — оркестраторы до�
 публикация outbox-сообщений относятся к прикладной оркестрации и её инфраструктуре.
 Публикация outbox выполняется внутри транзакции команды по
 [архитектурным правилам](architecture.md). Внутренние прикладные реакции на
-доменные факты реализуют listener из Application/EventListener/. Публичное
+доменные факты адаптируют listener из Infrastructure/Messaging/EventListener/:
+вызывают собственный Command/Query либо записывают outbox-сообщение.
+Оркестрация реакции остаётся в Command/Query handler. Публичное
 межмодульное событие формирует и записывает в outbox инфраструктурный listener
 владельца по [правилам межмодульных событий](integration-events.md).
 CommandHandler не создаёт и не публикует outbox-сообщения, являющиеся реакцией
@@ -214,9 +217,13 @@ final readonly class OrderSubmittedEvent implements EventInterface
 отдельная модель значений. Доменное событие со ссылкой на агрегат используется
 только для синхронной обработки внутри своего контекста.
 
-Внутренние прикладные реакции размещай в Application/EventListener/.
-Называй listener по выполняемому действию. Публикацию публичного события
-адаптирует listener из Infrastructure/Messaging/EventListener/ владельца по
+Listener собственных доменных событий размещай в Infrastructure/Messaging/EventListener/.
+Он выполняет адаптацию: преобразует событие в собственный Command/Query
+и вызывает соответствующую шину либо формирует сообщение для outbox.
+Оркестрацию реакции выполняет прикладной сценарий, бизнесовые решения — Domain.
+Listener не вызывает Action, Repository или DataProvider напрямую ради выполнения
+бизнесовой реакции. Называй listener по выполняемому действию.
+Публикацию публичного события адаптирует инфраструктурный listener владельца по
 [правилам межмодульных событий](integration-events.md).
 Одно доменное событие может иметь несколько независимых listener.
 Подключай их как сервисы владельца с autoconfigure и предпочтительно помечай
@@ -224,14 +231,27 @@ final readonly class OrderSubmittedEvent implements EventInterface
 Не дублируй регистрацию атрибута тегом `kernel.event_listener`.
 Это синхронные listener EventDispatcher, а не обработчики Messenger.
 
-Listener внутреннего асинхронного продолжения преобразует доменное событие
-в собственное исходящее сообщение из Application/Message/ и публикует его через
+Инфраструктурный listener внутреннего асинхронного продолжения преобразует доменное
+событие в собственное исходящее сообщение из
+`Infrastructure/Messaging/Outbox/<Operation>/` и публикует его через
 `OutboxBusInterface`. Сообщение реализует Shared `OutboxMessageInterface`
 и содержит самостоятельные сериализуемые значения без ссылок на агрегаты,
 сущности и их ORM-коллекции. Доменное событие с агрегатом не передавай напрямую
 в очередь или другой контекст. Публичные интеграционные события находятся
 в Presentation/Contracts/Event/ и записываются в outbox через общую техническую
 обёртку по [правилам межмодульных событий](integration-events.md).
+
+Транспортные Inbox/Outbox-сообщения, их обработчики и вспомогательные DTO
+размещай вместе в `Infrastructure/Messaging/Inbox/<Operation>/` или
+`Infrastructure/Messaging/Outbox/<Operation>/`. Например, каталог
+Inbox/ReserveStock/ содержит ReserveStockInboxMessage, ReserveStockInboxItem
+и ReserveStockInboxHandler; ReleaseStock/ — отдельная операция.
+Не размещай файлы непосредственно в Inbox/Outbox. Не импортируй транспортные
+типы Infrastructure в Application и не используй Command/Query как DTO очереди.
+Handler бизнесового продолжения преобразует сообщение в собственный Command/Query
+и вызывает CommandBusInterface/QueryBusInterface. Он не дублирует оркестрацию
+сценария и не вызывает доменные операции напрямую. Техническая доставка
+исходящего сообщения остаётся ответственностью инфраструктурного адаптера.
 
 Listener выполняется синхронно внутри транзакции вызвавшей его команды.
 Запись outbox использует то же подключение и фиксируется вместе с изменениями
@@ -259,9 +279,12 @@ flush или commit. HTTP-вызовы, отправка писем и друг�
   транзакцией и не выполняет внешние побочные эффекты.
 - Событие доменной операции публикует Action; его содержание описывает доменный
   факт независимо от listener. Время события имеет имя eventAt.
-- Внутренние прикладные реакции находятся в Application/EventListener/,
-  сообщения внутреннего продолжения — в Application/Message/. Адаптация
-  публичного события находится в Infrastructure/Messaging/EventListener/.
+- Application содержит только Command/Query-сценарии и их собственные типы.
+  Listener находятся в Infrastructure/Messaging/EventListener/; Inbox/Outbox DTO,
+  handlers и вспомогательные типы — в `Infrastructure/Messaging/Inbox/<Operation>/`
+  или `Outbox/<Operation>/`, без файлов непосредственно в Inbox/Outbox.
+  Handler бизнесового продолжения вызывает собственный Command/Query через шину;
+  Application не импортирует инфраструктурные сообщения.
   Запись outbox из listener выполняется до commit; исходящее сообщение
   не содержит агрегат или доменное событие с агрегатом.
 - Бизнес-поведение проверяется unit-тестами Action и доменной модели без

@@ -134,7 +134,8 @@ commit
   → outbox worker: IntegrationEventHandler → Symfony EventDispatcher
   → listener каждого потребителя → собственное сообщение в Doctrine async
 commit транзакции рассылки
-  → inbox worker: отдельная транзакция бизнесового handler на каждое сообщение
+  → inbox worker: инфраструктурный handler → собственный Command/Query
+  → прикладной сценарий в транзакции обработки этого Inbox-сообщения
 ```
 
 Изменения агрегата и запись outbox используют одну транзакцию и тот же DBAL
@@ -160,8 +161,14 @@ Symfony Component EventDispatcherInterface. Собственного registry, �
 контракт и нужные метаданные в собственный Inbox DTO и вызывает InboxBusInterface.
 Application/Domain потребителя не импортируют публичные типы владельца.
 Внутреннее сообщение реализует InboxMessageInterface и содержит собственные
-значения потребителя, без ссылок на чужие DTO. Отдельный
-`#[AsMessageHandler(bus: 'inbox.bus')]` выполняет бизнесовую реакцию.
+значения потребителя, без ссылок на чужие DTO. Сообщение, handler и вспомогательные
+DTO находятся в `Infrastructure/Messaging/Inbox/<Operation>/`, например
+Inbox/ReserveStock/. Файлы непосредственно в Inbox/ запрещены.
+Отдельный инфраструктурный `#[AsMessageHandler(bus: 'inbox.bus')]`
+преобразует сообщение в собственный Command/Query и вызывает прикладную шину.
+Оркестрация реакции остаётся в Application/Command или Application/Query,
+бизнесовые решения — в Domain. Handler не вызывает Action и Repository напрямую.
+Application не импортирует инфраструктурные Inbox DTO.
 
 В listener рассылки допустимы только маппинг и постановка собственного Inbox.
 Не вызывай command.bus, доменные операции, Repository, HTTP или другой
@@ -176,7 +183,9 @@ outbox-сообщение. Изменения первоначальной ко�
 Замена async на RabbitMQ, Kafka или другой connection требует отдельного
 решения атомарной доставки: текущая гарантия больше не действует.
 
-Каждый Inbox handler работает позже в собственной транзакции inbox.bus.
+Каждый инфраструктурный Inbox handler работает позже в собственной транзакции
+inbox.bus. Вызов command.bus из него использует то же default connection;
+вложенный вызов не создаёт независимый commit бизнесовой реакции.
 Ошибка B откатывает и повторяет только сообщение B: успешный A не выполняется
 заново из-за сбоя B. И outbox, и async имеют три повтора и failed transport;
 восстановление из failed сохраняет исходное сообщение и eventId.
@@ -218,5 +227,6 @@ IntegrationEventMessage сначала обработай pending и failed ст
 
 Следуй [проверкам межмодульных событий](checks.md#межмодульные-события).
 В AGENTS.md владельца указывай опубликованные и потребляемые события,
-поля и метаданные, версии PHP-типов, listener, Inbox DTO и handlers,
+поля и метаданные, версии PHP-типов, listener, Inbox DTO и handlers с путями
+`Infrastructure/Messaging/Inbox/<Operation>/` и вызываемыми Command/Query,
 ключи идемпотентности и порядок перехода версий. Общие правила не копируй.
