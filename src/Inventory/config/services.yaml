@@ -18,6 +18,9 @@ services:
     App\Inventory\Infrastructure\Persistence\Doctrine\Fixtures\:
         resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
 
+    App\Inventory\Presentation\Adapter\:
+        resource: '../Presentation/Adapter/'
+
     App\Inventory\Presentation\Http\Controller\Api\:
         resource: '../Presentation/Http/Controller/Api/'
 

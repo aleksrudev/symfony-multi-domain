@@ -54,11 +54,18 @@ Application сценарии:
 - `ReleaseStockCommand` / `ReleaseStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор освобождения остатков по заказу.
 - `GetStockPositionQuery` / `GetStockPositionHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает позицию и преобразует её в модель `GetStockPositionQueryResult`.
 - `GetReservationQuery` / `GetReservationHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает результат резервации по заказу и преобразует его в `GetReservationQueryResult`.
+- Сообщения Inbox (`Application/Message/`):
+  - `ReserveStockInboxMessage` / `ReserveStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): ставит `ReserveStockCommand` в `command.bus` в отдельной транзакции воркера.
+  - `ReleaseStockInboxMessage` / `ReleaseStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): ставит `ReleaseStockCommand` в `command.bus` в отдельной транзакции воркера.
 
 ## Публичный API и зависимости
 
-- Модуль `Inventory` на этапе T06 не зависит от других бизнес-модулей (`config/dependencies.php` возвращает пустой массив).
-- Экспортируемые контракты и приём событий резервирования будут добавлены в задаче T08 для интеграции резервов.
+- Модуль `Inventory` не зависит от других бизнес-модулей (`config/dependencies.php` пуст).
+- Экспортируемый контракт `InventoryContractInterface` (`Presentation/Contracts/InventoryContractInterface.php`):
+  - `requestReservation(ReservationRequest $request): void` — долговечно принимает запрос в очередь `inbox.bus`, возвращает void без блокировок и синхронной модификации остатков;
+  - `requestRelease(ReleaseRequest $request): void` — принимает запрос освобождения в очередь `inbox.bus`;
+  - `getReservationResult(string $orderId): ReservationResult` — запрашивает результат через `query.bus`, возвращает статус (`not_found`, `pending`, `reserved`, `rejected`, `released`), причину отказа и список позиций.
+- Адаптер контракта: `InventoryContractAdapter` в `Presentation/Adapter/InventoryContractAdapter.php` с `#[AsAlias]`.
 - Конфигурация DI: узкие `resource` в `services.yaml` по слоям, все сервисы и алиасы по умолчанию private.
 
 HTTP API контроллеры одного действия:

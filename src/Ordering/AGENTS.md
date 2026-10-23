@@ -73,8 +73,9 @@ Application сценарии:
 - `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener`: помечен `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]`. Проверяет полноту данных оформленного заказа без скрывающих ошибки fallback-значений, упаковывает публичное событие в `IntegrationEventMessage` и вызывает `OutboxBusInterface::publish()` внутри транзакции команды.
 
 Зависимости от других бизнес-модулей:
-- Модуль зависит от `Catalog` (объявлен в `src/Ordering/config/dependencies.php`).
+- Модуль зависит от `Catalog` и `Inventory` (объявлены в `src/Ordering/config/dependencies.php`).
 - Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` помечен `#[AsAlias(ProductOfferProviderInterface::class)]` и вызывает контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
+- Адаптер `OrderSubmittedInventoryListener` в `Infrastructure/Integration/Inventory/OrderSubmittedInventoryListener.php` помечен `#[AsEventListener(event: OrderSubmittedEvent::class)]` и передаёт публичное событие оформления заказа в контракт `InventoryContractInterface::requestReservation()` поставщика `Inventory`.
 
 HTTP API контроллеры одного действия:
 - Актор `Buyer` (`Presentation/Http/Controller/Api/Buyer/`), все помечены `#[IsGranted('ROLE_BUYER')]`:
