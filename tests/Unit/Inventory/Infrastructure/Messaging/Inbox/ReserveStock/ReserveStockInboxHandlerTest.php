@@ -42,4 +42,3 @@ final class ReserveStockInboxHandlerTest extends TestCase
         $handler($message);
     }
 }
-

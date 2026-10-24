@@ -26,4 +26,3 @@ final readonly class OrderSubmittedEvent implements IntegrationEventInterface
     ) {
     }
 }
-

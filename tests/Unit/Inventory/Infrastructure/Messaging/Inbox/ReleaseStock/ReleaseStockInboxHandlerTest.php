@@ -30,4 +30,3 @@ final class ReleaseStockInboxHandlerTest extends TestCase
         $handler($message);
     }
 }
-

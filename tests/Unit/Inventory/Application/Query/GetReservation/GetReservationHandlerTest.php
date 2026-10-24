@@ -46,4 +46,3 @@ final class GetReservationHandlerTest extends TestCase
         self::assertSame(3, $result->items[0]['quantity']);
     }
 }
-

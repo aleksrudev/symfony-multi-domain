@@ -41,4 +41,3 @@ final class ProductIdTest extends TestCase
         self::assertFalse($id1->equals($id3));
     }
 }
-

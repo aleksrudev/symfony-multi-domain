@@ -31,4 +31,3 @@ final class ReservationItemCollection extends AbstractCollection
         return new self($items);
     }
 }
-

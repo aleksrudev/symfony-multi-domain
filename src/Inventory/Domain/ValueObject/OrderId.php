@@ -9,4 +9,3 @@ use App\Shared\Domain\ValueObject\UuidId;
 final readonly class OrderId extends UuidId
 {
 }
-

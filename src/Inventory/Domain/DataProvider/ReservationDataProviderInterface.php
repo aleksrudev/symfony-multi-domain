@@ -15,4 +15,3 @@ interface ReservationDataProviderInterface
      */
     public function findByOrderId(OrderId $orderId, bool $lock = false): Reservation;
 }
-

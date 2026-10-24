@@ -13,4 +13,3 @@ final class ReservationNotFoundException extends DomainException
         parent::__construct(sprintf('Reservation for order "%s" not found.', $orderId));
     }
 }
-

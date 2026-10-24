@@ -9,4 +9,3 @@ enum ReservationRejectionReason: string
     case INSUFFICIENT_STOCK = 'insufficient_stock';
     case PRODUCT_NOT_FOUND = 'product_not_found';
 }
-

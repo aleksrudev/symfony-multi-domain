@@ -47,4 +47,3 @@ final class Version20261023100000 extends AbstractMigration
         $this->addSql('DROP TABLE IF EXISTS inventory.reservations');
     }
 }
-

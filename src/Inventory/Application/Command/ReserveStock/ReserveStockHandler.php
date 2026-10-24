@@ -34,4 +34,3 @@ final readonly class ReserveStockHandler
         ($this->reserveStockAction)($orderId, new ReservationItemCollection($items));
     }
 }
-

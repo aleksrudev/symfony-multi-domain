@@ -13,4 +13,3 @@ final readonly class ReleaseStockInboxMessage implements InboxMessageInterface
     ) {
     }
 }
-

@@ -16,4 +16,3 @@ interface InventoryContractInterface
 
     public function getReservationResult(string $orderId): ReservationResult;
 }
-

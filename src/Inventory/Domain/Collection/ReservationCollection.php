@@ -17,4 +17,3 @@ final class ReservationCollection extends AbstractCollection
         return Reservation::class;
     }
 }
-

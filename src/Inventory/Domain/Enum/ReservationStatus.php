@@ -16,4 +16,3 @@ enum ReservationStatus: string
         return self::REJECTED === $this || self::RELEASED === $this;
     }
 }
-

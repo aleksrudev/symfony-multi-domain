@@ -106,4 +106,3 @@ final class ReservationTest extends TestCase
         new ReservationItem(new ProductId('prod-1'), 0);
     }
 }
-

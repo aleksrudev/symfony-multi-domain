@@ -39,4 +39,3 @@ final class OrderIdType extends StringType
         return self::NAME;
     }
 }
-

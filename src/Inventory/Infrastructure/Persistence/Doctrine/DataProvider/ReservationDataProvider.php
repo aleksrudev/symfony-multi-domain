@@ -35,4 +35,3 @@ final readonly class ReservationDataProvider implements ReservationDataProviderI
         return $reservation;
     }
 }
-

@@ -17,4 +17,3 @@ final readonly class ReserveStockCommand implements CommandInterface
     ) {
     }
 }
-

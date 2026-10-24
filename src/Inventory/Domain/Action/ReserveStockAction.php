@@ -90,4 +90,3 @@ final readonly class ReserveStockAction
         return $reservation;
     }
 }
-

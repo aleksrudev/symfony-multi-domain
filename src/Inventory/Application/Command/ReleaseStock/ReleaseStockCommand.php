@@ -13,4 +13,3 @@ final readonly class ReleaseStockCommand implements CommandInterface
     ) {
     }
 }
-

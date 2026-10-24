@@ -58,4 +58,3 @@ final readonly class ReleaseStockAction
         return $reservation;
     }
 }
-

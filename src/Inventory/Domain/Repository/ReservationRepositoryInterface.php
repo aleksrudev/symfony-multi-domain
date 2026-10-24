@@ -12,4 +12,3 @@ interface ReservationRepositoryInterface
 
     public function remove(Reservation $reservation): void;
 }
-
