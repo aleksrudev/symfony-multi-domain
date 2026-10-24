@@ -80,23 +80,37 @@ Outbox и Inbox используют Doctrine transport на одном default 
 Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
 `Inventory` экспортирует публичный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
 (методы `requestReservation`, `requestRelease`, `getReservationResult`).
-Модуль `Inventory` зависит от `Ordering` (`Inventory/config/dependencies.php` возвращает `['Ordering']`).
-Модуль `Ordering` зависит от `Catalog` (`Ordering/config/dependencies.php` возвращает `['Catalog']`).
+Модуль `Inventory` не зависит от других бизнес-модулей (`Inventory/config/dependencies.php` возвращает `[]`).
+Модуль `Ordering` зависит от `Catalog` и `Inventory`
+(`Ordering/config/dependencies.php` возвращает `['Catalog', 'Inventory']`).
+Потребитель складского контракта — `Ordering`: адаптер
+`Ordering/Infrastructure/Integration/Inventory/InventoryReservationAdapter.php`
+вызывает `requestReservation()` для технической доставки исходящего запроса.
+Контракт склада вызывает собственные команды принятия `RequestReservation`
+и `RequestRelease`; их инфраструктурные реализации портов ставят сообщения
+в `Infrastructure/Messaging/Inbox/ReserveStock/` и `ReleaseStock/`.
+Резерв и освобождение выполняются позже из Inbox handlers через собственные команды.
 Shared не зависит от бизнес-модулей и их Contracts.
 
 `Ordering` экспортирует публичное межмодульное событие `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`
 (реализует Shared `IntegrationEventInterface`), формируемое и публикуемое через `IntegrationEventMessage`
 в `outbox.bus` инфраструктурным listener при переводе заказа в `pending_stock`.
-Потребитель события — контекст `Inventory`: адаптер `Inventory/Infrastructure/Integration/Ordering/OrderSubmittedEventListener.php`
-слушает `OrderSubmittedEvent` и транслирует его в `ReserveStockInboxMessage` шины `inbox.bus` склада.
+У публичного события сейчас нет потребителей среди бизнес-модулей; подписка
+Inventory удалена. Отдельный listener
+`Ordering/Infrastructure/Messaging/EventListener/OrderSubmittedReservationRequestListener.php`
+того же локального доменного события записывает `RequestReservationOutboxMessage`
+со снимком позиций. Сообщение и технический handler находятся в
+`Ordering/Infrastructure/Messaging/Outbox/RequestReservation/`; handler
+доставляет запрос через собственный `InventoryReservationGatewayInterface`
+и указанный выше адаптер к контракту склада. Публичный факт и запрос резерва
+имеют разные назначения и не создают два пути резервирования.
 
-Это фактическая схема до переработки T08. Выбранная целевая схема —
-`Ordering → Catalog, Inventory`, без зависимости Inventory от Ordering:
-исходящие запросы Ordering доставляются через контракт склада, результат
-читает Scheduler Ordering. Переход и критерии приёмки описаны в
-[задачах T08–T09](../demo-shop-task-breakdown.md).
-После переключения кода обнови здесь фактические связи; целевой граф не
-означает, что текущая подписка уже отключена.
+Это фактический граф реализации T08: `Ordering → Catalog, Inventory`.
+Опрос результата через `getReservationResult()` планируется в T09;
+поставщика расписания и переходов по результату склада в Ordering ещё нет.
+Критерии приёмки доставки, повторов и перехода сохранённых сообщений описаны
+в [задачах T08–T09](../demo-shop-task-breakdown.md); наличие нового графа
+само по себе не означает завершения всех этих проверок.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
 общие механизмы через провайдеры HTTP-ошибок и поставщиков расписания.

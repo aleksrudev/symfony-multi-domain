@@ -21,15 +21,16 @@ use App\Inventory\Domain\Repository\StockPositionRepositoryInterface;
 use App\Inventory\Domain\ValueObject\OrderId;
 use App\Inventory\Domain\ValueObject\ProductId;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ReserveStockAction::class)]
 final class ReserveStockActionTest extends TestCase
 {
-    private StockPositionDataProviderInterface $stockPositionDataProvider;
-    private StockPositionRepositoryInterface $stockPositionRepository;
-    private ReservationDataProviderInterface $reservationDataProvider;
-    private ReservationRepositoryInterface $reservationRepository;
+    private StockPositionDataProviderInterface&MockObject $stockPositionDataProvider;
+    private StockPositionRepositoryInterface&MockObject $stockPositionRepository;
+    private ReservationDataProviderInterface&MockObject $reservationDataProvider;
+    private ReservationRepositoryInterface&MockObject $reservationRepository;
     private ReserveStockAction $action;
 
     protected function setUp(): void
@@ -60,10 +61,11 @@ final class ReserveStockActionTest extends TestCase
 
         $this->stockPositionDataProvider
             ->method('findByProductId')
-            ->willReturnMap([
-                [$posA->productId(), true, $posA],
-                [$posB->productId(), true, $posB],
-            ]);
+            ->willReturnCallback(static fn (ProductId $id, bool $lock): StockPosition => match ($id->value) {
+                'prod-a' => $posA,
+                'prod-b' => $posB,
+                default => throw new \InvalidArgumentException('Unexpected product: '.$id->value),
+            });
 
         $this->stockPositionRepository
             ->expects(self::exactly(2))
@@ -100,10 +102,11 @@ final class ReserveStockActionTest extends TestCase
 
         $this->stockPositionDataProvider
             ->method('findByProductId')
-            ->willReturnMap([
-                [$posA->productId(), true, $posA],
-                [$posB->productId(), true, $posB],
-            ]);
+            ->willReturnCallback(static fn (ProductId $id, bool $lock): StockPosition => match ($id->value) {
+                'prod-a' => $posA,
+                'prod-b' => $posB,
+                default => throw new \InvalidArgumentException('Unexpected product: '.$id->value),
+            });
 
         // No positions should be saved
         $this->stockPositionRepository
@@ -233,4 +236,3 @@ final class ReserveStockActionTest extends TestCase
         self::assertSame($defensiveRecord, $result);
     }
 }
-

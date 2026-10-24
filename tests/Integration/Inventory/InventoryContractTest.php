@@ -17,9 +17,6 @@ use App\Inventory\Presentation\Contracts\Dto\ReleaseRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationItemRequest;
 use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
 use App\Inventory\Presentation\Contracts\InventoryContractInterface;
-use App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem;
-use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Tests\Integration\IntegrationTestCase;
 
 final class InventoryContractTest extends IntegrationTestCase
@@ -109,38 +106,32 @@ final class InventoryContractTest extends IntegrationTestCase
         self::assertSame('released', $statusReleased->status);
     }
 
-    public function testOrderSubmittedEventTriggersReservationViaInbox(): void
+    public function testContractRequestReservationAndRequestReleaseEnqueueTasksWithoutSynchronousMutation(): void
     {
-        $prodA = new ProductId('test-contract-event-a');
+        $prodA = new ProductId('test-contract-async-a');
         $this->stockRepo->save(new StockPosition($prodA, onHand: 15, reserved: 0));
         $this->em->flush();
         $this->em->clear();
 
         $orderId = '00000000-0000-4000-b000-000000000003';
-        $event = new OrderSubmittedEvent(
-            eventId: '00000000-0000-7000-8000-000000000001',
-            eventAt: '2026-10-23T10:00:00.000000Z',
-            type: 'ordering.order_submitted',
-            source: 'ordering',
-            schemaVersion: 1,
+
+        // 1. Contract requestReservation only enqueues task; no synchronous reservation
+        $this->contract->requestReservation(new ReservationRequest(
             orderId: $orderId,
-            buyerId: 'buyer-1',
             items: [
-                new SubmittedOrderItem($prodA->value, 5, 'Product A', 10000),
+                new ReservationItemRequest($prodA->value, 5),
             ],
-            totalAmount: 50000,
-            currency: 'RUB',
-        );
+        ));
 
-        /** @var EventDispatcherInterface $dispatcher */
-        $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
-        $dispatcher->dispatch($event);
-
-        // Before inbox handler execution, stock is not modified synchronously
+        // Before inbox handler execution, stock is NOT modified
         $posBefore = $this->stockProvider->findByProductId($prodA);
         self::assertSame(0, $posBefore->reserved());
+        self::assertSame(15, $posBefore->available());
 
-        // Process inbox message
+        $resultBefore = $this->contract->getReservationResult($orderId);
+        self::assertSame('not_found', $resultBefore->status);
+
+        // 2. Process inbox message (simulating async worker)
         $inboxMessage = new ReserveStockInboxMessage(
             orderId: $orderId,
             items: [
@@ -157,5 +148,21 @@ final class InventoryContractTest extends IntegrationTestCase
 
         $reservationResult = $this->contract->getReservationResult($orderId);
         self::assertSame('reserved', $reservationResult->status);
+
+        // 3. Contract requestRelease only enqueues task
+        $this->contract->requestRelease(new ReleaseRequest($orderId));
+
+        // Before handler runs, stock is still reserved
+        $posBeforeReleaseHandler = $this->stockProvider->findByProductId($prodA);
+        self::assertSame(5, $posBeforeReleaseHandler->reserved());
+
+        // Process release inbox message
+        ($this->releaseInboxHandler)(new ReleaseStockInboxMessage($orderId));
+        $this->em->flush();
+        $this->em->clear();
+
+        $posAfterRelease = $this->stockProvider->findByProductId($prodA);
+        self::assertSame(0, $posAfterRelease->reserved());
+        self::assertSame('released', $this->contract->getReservationResult($orderId)->status);
     }
 }

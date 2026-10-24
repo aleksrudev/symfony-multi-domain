@@ -22,7 +22,10 @@ services:
         resource: '../Infrastructure/Integration/'
 
     App\Inventory\Infrastructure\Messaging\Inbox\:
-        resource: '../Infrastructure/Messaging/Inbox/**/*Handler.php'
+        resource: '../Infrastructure/Messaging/Inbox/'
+        exclude:
+            - '../Infrastructure/Messaging/Inbox/**/*Message.php'
+            - '../Infrastructure/Messaging/Inbox/**/*Item.php'
 
     App\Inventory\Presentation\Adapter\:
         resource: '../Presentation/Adapter/'

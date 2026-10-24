@@ -48,6 +48,14 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         $conn->executeStatement("DELETE FROM inventory.stock_positions WHERE product_id LIKE 'test-res-%'");
     }
 
+    private function inTx(callable $callback): mixed
+    {
+        $result = $this->em->wrapInTransaction($callback);
+        $this->em->clear();
+
+        return $result;
+    }
+
     public function testSaveAndFindReservationWithItems(): void
     {
         $orderId = new OrderId('00000000-0000-4000-a000-000000000001');
@@ -83,9 +91,7 @@ final class ReservationPersistenceTest extends IntegrationTestCase
             new ReservationItem($prodA, 4),
         ]);
 
-        $reservation = ($this->reserveAction)($orderId, $items);
-        $this->em->flush();
-        $this->em->clear();
+        $reservation = $this->inTx(fn () => ($this->reserveAction)($orderId, $items));
 
         self::assertSame(ReservationStatus::RESERVED, $reservation->status());
 
@@ -97,9 +103,7 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         self::assertSame(5, $loadedPosB->available());
 
         // Now release the reservation
-        $released = ($this->releaseAction)($orderId);
-        $this->em->flush();
-        $this->em->clear();
+        $released = $this->inTx(fn () => ($this->releaseAction)($orderId));
 
         self::assertSame(ReservationStatus::RELEASED, $released->status());
 
@@ -126,9 +130,7 @@ final class ReservationPersistenceTest extends IntegrationTestCase
             new ReservationItem($prodB, 2), // exceeds available 1
         ]);
 
-        $reservation = ($this->reserveAction)($orderId, $items);
-        $this->em->flush();
-        $this->em->clear();
+        $reservation = $this->inTx(fn () => ($this->reserveAction)($orderId, $items));
 
         self::assertSame(ReservationStatus::REJECTED, $reservation->status());
         self::assertSame(ReservationRejectionReason::INSUFFICIENT_STOCK, $reservation->rejectionReason());
@@ -150,9 +152,7 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         $orderId = new OrderId('00000000-0000-4000-a000-000000000004');
 
         // 1. Release arrives before Reserve
-        $releaseRes = ($this->releaseAction)($orderId);
-        $this->em->flush();
-        $this->em->clear();
+        $releaseRes = $this->inTx(fn () => ($this->releaseAction)($orderId));
 
         self::assertSame(ReservationStatus::RELEASED, $releaseRes->status());
 
@@ -160,9 +160,7 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         $items = new ReservationItemCollection([
             new ReservationItem($prodA, 2),
         ]);
-        $lateRes = ($this->reserveAction)($orderId, $items);
-        $this->em->flush();
-        $this->em->clear();
+        $lateRes = $this->inTx(fn () => ($this->reserveAction)($orderId, $items));
 
         self::assertSame(ReservationStatus::RELEASED, $lateRes->status());
 
@@ -184,14 +182,12 @@ final class ReservationPersistenceTest extends IntegrationTestCase
             new ReservationItem($prodA, 2),
         ]);
 
-        $res1 = ($this->reserveAction)($orderId, $items);
-        $this->em->flush();
-        $this->em->clear();
+        $res1 = $this->inTx(fn () => ($this->reserveAction)($orderId, $items));
 
         self::assertSame(ReservationStatus::RESERVED, $res1->status());
 
         // Repeat with identical items
-        $res2 = ($this->reserveAction)($orderId, $items);
+        $res2 = $this->inTx(fn () => ($this->reserveAction)($orderId, $items));
         self::assertSame(ReservationStatus::RESERVED, $res2->status());
 
         // Still only 2 reserved
@@ -204,7 +200,7 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         ]);
 
         $this->expectException(ReservationConflictException::class);
-        ($this->reserveAction)($orderId, $differentItems);
+        $this->inTx(fn () => ($this->reserveAction)($orderId, $differentItems));
     }
 
     public function testRaceForLastUnitOnlyOneWinner(): void
@@ -221,12 +217,8 @@ final class ReservationPersistenceTest extends IntegrationTestCase
             new ReservationItem($prod, 1),
         ]);
 
-        $res1 = ($this->reserveAction)($order1, $items);
-        $this->em->flush();
-
-        $res2 = ($this->reserveAction)($order2, $items);
-        $this->em->flush();
-        $this->em->clear();
+        $res1 = $this->inTx(fn () => ($this->reserveAction)($order1, $items));
+        $res2 = $this->inTx(fn () => ($this->reserveAction)($order2, $items));
 
         self::assertSame(ReservationStatus::RESERVED, $res1->status());
         self::assertSame(ReservationStatus::REJECTED, $res2->status());
@@ -262,12 +254,8 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         ]);
 
         // Both actions sort by productId ascending prior to pessimistic lock acquisition
-        $res1 = ($this->reserveAction)($order1, $items1);
-        $this->em->flush();
-
-        $res2 = ($this->reserveAction)($order2, $items2);
-        $this->em->flush();
-        $this->em->clear();
+        $res1 = $this->inTx(fn () => ($this->reserveAction)($order1, $items1));
+        $res2 = $this->inTx(fn () => ($this->reserveAction)($order2, $items2));
 
         self::assertSame(ReservationStatus::RESERVED, $res1->status());
         self::assertSame(ReservationStatus::RESERVED, $res2->status());
@@ -278,4 +266,3 @@ final class ReservationPersistenceTest extends IntegrationTestCase
         self::assertSame(3, $posB->reserved());
     }
 }
-

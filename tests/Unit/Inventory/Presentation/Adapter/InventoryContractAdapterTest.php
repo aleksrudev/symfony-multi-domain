@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inventory\Presentation\Adapter;
 
-use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
-use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
+use App\Inventory\Application\Command\RequestRelease\RequestReleaseCommand;
+use App\Inventory\Application\Command\RequestReservation\RequestReservationCommand;
 use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
 use App\Inventory\Application\Query\GetReservation\GetReservationQueryResult;
 use App\Inventory\Domain\Exception\ReservationNotFoundException;
@@ -16,13 +16,14 @@ use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(InventoryContractAdapter::class)]
 final class InventoryContractAdapterTest extends TestCase
 {
-    private CommandBusInterface $commandBus;
-    private QueryBusInterface $queryBus;
+    private CommandBusInterface&MockObject $commandBus;
+    private QueryBusInterface&MockObject $queryBus;
     private InventoryContractAdapter $adapter;
 
     protected function setUp(): void
@@ -46,7 +47,7 @@ final class InventoryContractAdapterTest extends TestCase
         $this->commandBus
             ->expects(self::once())
             ->method('dispatch')
-            ->with(self::callback(static function (ReserveStockCommand $cmd) use ($orderId): bool {
+            ->with(self::callback(static function (RequestReservationCommand $cmd) use ($orderId): bool {
                 return $cmd->orderId === $orderId
                     && 2 === count($cmd->items)
                     && 'prod-1' === $cmd->items[0]->productId
@@ -64,7 +65,7 @@ final class InventoryContractAdapterTest extends TestCase
         $this->commandBus
             ->expects(self::once())
             ->method('dispatch')
-            ->with(self::callback(static function (ReleaseStockCommand $cmd) use ($orderId): bool {
+            ->with(self::callback(static function (RequestReleaseCommand $cmd) use ($orderId): bool {
                 return $cmd->orderId === $orderId;
             }));
 

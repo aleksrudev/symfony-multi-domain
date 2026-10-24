@@ -22,7 +22,7 @@ class ReservationItem
     #[Id]
     #[GeneratedValue]
     #[Column(name: 'id', type: 'integer')]
-    private ?int $id = null;
+    private ?int $id;
 
     #[ManyToOne(targetEntity: Reservation::class, inversedBy: 'items')]
     #[JoinColumn(name: 'order_id', referencedColumnName: 'order_id', nullable: false, onDelete: 'CASCADE')]
@@ -37,11 +37,13 @@ class ReservationItem
     public function __construct(
         ProductId|string $productId,
         int $quantity,
+        ?int $id = null,
     ) {
         if ($quantity <= 0) {
             throw new \InvalidArgumentException('Item quantity must be a positive integer.');
         }
 
+        $this->id = $id;
         $this->productId = $productId instanceof ProductId ? $productId->value : $productId;
         $this->quantity = $quantity;
     }
@@ -71,4 +73,3 @@ class ReservationItem
         return $this->quantity;
     }
 }
-

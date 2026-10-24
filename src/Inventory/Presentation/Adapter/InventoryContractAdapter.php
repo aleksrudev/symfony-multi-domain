@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Inventory\Presentation\Adapter;
 
-use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
-use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
-use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
+use App\Inventory\Application\Command\RequestRelease\RequestReleaseCommand;
+use App\Inventory\Application\Command\RequestReservation\RequestReservationCommand;
+use App\Inventory\Application\Command\RequestReservation\RequestReservationItemInput;
 use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
 use App\Inventory\Application\Query\GetReservation\GetReservationQueryResult;
 use App\Inventory\Domain\Exception\ReservationNotFoundException;
@@ -32,13 +32,13 @@ final readonly class InventoryContractAdapter implements InventoryContractInterf
     {
         $items = [];
         foreach ($request->items as $item) {
-            $items[] = new ReservationItemInput(
+            $items[] = new RequestReservationItemInput(
                 productId: $item->productId,
                 quantity: $item->quantity,
             );
         }
 
-        $this->commandBus->dispatch(new ReserveStockCommand(
+        $this->commandBus->dispatch(new RequestReservationCommand(
             orderId: $request->orderId,
             items: $items,
         ));
@@ -46,7 +46,7 @@ final readonly class InventoryContractAdapter implements InventoryContractInterf
 
     public function requestRelease(ReleaseRequest $request): void
     {
-        $this->commandBus->dispatch(new ReleaseStockCommand(
+        $this->commandBus->dispatch(new RequestReleaseCommand(
             orderId: $request->orderId,
         ));
     }

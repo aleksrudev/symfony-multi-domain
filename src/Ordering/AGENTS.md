@@ -73,29 +73,25 @@ Application сценарии:
 - `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener`: помечен `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]`. Проверяет полноту данных оформленного заказа без скрывающих ошибки fallback-значений, упаковывает публичное событие в `IntegrationEventMessage` и вызывает `OutboxBusInterface::publish()` внутри транзакции команды.
 
 Зависимости от других бизнес-модулей:
-- Модуль зависит от `Catalog` (объявлен в `src/Ordering/config/dependencies.php`).
+- Модуль зависит от `Catalog` и `Inventory` (объявлены в `src/Ordering/config/dependencies.php`).
 - Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` помечен `#[AsAlias(ProductOfferProviderInterface::class)]` и вызывает контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
+- Адаптер `InventoryReservationAdapter` в `Infrastructure/Integration/Inventory/InventoryReservationAdapter.php` помечен `#[AsAlias(InventoryReservationGatewayInterface::class)]` и вызывает контракт `InventoryContractInterface::requestReservation()` поставщика `Inventory`.
 
-### Целевая интеграция T08–T10
+Сообщения Outbox (`Infrastructure/Messaging/Outbox/<Operation>/`):
+- `RequestReservation`: `RequestReservationOutboxMessage` + `RequestReservationOutboxItem` + `RequestReservationOutboxHandler` (`#[AsMessageHandler(bus: 'outbox.bus')]`). Инфраструктурный listener `OrderSubmittedReservationRequestListener` формирует сообщение из доменного события оформления заказа и публикует в `outbox.bus` внутри транзакции команды. Handler вызывает `InventoryReservationGatewayInterface` для доставки в контракт склада.
+
+### Интеграция T08–T10
 
 Выбран вариант 1 из [системного анализа](../../docs/demo-shop-system-analysis.md):
-Ordering управляет оформлением, сверкой и отменой. Текущая публикация
-`OrderSubmittedEvent` сохраняется как отдельный публичный факт; целевая
-доставка резерва не зависит от подписки склада на него.
-[Переработка T08](../../docs/demo-shop-task-breakdown.md) добавляет собственное
-исходящее сообщение в `Infrastructure/Messaging/Outbox/RequestReservation/`
-из listener локального доменного события внутри транзакции оформления.
-Технический handler доставляет запрос через адаптер в
-`Infrastructure/Integration/Inventory/` и публичный контракт склада,
-принимающий задание в Inbox без синхронного резервирования.
+Ordering управляет оформлением, сверкой и отменой. Публикация `OrderSubmittedEvent`
+сохраняется как отдельный публичный факт; доставка запроса резерва выполняется
+через `RequestReservationOutboxMessage` и контракт склада.
+Граф зависимостей: `Ordering → Catalog, Inventory`, `Inventory → []`.
 
-После переключения зависимости Ordering — `['Catalog', 'Inventory']`,
-Inventory — `[]`; текущую обратную подписку склада нужно убрать по процедуре
-T08 с учётом сохранённых сообщений. T09 начинается только после приёмки
-этого пути. Его порт чтения и собственная модель находятся в
+В T09 порт чтения и собственная модель находятся в
 `Application/Command/ReconcileStock/Provider/`; адаптер вызывает
-`getReservationResult()`. Scheduler только инициирует собственный сценарий,
-переходы и проверки текущего статуса остаются в Domain Ordering.
+`InventoryContractInterface::getReservationResult()`. Scheduler только инициирует
+собственный сценарий, переходы и проверки текущего статуса остаются в Domain Ordering.
 T10 использует такой же путь для `requestRelease()` и опрашивает `released`.
 Обратная подписка Ordering на события склада не добавляется.
 

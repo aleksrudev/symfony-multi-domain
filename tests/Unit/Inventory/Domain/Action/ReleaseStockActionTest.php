@@ -18,15 +18,16 @@ use App\Inventory\Domain\Repository\StockPositionRepositoryInterface;
 use App\Inventory\Domain\ValueObject\OrderId;
 use App\Inventory\Domain\ValueObject\ProductId;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(ReleaseStockAction::class)]
 final class ReleaseStockActionTest extends TestCase
 {
-    private StockPositionDataProviderInterface $stockPositionDataProvider;
-    private StockPositionRepositoryInterface $stockPositionRepository;
-    private ReservationDataProviderInterface $reservationDataProvider;
-    private ReservationRepositoryInterface $reservationRepository;
+    private StockPositionDataProviderInterface&MockObject $stockPositionDataProvider;
+    private StockPositionRepositoryInterface&MockObject $stockPositionRepository;
+    private ReservationDataProviderInterface&MockObject $reservationDataProvider;
+    private ReservationRepositoryInterface&MockObject $reservationRepository;
     private ReleaseStockAction $action;
 
     protected function setUp(): void
@@ -120,4 +121,3 @@ final class ReleaseStockActionTest extends TestCase
         self::assertSame(ReservationStatus::RELEASED, $result->status());
     }
 }
-
