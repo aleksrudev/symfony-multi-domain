@@ -76,6 +76,35 @@ Application сценарии:
 - Модуль зависит от `Catalog` (объявлен в `src/Ordering/config/dependencies.php`).
 - Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` помечен `#[AsAlias(ProductOfferProviderInterface::class)]` и вызывает контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
 
+### Целевая интеграция T08–T10
+
+Выбран вариант 1 из [системного анализа](../../docs/demo-shop-system-analysis.md):
+Ordering управляет оформлением, сверкой и отменой. Текущая публикация
+`OrderSubmittedEvent` сохраняется как отдельный публичный факт; целевая
+доставка резерва не зависит от подписки склада на него.
+[Переработка T08](../../docs/demo-shop-task-breakdown.md) добавляет собственное
+исходящее сообщение в `Infrastructure/Messaging/Outbox/RequestReservation/`
+из listener локального доменного события внутри транзакции оформления.
+Технический handler доставляет запрос через адаптер в
+`Infrastructure/Integration/Inventory/` и публичный контракт склада,
+принимающий задание в Inbox без синхронного резервирования.
+
+После переключения зависимости Ordering — `['Catalog', 'Inventory']`,
+Inventory — `[]`; текущую обратную подписку склада нужно убрать по процедуре
+T08 с учётом сохранённых сообщений. T09 начинается только после приёмки
+этого пути. Его порт чтения и собственная модель находятся в
+`Application/Command/ReconcileStock/Provider/`; адаптер вызывает
+`getReservationResult()`. Scheduler только инициирует собственный сценарий,
+переходы и проверки текущего статуса остаются в Domain Ordering.
+T10 использует такой же путь для `requestRelease()` и опрашивает `released`.
+Обратная подписка Ordering на события склада не добавляется.
+
+При подключении T12 к зависимостям добавляется Notifications, который не
+зависит от Ordering. Эти положения — целевой план, а не описание уже
+реализованных классов и настроек.
+
+### HTTP API
+
 HTTP API контроллеры одного действия:
 - Актор `Buyer` (`Presentation/Http/Controller/Api/Buyer/`), все помечены `#[IsGranted('ROLE_BUYER')]`:
   - `CreateOrderController::__invoke()`: `POST /api/v1/orders`, имя `ordering_orders_create`. Требует `ROLE_BUYER`, заголовок `X-CSRF-Token` и опциональный `Idempotency-Key`. Возвращает HTTP 200.

@@ -72,6 +72,26 @@ Application сценарии:
 - Адаптер контракта: `InventoryContractAdapter` в `Presentation/Adapter/InventoryContractAdapter.php` с `#[AsAlias]`.
 - Конфигурация DI: узкие `resource` в `services.yaml` по слоям, все сервисы и алиасы по умолчанию private.
 
+### Переход T08 перед реализацией T09
+
+Выбран вариант 1 из [системного анализа](../../docs/demo-shop-system-analysis.md):
+Ordering управляет процессом и опрашивает контракт склада. Описанная выше
+подписка на `OrderSubmittedEvent` — текущая реализация до переключения,
+которую [переработка T08](../../docs/demo-shop-task-breakdown.md) должна убрать
+вместе с зависимостью `Inventory → Ordering`. Целевой список зависимостей
+Inventory пуст; склад не импортирует контракты заказа и не публикует в него
+результат обратным вызовом.
+
+Методы `requestReservation()` и `requestRelease()` выше описывают целевую
+семантику. Сейчас адаптер синхронно вызывает `ReserveStockCommand` и
+`ReleaseStockCommand`; это отступление устраняется в T08. Входящий адаптер
+должен вызывать собственный Application-сценарий принятия запроса, чей порт
+реализован инфраструктурной постановкой Inbox. Бизнесовые команды выполняются
+позже из существующих Inbox handlers. До переключения учитывай сохранённые
+outbox/async/failed сообщения по процедуре T08; очереди не очищай.
+
+### HTTP API
+
 HTTP API контроллеры одного действия:
 - Актор `Admin` (`Presentation/Http/Controller/Api/Admin/`):
   - `UpdateStockOnHandController::__invoke(string $productId, UpdateStockOnHandRequest $request)`: `PATCH /api/v1/admin/stock/{productId}` (format: `json`), имя маршрута `inventory_admin_stock_update`, доступ `ROLE_ADMIN` (защищён `security.yaml` access_control и проверкой `X-CSRF-Token`). Маппинг через `#[MapRequestPayload(acceptFormat: 'json')]`.
