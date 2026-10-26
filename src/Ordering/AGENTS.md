@@ -37,6 +37,7 @@
 - `IdempotencyOperation` — backed enum в `Domain/Enum/IdempotencyOperation` со значениями:
   - `case CREATE_DRAFT = 'create_draft';`
   - `case SUBMIT_ORDER = 'submit_order';`
+  - `case CANCEL_ORDER = 'cancel_order';`
 - Позиция `OrderItem` (`orderId: OrderId`, `productId: ProductId`, `quantity: int`, `productName: ?string`, `priceAmount: ?int`, `currency: ?Currency`). Снимки заполняются при переводе в `pending_stock` через метод `attachSnapshot(string $productName, int $priceAmount, Currency $currency)`.
 - Инвариант одного черновика (BR-16): у покупателя одновременно может быть не более одного активного черновика (`status === 'draft'`). Это гарантируется доменной проверкой при создании и частичным уникальным индексом PostgreSQL `ON ordering.orders (buyer_id) WHERE status = 'draft'`. Переход заказа в `pending_stock` освобождает этот слот, позволяя создать новый черновик.
 - Инвариант количества (BR-02): количество каждой позиции — строго положительное целое число (`quantity > 0`). При `<= 0` выбрасывается `InvalidOrderItemQuantityException`.
@@ -50,9 +51,12 @@
 - `SubmitOrderAction` (`Domain/Action/SubmitOrderAction`): принимает `Order $order` и `ProductSnapshotCollection $snapshots`, вызывает доменный метод `$order->submit($snapshots)`, сохраняет заказ через `OrderRepositoryInterface`, создаёт и публикует доменное событие `OrderSubmittedEvent` через `EventBusInterface`.
 - `ConfirmOrderAction` (`Domain/Action/ConfirmOrderAction`): принимает `Order $order`, вызывает `$order->confirm()`, сохраняет заказ через `OrderRepositoryInterface`.
 - `RejectOrderAction` (`Domain/Action/RejectOrderAction`): принимает `Order $order` и `string $reason`, вызывает `$order->reject($reason)`, сохраняет заказ через `OrderRepositoryInterface`.
+- `CancelOrderAction` (`Domain/Action/CancelOrderAction`): принимает `Order $order`, вызывает `$order->cancel()`, сохраняет заказ через `OrderRepositoryInterface`, создаёт и публикует доменное событие `OrderCancellingEvent` через `EventBusInterface`.
+- `FinalizeOrderCancellationAction` (`Domain/Action/FinalizeOrderCancellationAction`): принимает `Order $order`, вызывает `$order->finalizeCancellation()`, сохраняет заказ через `OrderRepositoryInterface`.
 
 Доменные события:
 - `OrderSubmittedEvent` (`Domain/Event/OrderSubmittedEvent`): реализует `App\Shared\Domain\Event\EventInterface`. Содержит ссылку на агрегат `Order $order` и момент операции `DateTimeImmutable $eventAt`. Публикуется из `SubmitOrderAction` после вызова `OrderRepositoryInterface::save()`.
+- `OrderCancellingEvent` (`Domain/Event/OrderCancellingEvent`): реализует `App\Shared\Domain\Event\EventInterface`. Содержит ссылку на агрегат `Order $order` и момент операции `DateTimeImmutable $eventAt`. Публикуется из `CancelOrderAction` после вызова `OrderRepositoryInterface::save()`.
 
 Application сценарии:
 - `CreateDraftCommand` / `CreateDraftHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): тонкий оркестратор создания/получения черновика. Обеспечивает соблюдение `Idempotency-Key` (повтор с тем же ключом и хэшем тела возвращает тот же заказ; повтор с тем же ключом и другим телом вызывает `IdempotencyConflictException`). Команда возвращает `void`.
@@ -60,7 +64,9 @@ Application сценарии:
 - `SubmitOrderCommand` / `SubmitOrderHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор оформления заказа. Проверяет `Idempotency-Key` (операция `submit_order`; при совпадении ключа немедленно завершает выполнение без повторной публикации события), загружает заказ покупателя, запрашивает через прикладной провайдер `ProductOfferProviderInterface` актуальные сведения о ценах и наименованиях товаров (`ProductOffer`), проверяет доступность и публикацию каждого товара (выбрасывает `ProductNotAvailableException`), формирует `ProductSnapshotCollection`, выполняет `SubmitOrderAction` и фиксирует ответ в таблице идемпотентности. Не публикует исходящие сообщения напрямую; команда возвращает `void`.
 - `ConfirmOrderCommand` / `ConfirmOrderHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор подтверждения заказа после подтверждения резерва складом. Загружает заказ с пессимистичной блокировкой и вызывает `ConfirmOrderAction`.
 - `RejectOrderCommand` / `RejectOrderHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор отказа по заказу при невозможности резерва складом. Загружает заказ с пессимистичной блокировкой и вызывает `RejectOrderAction`.
-- `ReconcileStockCommand` / `ReconcileStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): периодический опрос заказов `pending_stock` по времени `next_check_at <= now()`. Запрашивает статус склада через `ReservationResultProviderInterface`, при `reserved` вызывает `ConfirmOrderCommand`, при `rejected` вызывает `RejectOrderCommand`, при ожидании или `not_found` переносит `next_check_at = now() + check_interval`.
+- `CancelOrderCommand` / `CancelOrderHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор перевода заказа в статус `cancelling`. Поддерживает `Idempotency-Key` (операция `cancel_order`). Загружает заказ с пессимистичной блокировкой, проверяет покупателя (если передан) и вызывает `CancelOrderAction`.
+- `FinalizeOrderCancellationCommand` / `FinalizeOrderCancellationHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор завершения отмены заказа при подтверждении освобождения складом (`released`, `rejected`, `not_found`). Загружает заказ с пессимистичной блокировкой и вызывает `FinalizeOrderCancellationAction`.
+- `ReconcileStockCommand` / `ReconcileStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): периодический опрос заказов по времени `next_check_at <= now()`. Для `confirmed` при превышении тайм-аута (15 мин) и для `pending_stock` при превышении тайм-аута (5 мин) инициирует отмену через `CancelOrderCommand`. Для `pending_stock` опрашивает склад: при `reserved` вызывает `ConfirmOrderCommand`, при `rejected` вызывает `RejectOrderCommand`. Для `cancelling` опрашивает склад: при `released`, `rejected` или `not_found` вызывает `FinalizeOrderCancellationCommand`.
 - `GetDraftQuery` / `GetDraftHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): загружает активный черновик покупателя и возвращает модель `GetDraftQueryResult` с `list<OrderItemQueryResult>`.
 - `GetOrderQuery` / `GetOrderHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): загружает заказ через `OrderDataProviderInterface::findByIdAndBuyerId()` и формирует `GetOrderQueryResult` с `list<OrderItemQueryResult>` и `rejectionReason`.
 - `GetOrdersQuery` / `GetOrdersHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает пагинированную выборку через `OrderDataProviderInterface::findByBuyerIdPaginated()` и формирует `GetOrdersQueryResult` (`items: list<GetOrderQueryResult>`).
@@ -73,10 +79,12 @@ Application сценарии:
 
 Экспортируемые публичные события:
 - `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`eventId`, `eventAt` в UTC RFC 3339, `type = 'ordering.order_submitted'`, `source = 'Ordering'`, `schemaVersion = 1`) и payload (`orderId`, `buyerId`, `items: list<SubmittedOrderItem>`, `totalAmount`, `currency`).
+- `App\Ordering\Presentation\Contracts\Event\OrderCancelledEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`eventId`, `eventAt` в UTC RFC 3339, `type = 'ordering.order_cancelled'`, `source = 'Ordering'`, `schemaVersion = 1`) и payload (`orderId`, `buyerId`).
 - Вложенный DTO: `App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem` (`productId`, `quantity`, `productName`, `priceAmount`).
 
 Публикация в Outbox:
 - `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener`: помечен `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]`. Проверяет полноту данных оформленного заказа без скрывающих ошибки fallback-значений, передаёт публичное событие в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
+- `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderCancelledEventListener`: помечен `#[AsEventListener(event: OrderCancellingEvent::class)]`. Передаёт публичное событие `OrderCancelledEvent` в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
 
 Зависимости от других бизнес-модулей:
 - Модуль зависит от `Catalog` и `Inventory` синхронно (`src/Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`).
@@ -104,6 +112,7 @@ HTTP API контроллеры одного действия:
   - `CreateOrderController::__invoke()`: `POST /api/v1/orders`, имя `ordering_orders_create`. Требует `ROLE_BUYER`, заголовок `X-CSRF-Token` и опциональный `Idempotency-Key`. Возвращает HTTP 200.
   - `ReplaceOrderItemsController::__invoke(string $id, ReplaceOrderItemsRequest $request)`: `PUT /api/v1/orders/{id}/items`, имя `ordering_orders_replace_items`. Требует `ROLE_BUYER`, `X-CSRF-Token`. Маппинг через `#[MapRequestPayload(acceptFormat: 'json')]`. Возвращает HTTP 200.
   - `SubmitOrderController::__invoke(string $id)`: `POST /api/v1/orders/{id}/submission`, имя `ordering_orders_submit`. Требует `ROLE_BUYER`, `X-CSRF-Token` и опциональный `Idempotency-Key`. Возвращает HTTP 202.
+  - `CancelOrderController::__invoke(string $id)`: `POST /api/v1/orders/{id}/cancellation`, имя `ordering_orders_cancel`. Требует `ROLE_BUYER`, `X-CSRF-Token` и опциональный `Idempotency-Key`. Возвращает HTTP 202.
   - `GetOrderController::__invoke(string $id)`: `GET /api/v1/orders/{id}`, имя `ordering_orders_item`. Требует `ROLE_BUYER`. Возвращает HTTP 200 или 404.
   - `GetOrdersController::__invoke(GetOrdersRequest $request)`: `GET /api/v1/orders`, имя `ordering_orders_list`. Требует `ROLE_BUYER`. Маппинг через `#[MapQueryString(validationFailedStatusCode: 422)]`. Возвращает HTTP 200.
 

@@ -14,8 +14,8 @@
 | --- | --- | --- | --- | --- |
 | Shared | Общая техническая основа: CQRS, события и надёжная доставка (Transactional Outbox, Idempotent Consumer), доменные базовые типы, HTTP-маппинг ошибок, сессионная безопасность, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный синхронный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
-| Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на событие `ordering.order_submitted`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
-| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление с публикацией интеграционного события `ordering.order_submitted` через Outbox, синхронный опрос `Catalog` и `Inventory`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
+| Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на события `ordering.order_submitted` и `ordering.order_cancelled`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
+| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий `ordering.order_submitted` и `ordering.order_cancelled` через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog` и `Inventory`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
 а не модули приложения.
@@ -66,9 +66,9 @@ Shared содержит только механизмы, независимые 
 TransactionalMessagingKernel — полную цепочку. Требования к раздельным PostgreSQL
 test-БД и их подготовке — в [правилах проверок](rules/checks.md#межмодульные-события).
 
-[Реестр событий и подписчиков](events.md) пуст: публичных бизнесовых событий
-пока нет. Перечни фактов и подписок ведутся только в реестре, вместе с кодом;
-технические Alpha/Beta в него не входят.
+[Реестр событий и подписчиков](events.md) содержит публичные бизнесовые события
+`ordering.order_submitted / v1` и `ordering.order_cancelled / v1`. Перечни фактов и подписок
+ведутся только в реестре, вместе с кодом; технические Alpha/Beta в него не входят.
 
 ## Связи модулей
 
@@ -80,16 +80,18 @@ test-БД и их подготовке — в [правилах проверок
 `Inventory` экспортирует публичный синхронный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
 (метод `getReservationResult(orderId): ReservationResult`).
 Потребитель синхронного складского контракта — `Ordering` (`Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`)
-через собственный адаптер `Ordering/Infrastructure/Integration/Inventory/InventoryReservationResultProvider.php` для периодической сверки результата резерва (T09).
-`Inventory` подписывается на публичное интеграционное событие `ordering.order_submitted` через
-`Inventory/Infrastructure/Integration/Ordering/OrderSubmittedReservationConsumer.php`
+через собственный адаптер `Ordering/Infrastructure/Integration/Inventory/InventoryReservationResultProvider.php` для периодической сверки результата резерва (T09, T10).
+`Inventory` подписывается на публичные интеграционные события `ordering.order_submitted` и `ordering.order_cancelled` через
+`Inventory/Infrastructure/Integration/Ordering/OrderSubmittedReservationConsumer.php` и
+`Inventory/Infrastructure/Integration/Ordering/OrderCancelledReleaseConsumer.php`
 (`Inventory/config/dependencies.php`: `['sync' => [], 'events' => ['Ordering']]`).
-Обработчик использует `IdempotentConsumerInterface` и отправляет внутреннюю команду `ReserveStockCommand`.
+Обработчики используют `IdempotentConsumerInterface` и отправляют внутренние команды `ReserveStockCommand` и `ReleaseStockCommand`.
 
-`Ordering` экспортирует публичное межмодульное событие `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`
-(реализует Shared `IntegrationEventInterface`), формируемое и публикуемое через `IntegrationEventDispatcherInterface`
-в нейтральный transactional outbox инфраструктурным listener при переводе заказа в `pending_stock`.
-Из outbox событие перекладывается relay в `event.bus` (транспорт `async`) и обрабатывается подписчиками (модуль `Inventory`).
+`Ordering` экспортирует публичные межмодульные события `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent` и
+`App\Ordering\Presentation\Contracts\Event\OrderCancelledEvent`
+(реализуют Shared `IntegrationEventInterface`), формируемые и публикуемые через `IntegrationEventDispatcherInterface`
+в нейтральный transactional outbox инфраструктурными listeners при переводе заказа в `pending_stock` и `cancelling`.
+Из outbox события перекладываются relay в `event.bus` (транспорт `async`) и обрабатываются подписчиками (модуль `Inventory`).
 
 Граф зависимостей:
 - `Catalog`: sync: [], events: []

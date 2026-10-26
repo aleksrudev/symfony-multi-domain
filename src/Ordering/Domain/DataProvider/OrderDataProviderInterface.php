@@ -31,4 +31,10 @@ interface OrderDataProviderInterface
     public function findByBuyerIdPaginated(BuyerId $buyerId, int $offset, int $limit): OrderPaginatedCollection;
 
     public function findPendingStockForReconciliation(int $limit, ?\DateTimeImmutable $now = null): OrderCollection;
+
+    public function findOrdersForReconciliation(
+        int $limit,
+        ?\DateTimeImmutable $now = null,
+        int $confirmedTimeout = 900,
+    ): OrderCollection;
 }

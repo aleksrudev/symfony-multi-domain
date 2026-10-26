@@ -117,4 +117,30 @@ final readonly class OrderDataProvider implements OrderDataProviderInterface
 
         return new OrderCollection($items);
     }
+
+    public function findOrdersForReconciliation(
+        int $limit,
+        ?\DateTimeImmutable $now = null,
+        int $confirmedTimeout = 900,
+    ): OrderCollection {
+        $now ??= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $confirmedThreshold = $now->modify("-{$confirmedTimeout} seconds");
+
+        /** @var list<Order> $items */
+        $items = $this->em->createQueryBuilder()
+            ->select('o')
+            ->from(Order::class, 'o')
+            ->where('(o.status IN (:reconcileStatuses) AND (o.nextCheckAt IS NULL OR o.nextCheckAt <= :now)) OR (o.status = :confirmedStatus AND o.updatedAt <= :confirmedThreshold)')
+            ->setParameter('reconcileStatuses', [OrderStatus::PENDING_STOCK, OrderStatus::CANCELLING])
+            ->setParameter('confirmedStatus', OrderStatus::CONFIRMED)
+            ->setParameter('now', $now)
+            ->setParameter('confirmedThreshold', $confirmedThreshold)
+            ->orderBy('o.nextCheckAt', 'ASC')
+            ->addOrderBy('o.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return new OrderCollection($items);
+    }
 }

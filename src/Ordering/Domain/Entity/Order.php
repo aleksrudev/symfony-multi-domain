@@ -209,11 +209,41 @@ class Order
 
     public function rescheduleCheck(\DateTimeImmutable $nextCheckAt): void
     {
-        if (OrderStatus::PENDING_STOCK !== $this->status) {
+        if (OrderStatus::PENDING_STOCK !== $this->status && OrderStatus::CANCELLING !== $this->status) {
             return;
         }
 
         $this->nextCheckAt = $nextCheckAt;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
+    public function cancel(): void
+    {
+        if (OrderStatus::CANCELLING === $this->status || OrderStatus::CANCELLED === $this->status) {
+            return;
+        }
+
+        if (OrderStatus::PENDING_STOCK !== $this->status && OrderStatus::CONFIRMED !== $this->status) {
+            throw new OrderNotModifiableException($this->id, $this->status);
+        }
+
+        $this->status = OrderStatus::CANCELLING;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->nextCheckAt = $this->updatedAt;
+    }
+
+    public function finalizeCancellation(): void
+    {
+        if (OrderStatus::CANCELLED === $this->status) {
+            return;
+        }
+
+        if (OrderStatus::CANCELLING !== $this->status) {
+            throw new OrderNotModifiableException($this->id, $this->status);
+        }
+
+        $this->status = OrderStatus::CANCELLED;
+        $this->nextCheckAt = null;
         $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
     }
 

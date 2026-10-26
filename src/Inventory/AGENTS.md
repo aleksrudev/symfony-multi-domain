@@ -59,6 +59,7 @@ Application сценарии:
 
 Интеграция входящих событий (`Infrastructure/Integration/Ordering/`):
 - `OrderSubmittedReservationConsumer` (`#[AsMessageHandler(bus: 'event.bus')]`): слушает публичное интеграционное событие `OrderSubmittedEvent` от `Ordering`. Обеспечивает идемпотентность через `IdempotentConsumerInterface` по составному ключу `MessageIdentity(source, eventId)` с ID реакции `inventory.reserve-stock-on-order-submitted` и транслирует в `ReserveStockCommand` на `command.bus`.
+- `OrderCancelledReleaseConsumer` (`#[AsMessageHandler(bus: 'event.bus')]`): слушает публичное интеграционное событие `OrderCancelledEvent` от `Ordering`. Обеспечивает идемпотентность через `IdempotentConsumerInterface` по составному ключу `MessageIdentity(source, eventId)` с ID реакции `inventory.release-stock-on-order-cancelled` и транслирует в `ReleaseStockCommand` на `command.bus`.
 
 ## Публичный API и зависимости
 

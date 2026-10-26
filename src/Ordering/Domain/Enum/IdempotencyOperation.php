@@ -8,4 +8,5 @@ enum IdempotencyOperation: string
 {
     case CREATE_DRAFT = 'create_draft';
     case SUBMIT_ORDER = 'submit_order';
+    case CANCEL_ORDER = 'cancel_order';
 }

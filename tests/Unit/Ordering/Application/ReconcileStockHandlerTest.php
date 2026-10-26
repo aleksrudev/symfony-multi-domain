@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ordering\Application;
 
+use App\Ordering\Application\Command\CancelOrder\CancelOrderCommand;
 use App\Ordering\Application\Command\ConfirmOrder\ConfirmOrderCommand;
+use App\Ordering\Application\Command\FinalizeOrderCancellation\FinalizeOrderCancellationCommand;
 use App\Ordering\Application\Command\ReconcileStock\Provider\ReservationResult;
 use App\Ordering\Application\Command\ReconcileStock\Provider\ReservationResultProviderInterface;
 use App\Ordering\Application\Command\ReconcileStock\ReconcileStockCommand;
@@ -34,7 +36,7 @@ final class ReconcileStockHandlerTest extends TestCase
 
         $provider = $this->createMock(OrderDataProviderInterface::class);
         $provider->expects(self::once())
-            ->method('findPendingStockForReconciliation')
+            ->method('findOrdersForReconciliation')
             ->willReturn(new OrderCollection([$order]));
 
         $repo = $this->createMock(OrderRepositoryInterface::class);
@@ -50,7 +52,7 @@ final class ReconcileStockHandlerTest extends TestCase
             ->method('dispatch')
             ->with(self::callback(static fn (object $cmd): bool => $cmd instanceof ConfirmOrderCommand && '00000000-0000-4000-8000-000000000001' === $cmd->orderId));
 
-        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5);
+        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5, 300, 900);
         $handler(new ReconcileStockCommand(10));
     }
 
@@ -64,7 +66,7 @@ final class ReconcileStockHandlerTest extends TestCase
 
         $provider = $this->createMock(OrderDataProviderInterface::class);
         $provider->expects(self::once())
-            ->method('findPendingStockForReconciliation')
+            ->method('findOrdersForReconciliation')
             ->willReturn(new OrderCollection([$order]));
 
         $repo = $this->createMock(OrderRepositoryInterface::class);
@@ -82,7 +84,7 @@ final class ReconcileStockHandlerTest extends TestCase
                 && '00000000-0000-4000-8000-000000000002' === $cmd->orderId
                 && 'insufficient_stock' === $cmd->reason));
 
-        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5);
+        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5, 300, 900);
         $handler(new ReconcileStockCommand(10));
     }
 
@@ -96,7 +98,7 @@ final class ReconcileStockHandlerTest extends TestCase
 
         $provider = $this->createMock(OrderDataProviderInterface::class);
         $provider->expects(self::once())
-            ->method('findPendingStockForReconciliation')
+            ->method('findOrdersForReconciliation')
             ->willReturn(new OrderCollection([$order]));
 
         $repo = $this->createMock(OrderRepositoryInterface::class);
@@ -116,7 +118,97 @@ final class ReconcileStockHandlerTest extends TestCase
         $commandBus = $this->createMock(CommandBusInterface::class);
         $commandBus->expects(self::never())->method('dispatch');
 
-        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5);
+        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5, 300, 900);
+        $handler(new ReconcileStockCommand(10));
+    }
+
+    public function testReconcileStockDispatchesCancelWhenConfirmedTimeoutExceeded(): void
+    {
+        $past = new \DateTimeImmutable('-1000 seconds');
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000004'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CONFIRMED,
+            createdAt: $past,
+            updatedAt: $past,
+        );
+
+        $provider = $this->createMock(OrderDataProviderInterface::class);
+        $provider->expects(self::once())
+            ->method('findOrdersForReconciliation')
+            ->willReturn(new OrderCollection([$order]));
+
+        $repo = $this->createMock(OrderRepositoryInterface::class);
+
+        $resultProvider = $this->createMock(ReservationResultProviderInterface::class);
+        $resultProvider->expects(self::never())->method('getReservationResult');
+
+        $commandBus = $this->createMock(CommandBusInterface::class);
+        $commandBus->expects(self::once())
+            ->method('dispatch')
+            ->with(self::callback(static fn (object $cmd): bool => $cmd instanceof CancelOrderCommand && '00000000-0000-4000-8000-000000000004' === $cmd->orderId));
+
+        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5, 300, 900);
+        $handler(new ReconcileStockCommand(10));
+    }
+
+    public function testReconcileStockDispatchesCancelWhenPendingStockTimeoutExceeded(): void
+    {
+        $past = new \DateTimeImmutable('-400 seconds');
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000005'),
+            new BuyerId('buyer-1'),
+            OrderStatus::PENDING_STOCK,
+            createdAt: $past,
+            updatedAt: $past,
+        );
+
+        $provider = $this->createMock(OrderDataProviderInterface::class);
+        $provider->expects(self::once())
+            ->method('findOrdersForReconciliation')
+            ->willReturn(new OrderCollection([$order]));
+
+        $repo = $this->createMock(OrderRepositoryInterface::class);
+
+        $resultProvider = $this->createMock(ReservationResultProviderInterface::class);
+        $resultProvider->expects(self::never())->method('getReservationResult');
+
+        $commandBus = $this->createMock(CommandBusInterface::class);
+        $commandBus->expects(self::once())
+            ->method('dispatch')
+            ->with(self::callback(static fn (object $cmd): bool => $cmd instanceof CancelOrderCommand && '00000000-0000-4000-8000-000000000005' === $cmd->orderId));
+
+        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5, 300, 900);
+        $handler(new ReconcileStockCommand(10));
+    }
+
+    public function testReconcileStockDispatchesFinalizeCancellationWhenCancellingAndReleased(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000006'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CANCELLING,
+        );
+
+        $provider = $this->createMock(OrderDataProviderInterface::class);
+        $provider->expects(self::once())
+            ->method('findOrdersForReconciliation')
+            ->willReturn(new OrderCollection([$order]));
+
+        $repo = $this->createMock(OrderRepositoryInterface::class);
+
+        $resultProvider = $this->createMock(ReservationResultProviderInterface::class);
+        $resultProvider->expects(self::once())
+            ->method('getReservationResult')
+            ->with('00000000-0000-4000-8000-000000000006')
+            ->willReturn(new ReservationResult('00000000-0000-4000-8000-000000000006', 'released', null));
+
+        $commandBus = $this->createMock(CommandBusInterface::class);
+        $commandBus->expects(self::once())
+            ->method('dispatch')
+            ->with(self::callback(static fn (object $cmd): bool => $cmd instanceof FinalizeOrderCancellationCommand && '00000000-0000-4000-8000-000000000006' === $cmd->orderId));
+
+        $handler = new ReconcileStockHandler($provider, $repo, $resultProvider, $commandBus, 5, 300, 900);
         $handler(new ReconcileStockCommand(10));
     }
 }

@@ -1,6 +1,8 @@
 parameters:
     ordering.scheduler.check_interval: 5
     ordering.scheduler.batch_size: 50
+    ordering.timeout.pending_stock: 300
+    ordering.timeout.confirmed: 900
 
 services:
     _defaults:
@@ -9,6 +11,8 @@ services:
         bind:
             $checkInterval: '%ordering.scheduler.check_interval%'
             $batchSize: '%ordering.scheduler.batch_size%'
+            $pendingStockTimeout: '%ordering.timeout.pending_stock%'
+            $confirmedTimeout: '%ordering.timeout.confirmed%'
 
     App\Ordering\Application\:
         resource: '../Application/**/*Handler.php'

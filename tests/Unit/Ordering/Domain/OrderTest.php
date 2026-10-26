@@ -164,4 +164,104 @@ final class OrderTest extends TestCase
         $draft->rescheduleCheck($nextCheck);
         self::assertNull($draft->nextCheckAt());
     }
+
+    public function testCancelPendingStockOrder(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::PENDING_STOCK,
+        );
+
+        $order->cancel();
+
+        self::assertSame(OrderStatus::CANCELLING, $order->status());
+        self::assertNotNull($order->nextCheckAt());
+    }
+
+    public function testCancelConfirmedOrder(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CONFIRMED,
+        );
+
+        $order->cancel();
+
+        self::assertSame(OrderStatus::CANCELLING, $order->status());
+        self::assertNotNull($order->nextCheckAt());
+    }
+
+    public function testCancelAlreadyCancellingOrCancelledIsIdempotent(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CANCELLING,
+        );
+
+        $order->cancel();
+        self::assertSame(OrderStatus::CANCELLING, $order->status());
+
+        $cancelled = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CANCELLED,
+        );
+
+        $cancelled->cancel();
+        self::assertSame(OrderStatus::CANCELLED, $cancelled->status());
+    }
+
+    public function testCancelDraftThrowsException(): void
+    {
+        $order = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000123'), new BuyerId('buyer-1'));
+
+        $this->expectException(OrderNotModifiableException::class);
+        $order->cancel();
+    }
+
+    public function testCancelRejectedThrowsException(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::REJECTED,
+        );
+
+        $this->expectException(OrderNotModifiableException::class);
+        $order->cancel();
+    }
+
+    public function testFinalizeCancellationFromCancelling(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CANCELLING,
+            nextCheckAt: new \DateTimeImmutable('now'),
+        );
+
+        $order->finalizeCancellation();
+
+        self::assertSame(OrderStatus::CANCELLED, $order->status());
+        self::assertNull($order->nextCheckAt());
+
+        // Idempotent repeat
+        $order->finalizeCancellation();
+        self::assertSame(OrderStatus::CANCELLED, $order->status());
+    }
+
+    public function testFinalizeCancellationFromNonCancellingThrowsException(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::CONFIRMED,
+        );
+
+        $this->expectException(OrderNotModifiableException::class);
+        $order->finalizeCancellation();
+    }
 }
