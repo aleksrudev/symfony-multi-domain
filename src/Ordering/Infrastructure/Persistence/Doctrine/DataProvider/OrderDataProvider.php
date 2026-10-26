@@ -23,9 +23,10 @@ final readonly class OrderDataProvider implements OrderDataProviderInterface
     ) {
     }
 
-    public function findById(OrderId $id): Order
+    public function findById(OrderId $id, bool $lock = false): Order
     {
-        $order = $this->em->find(Order::class, $id);
+        $lockMode = $lock ? \Doctrine\DBAL\LockMode::PESSIMISTIC_WRITE : null;
+        $order = $this->em->find(Order::class, $id, $lockMode);
         if (!$order instanceof Order) {
             throw new OrderNotFoundException($id);
         }
@@ -95,5 +96,25 @@ final readonly class OrderDataProvider implements OrderDataProviderInterface
             ->getResult();
 
         return new OrderPaginatedCollection(new OrderCollection($items), $count);
+    }
+
+    public function findPendingStockForReconciliation(int $limit, ?\DateTimeImmutable $now = null): OrderCollection
+    {
+        $now ??= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+
+        /** @var list<Order> $items */
+        $items = $this->em->createQueryBuilder()
+            ->select('o')
+            ->from(Order::class, 'o')
+            ->where('o.status = :status AND (o.nextCheckAt IS NULL OR o.nextCheckAt <= :now)')
+            ->setParameter('status', OrderStatus::PENDING_STOCK)
+            ->setParameter('now', $now)
+            ->orderBy('o.nextCheckAt', 'ASC')
+            ->addOrderBy('o.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+
+        return new OrderCollection($items);
     }
 }

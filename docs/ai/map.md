@@ -79,7 +79,8 @@ test-БД и их подготовке — в [правилах проверок
 
 `Inventory` экспортирует публичный синхронный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
 (метод `getReservationResult(orderId): ReservationResult`).
-Потребитель синхронного складского контракта — `Ordering` (`Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`).
+Потребитель синхронного складского контракта — `Ordering` (`Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`)
+через собственный адаптер `Ordering/Infrastructure/Integration/Inventory/InventoryReservationResultProvider.php` для периодической сверки результата резерва (T09).
 `Inventory` подписывается на публичное интеграционное событие `ordering.order_submitted` через
 `Inventory/Infrastructure/Integration/Ordering/OrderSubmittedReservationConsumer.php`
 (`Inventory/config/dependencies.php`: `['sync' => [], 'events' => ['Ordering']]`).

@@ -88,4 +88,80 @@ final class OrderTest extends TestCase
         $this->expectException(InvalidOrderItemQuantityException::class);
         new OrderItem(new ProductId('prod-1'), -5);
     }
+
+    public function testConfirmOrderFromPendingStock(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::PENDING_STOCK,
+            nextCheckAt: new \DateTimeImmutable('2026-10-26 12:00:00+00:00'),
+        );
+
+        $order->confirm();
+
+        self::assertSame(OrderStatus::CONFIRMED, $order->status());
+        self::assertNull($order->nextCheckAt());
+        self::assertNull($order->rejectionReason());
+
+        // Idempotent repeat
+        $order->confirm();
+        self::assertSame(OrderStatus::CONFIRMED, $order->status());
+    }
+
+    public function testRejectOrderFromPendingStock(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::PENDING_STOCK,
+            nextCheckAt: new \DateTimeImmutable('2026-10-26 12:00:00+00:00'),
+        );
+
+        $order->reject('insufficient_stock');
+
+        self::assertSame(OrderStatus::REJECTED, $order->status());
+        self::assertSame('insufficient_stock', $order->rejectionReason());
+        self::assertNull($order->nextCheckAt());
+
+        // Idempotent repeat
+        $order->reject('another_reason');
+        self::assertSame(OrderStatus::REJECTED, $order->status());
+        self::assertSame('insufficient_stock', $order->rejectionReason());
+    }
+
+    public function testConfirmOnDraftThrowsException(): void
+    {
+        $order = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000123'), new BuyerId('buyer-1'));
+
+        $this->expectException(OrderNotModifiableException::class);
+        $order->confirm();
+    }
+
+    public function testRejectOnDraftThrowsException(): void
+    {
+        $order = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000123'), new BuyerId('buyer-1'));
+
+        $this->expectException(OrderNotModifiableException::class);
+        $order->reject('some_reason');
+    }
+
+    public function testRescheduleCheckUpdatesNextCheckAtForPendingStock(): void
+    {
+        $order = new Order(
+            new OrderId('00000000-0000-4000-8000-000000000123'),
+            new BuyerId('buyer-1'),
+            OrderStatus::PENDING_STOCK,
+        );
+
+        $nextCheck = new \DateTimeImmutable('2026-10-26 12:05:00+00:00');
+        $order->rescheduleCheck($nextCheck);
+
+        self::assertSame($nextCheck, $order->nextCheckAt());
+
+        // Non-pending stock ignores reschedule
+        $draft = Order::createDraft(new OrderId('00000000-0000-4000-8000-000000000123'), new BuyerId('buyer-1'));
+        $draft->rescheduleCheck($nextCheck);
+        self::assertNull($draft->nextCheckAt());
+    }
 }

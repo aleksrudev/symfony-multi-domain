@@ -18,6 +18,7 @@ final readonly class GetOrderQueryResult
         public string $updatedAt,
         public ?int $totalAmount = null,
         public ?string $currency = null,
+        public ?string $rejectionReason = null,
     ) {
     }
 }

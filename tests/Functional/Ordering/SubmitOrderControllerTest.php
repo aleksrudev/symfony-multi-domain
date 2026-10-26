@@ -433,6 +433,74 @@ final class SubmitOrderControllerTest extends TestCase
         self::assertSame('draft', $secondDraftData['status']);
     }
 
+    public function testOrderReconciliationReflectedInHttpApi(): void
+    {
+        $csrfToken = $this->login('buyer1', 'password');
+
+        // Setup inventory for keyboard
+        /** @var ManagerRegistry $doctrine */
+        $doctrine = $this->kernel->getContainer()->get('doctrine');
+        $em = $doctrine->getManager();
+        $em->persist(new \App\Inventory\Domain\Entity\StockPosition(new \App\Inventory\Domain\ValueObject\ProductId(CatalogFixtures::PRODUCT_KEYBOARD), onHand: 10, reserved: 0));
+        $em->flush();
+        $em->clear();
+
+        // 1. Create and submit order
+        $this->client->request('POST', '/api/v1/orders', server: ['CONTENT_TYPE' => 'application/json', 'HTTP_X-CSRF-TOKEN' => $csrfToken]);
+        /** @var array{id: string} $draftData */
+        $draftData = json_decode((string) $this->client->getResponse()->getContent(), true);
+        $orderId = $draftData['id'];
+
+        $this->client->request(
+            'PUT',
+            "/api/v1/orders/{$orderId}/items",
+            server: ['CONTENT_TYPE' => 'application/json', 'HTTP_X-CSRF-TOKEN' => $csrfToken],
+            content: json_encode(['items' => [['productId' => 'prod-keyboard', 'quantity' => 1]]]),
+        );
+
+        $this->client->request('POST', "/api/v1/orders/{$orderId}/submission", server: ['CONTENT_TYPE' => 'application/json', 'HTTP_X-CSRF-TOKEN' => $csrfToken]);
+        self::assertSame(202, $this->client->getResponse()->getStatusCode());
+
+        // GET order -> pending_stock
+        $this->client->request('GET', "/api/v1/orders/{$orderId}");
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        /** @var array{status: string, rejectionReason: ?string} $orderData */
+        $orderData = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame('pending_stock', $orderData['status']);
+        self::assertNull($orderData['rejectionReason']);
+
+        // 2. Relay outbox & consume
+        $testContainer = $this->kernel->getContainer()->get('test.service_container');
+        /** @var \App\Shared\Infrastructure\Messaging\Outbox\Relay\OutboxRelay $relay */
+        $relay = $testContainer->get(\App\Shared\Infrastructure\Messaging\Outbox\Relay\OutboxRelay::class);
+        /** @var Connection $connection */
+        $connection = $doctrine->getConnection();
+        $body = $connection->fetchOne('SELECT body FROM shared.outbox_messages');
+        /** @var \App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent $event */
+        $event = unserialize(base64_decode((string) $body, true));
+        $relay->relayOne();
+
+        /** @var \App\Inventory\Infrastructure\Integration\Ordering\OrderSubmittedReservationConsumer $consumer */
+        $consumer = $testContainer->get(\App\Inventory\Infrastructure\Integration\Ordering\OrderSubmittedReservationConsumer::class);
+        $consumer($event);
+        $doctrine->getManager()->flush();
+        $doctrine->getManager()->clear();
+
+        // 3. Reconcile
+        /** @var \App\Shared\Application\Bus\Command\CommandBusInterface $commandBus */
+        $commandBus = $testContainer->get(\App\Shared\Application\Bus\Command\CommandBusInterface::class);
+        $commandBus->dispatch(new \App\Ordering\Application\Command\ReconcileStock\ReconcileStockCommand(50));
+        $doctrine->getManager()->clear();
+
+        // GET order -> confirmed
+        $this->client->request('GET', "/api/v1/orders/{$orderId}");
+        self::assertSame(200, $this->client->getResponse()->getStatusCode());
+        /** @var array{status: string, rejectionReason: ?string} $confirmedData */
+        $confirmedData = json_decode((string) $this->client->getResponse()->getContent(), true);
+        self::assertSame('confirmed', $confirmedData['status']);
+        self::assertNull($confirmedData['rejectionReason']);
+    }
+
     private function login(string $username, string $password): string
     {
         $this->client->request('GET', '/api/v1/auth/session');

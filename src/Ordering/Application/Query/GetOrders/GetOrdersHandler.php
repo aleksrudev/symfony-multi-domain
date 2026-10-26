@@ -49,6 +49,7 @@ final readonly class GetOrdersHandler
                 updatedAt: $order->updatedAt()->format(\DateTimeInterface::ATOM),
                 totalAmount: $order->totalAmount(),
                 currency: $order->currency()?->value,
+                rejectionReason: $order->rejectionReason(),
             );
         }
 

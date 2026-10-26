@@ -1,7 +1,14 @@
+parameters:
+    ordering.scheduler.check_interval: 5
+    ordering.scheduler.batch_size: 50
+
 services:
     _defaults:
         autowire: true
         autoconfigure: true
+        bind:
+            $checkInterval: '%ordering.scheduler.check_interval%'
+            $batchSize: '%ordering.scheduler.batch_size%'
 
     App\Ordering\Application\:
         resource: '../Application/**/*Handler.php'
@@ -14,6 +21,9 @@ services:
 
     App\Ordering\Infrastructure\Messaging\EventListener\:
         resource: '../Infrastructure/Messaging/EventListener/'
+
+    App\Ordering\Infrastructure\Schedule\:
+        resource: '../Infrastructure/Schedule/'
 
     App\Ordering\Infrastructure\Persistence\Doctrine\Repository\:
         resource: '../Infrastructure/Persistence/Doctrine/Repository/'

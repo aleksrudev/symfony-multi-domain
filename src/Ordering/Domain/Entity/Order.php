@@ -39,6 +39,12 @@ class Order
     #[Column(name: 'currency', type: 'string', length: 3, nullable: true, enumType: Currency::class)]
     private ?Currency $currency = null;
 
+    #[Column(name: 'rejection_reason', type: 'string', length: 64, nullable: true)]
+    private ?string $rejectionReason = null;
+
+    #[Column(name: 'next_check_at', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $nextCheckAt = null;
+
     /**
      * @var OrderItemCollection|iterable<OrderItem>
      */
@@ -59,6 +65,8 @@ class Order
         ?\DateTimeImmutable $updatedAt = null,
         ?int $totalAmount = null,
         ?Currency $currency = null,
+        ?string $rejectionReason = null,
+        ?\DateTimeImmutable $nextCheckAt = null,
     ) {
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $this->id = $id;
@@ -69,6 +77,8 @@ class Order
         $this->updatedAt = $updatedAt ?? $now;
         $this->totalAmount = $totalAmount;
         $this->currency = $currency;
+        $this->rejectionReason = $rejectionReason;
+        $this->nextCheckAt = $nextCheckAt;
     }
 
     public static function createDraft(
@@ -156,6 +166,57 @@ class Order
         return $this->currency;
     }
 
+    public function rejectionReason(): ?string
+    {
+        return $this->rejectionReason;
+    }
+
+    public function nextCheckAt(): ?\DateTimeImmutable
+    {
+        return $this->nextCheckAt;
+    }
+
+    public function confirm(): void
+    {
+        if (OrderStatus::CONFIRMED === $this->status) {
+            return;
+        }
+
+        if (OrderStatus::PENDING_STOCK !== $this->status) {
+            throw new OrderNotModifiableException($this->id, $this->status);
+        }
+
+        $this->status = OrderStatus::CONFIRMED;
+        $this->nextCheckAt = null;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
+    public function reject(string $reason): void
+    {
+        if (OrderStatus::REJECTED === $this->status) {
+            return;
+        }
+
+        if (OrderStatus::PENDING_STOCK !== $this->status) {
+            throw new OrderNotModifiableException($this->id, $this->status);
+        }
+
+        $this->status = OrderStatus::REJECTED;
+        $this->rejectionReason = $reason;
+        $this->nextCheckAt = null;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
+    public function rescheduleCheck(\DateTimeImmutable $nextCheckAt): void
+    {
+        if (OrderStatus::PENDING_STOCK !== $this->status) {
+            return;
+        }
+
+        $this->nextCheckAt = $nextCheckAt;
+        $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+    }
+
     public function submit(ProductSnapshotCollection $snapshots): void
     {
         if (OrderStatus::DRAFT !== $this->status) {
@@ -185,5 +246,6 @@ class Order
         $this->currency = $orderCurrency;
         $this->status = OrderStatus::PENDING_STOCK;
         $this->updatedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->nextCheckAt = $this->updatedAt;
     }
 }

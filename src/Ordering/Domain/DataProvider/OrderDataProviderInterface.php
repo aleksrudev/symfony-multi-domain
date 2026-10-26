@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\DataProvider;
 
+use App\Ordering\Domain\Collection\OrderCollection;
 use App\Ordering\Domain\Collection\OrderPaginatedCollection;
 use App\Ordering\Domain\Entity\Order;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
@@ -15,7 +16,7 @@ interface OrderDataProviderInterface
     /**
      * @throws OrderNotFoundException
      */
-    public function findById(OrderId $id): Order;
+    public function findById(OrderId $id, bool $lock = false): Order;
 
     /**
      * @throws OrderNotFoundException
@@ -28,4 +29,6 @@ interface OrderDataProviderInterface
     public function findDraftByBuyerId(BuyerId $buyerId): Order;
 
     public function findByBuyerIdPaginated(BuyerId $buyerId, int $offset, int $limit): OrderPaginatedCollection;
+
+    public function findPendingStockForReconciliation(int $limit, ?\DateTimeImmutable $now = null): OrderCollection;
 }

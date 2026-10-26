@@ -42,6 +42,7 @@ final readonly class GetOrderController
             'items' => array_map(static fn (OrderItemQueryResult $item): array => $item->toArray(), $result->items),
             'totalAmount' => $result->totalAmount,
             'currency' => $result->currency,
+            'rejectionReason' => $result->rejectionReason,
             'createdAt' => $result->createdAt,
             'updatedAt' => $result->updatedAt,
         ], Response::HTTP_OK);
