@@ -73,6 +73,36 @@ final class ArchitectureTest extends TestCase
         }
     }
 
+    public function testEventsPermissionDoesNotExposeSynchronousInterfaces(): void
+    {
+        $process = $this->analyse('EventsOnly');
+
+        self::assertSame(1, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        self::assertStringContainsString('ForbiddenSynchronousAccess', $process->getOutput());
+        self::assertStringNotContainsString('AllowedEventAccess', $process->getOutput());
+        self::assertStringNotContainsString('AllowedDtoAccess', $process->getOutput());
+    }
+
+    public function testSyncPermissionDoesNotExposePublicEvents(): void
+    {
+        $process = $this->analyse('SyncOnly');
+
+        self::assertSame(1, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        self::assertStringContainsString('ForbiddenEventAccess', $process->getOutput());
+        self::assertStringNotContainsString('AllowedSynchronousAccess', $process->getOutput());
+        self::assertStringNotContainsString('AllowedDtoAccess', $process->getOutput());
+    }
+
+    public function testFlatDependencyDeclarationFailsWithClearError(): void
+    {
+        $process = $this->analyse('FlatFormat');
+
+        self::assertSame(2, $process->getExitCode());
+        self::assertStringContainsString('Alpha', $process->getErrorOutput());
+        self::assertStringContainsString('sync and events', $process->getErrorOutput());
+        self::assertStringNotContainsString('Stack trace', $process->getErrorOutput());
+    }
+
     private function analyse(string $fixture): Process
     {
         $root = dirname(__DIR__, 3);

@@ -14,9 +14,15 @@ if (false === $source || !is_dir($source)) {
     exit(2);
 }
 $build = require $root.'/tools/architecture.php';
-$dependencies = [];
-foreach (glob($source.'/*/config/dependencies.php') ?: [] as $declaration) {
-    $dependencies[basename(dirname($declaration, 2))] = require $declaration;
+try {
+    $dependencies = [];
+    foreach (glob($source.'/*/config/dependencies.php') ?: [] as $declaration) {
+        $dependencies[basename(dirname($declaration, 2))] = require $declaration;
+    }
+    $configuration = $build($source, $dependencies);
+} catch (LogicException $exception) {
+    fwrite(STDERR, $exception->getMessage()."\n");
+    exit(2);
 }
 $file = tempnam(sys_get_temp_dir(), 'deptrac-');
 if (false === $file) {
@@ -26,7 +32,7 @@ $yaml = $file.'.yaml';
 rename($file, $yaml);
 $file = $yaml;
 try {
-    file_put_contents($file, Yaml::dump($build($source, $dependencies), 12));
+    file_put_contents($file, Yaml::dump($configuration, 12));
     $process = new Process([PHP_BINARY, $root.'/vendor/bin/deptrac', 'analyse', '--config-file='.$file, '--no-cache', '--fail-on-uncovered'], $root);
     $process->setTimeout(120);
     $status = $process->run(static function (string $type, string $output): void {

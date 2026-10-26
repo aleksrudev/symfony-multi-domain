@@ -6,6 +6,18 @@
 Doctrine ORM 3, PostgreSQL 16, Messenger и Scheduler. Бизнес-модулей и рабочей
 токен-аутентификации изначально нет. Namespace приложения — `App\`.
 
+Проект и демо-фича служат для обкатки архитектуры и экспериментов.
+Обратная совместимость между архитектурными итерациями не требуется.
+Заменяемые API, DTO, конфигурацию и тестовые пути удаляй в том же изменении;
+не оставляй aliases, адаптеры, чтение старых форматов или параллельные реализации
+ради совместимости. Сообщения предыдущего эксперимента не ограничивают дизайн.
+
+При проектировании, изменении и ревью архитектуры учитывай SOLID и GRASP.
+Используй [clean-code-principles](.agents/skills/clean-code-principles/SKILL.md)
+и [grasp-knowledge](.agents/skills/grasp-knowledge/SKILL.md).
+Примеры навыков адаптируй к правилам проекта; числовые пороги рассматривай
+как сигналы для проверки, а не обязательные ограничения.
+
 До внесения изменений прочитай [карту модулей](docs/ai/map.md), чтобы определить
 владельца кода. Затем перед изменением модуля прочитай `src/<Module>/AGENTS.md`.
 Это обязательно и при работе с его тестами вне `src`. Для общей основы прочитай
@@ -28,8 +40,11 @@ Doctrine ORM 3, PostgreSQL 16, Messenger и Scheduler. Бизнес-модуле
 Для межмодульного API и его адаптеров прочитай
 [правила контрактов модулей](docs/ai/rules/module-contracts.md).
 
-Для публичных межмодульных событий, их формирования, публикации через outbox
-и приёма прочитай [правила межмодульных событий](docs/ai/rules/integration-events.md).
+Для асинхронной доставки, Inbox/Outbox, приёма внешних сообщений и внешних
+эффектов прочитай [правила надёжной доставки](docs/ai/rules/transactional-messaging.md).
+Они определяют назначение паттернов; устаревшие реализации заменяются напрямую.
+Для публичных межмодульных событий, их формирования, публикации и приёма
+прочитай также [правила межмодульных событий](docs/ai/rules/integration-events.md).
 
 Для API-контроллеров прочитай [правила HTTP-контроллеров](docs/ai/rules/http-controllers.md).
 
@@ -74,30 +89,46 @@ API-контроллеры находятся в `Presentation/Http/Controller/A
 
 Команды реализуют Shared Application `CommandInterface`, идут через
 `command.bus` с валидацией и транзакцией. Запросы используют `query.bus`
-и не изменяют состояние. Внутренние inbox-сообщения реализуют
-`InboxMessageInterface`, идут через `inbox.bus` в `async`; после трёх повторов
-попадают в `failed`. Это не механизм дедупликации. Технические outbox-сообщения
-реализуют `OutboxMessageInterface` и записываются через
-`OutboxBusInterface` внутри транзакции команды. Они направляются в отдельные
-`outbox.bus` и Doctrine-очередь `outbox`; `make outbox-worker` их обрабатывает.
-Запись outbox после commit нарушает атомарность; доставка выполняется после commit.
-Публичные события находятся в `Presentation/Contracts/Event/`, реализуют пустую
-Shared Presentation-метку `IntegrationEventInterface`. Инфраструктурный listener
-владельца оборачивает событие в Shared Infrastructure `IntegrationEventMessage`
-и напрямую вызывает `OutboxBusInterface::publish()` внутри транзакции.
-После commit общий handler передаёт DTO в Symfony EventDispatcher. Listener потребителей только
-преобразуют его в собственные Inbox-сообщения. Все они записываются атомарно
-в Doctrine `async` на том же default connection; бизнес-реакции выполняются
-через собственные Command/Query из инфраструктурных Inbox handlers.
-Метаданные — скалярные поля публичного DTO.
-Сериализатор Messenger сохраняет PHP-типы DTO; учитывай совместимость классов
-в outbox, async и failed. Получатели обеспечивают идемпотентность при повторах.
+и не изменяют состояние. Межмодульных каналов два: синхронный вызов публичного
+интерфейса/HTTP и асинхронные публичные события. Адресные асинхронные команды
+другим модулям запрещены. Собственные Command/Query выполняют локальные сценарии.
+
+Зависимости модулей задаются в config/dependencies.php раздельно:
+`sync` открывает публичные интерфейсы и DTO, `events` — публичные события и DTO.
+Оба вида импорта разрешены только Infrastructure/Integration потребителя.
+Циклы запрещены в sync; взаимные events и смешанные пути допустимы.
+Плоский список, неизвестные каналы/модули и самозависимости отклоняются.
+
+Transactional Outbox и Idempotent Consumer — независимые механизмы
+Shared Infrastructure. Целевые API: `append(object)`, порт доставки `publish(object)`
+и `consume(consumerId, MessageIdentity, callback)`. Они не импортируют
+IntegrationEventInterface, Symfony Messenger или Envelope.
+Общие Application InboxBus/OutboxBus и промежуточные DTO на каждый переход
+не создаются. Полный Transactional Inbox не реализуется на будущее.
+
+Публичные события находятся в Presentation/Contracts/Event/ и реализуют Shared
+Presentation-контракт IntegrationEventInterface. Он задаёт читаемые свойства
+`eventId/eventAt/source/type: string` и `schemaVersion: int`; DTO реализует их
+public readonly-свойствами. Владелец формирует метаданные, а целевой
+IntegrationEventDispatcher проверяет их и сохраняет объект через OutboxWriter.
+
+Целевая композиция использует Messenger event.bus с routing
+IntegrationEventInterface → async. Имя шины задаётся Messenger publisher через DI;
+Outbox relay о нём не знает. Адаптер подписчика переводит source/eventId
+в MessageIdentity и оборачивает собственный сценарий в Idempotent Consumer.
+Receipt и локальный эффект атомарны; retry/failed общие для события.
+Общая doctrine_transaction на event.bus запрещена.
+
+В main реализованы метаданные и sync/events; новая доставка пока не реализована.
+Текущая цепочка Outbox → EventDispatcher → Inbox удаляется целиком при подключении
+новой, вместе с шинами/маркерами/config/fixtures. Совместимости старых типов нет.
+Фактическое состояние и этапы описаны в карте и инструкции Shared.
 
 В Application бизнес-модуля разрешены только `Command/` и `Query/`:
 сообщение, обработчик, входные DTO, модели результата и прикладные порты
 группируются по сценарию. `Application/Message`, `Application/EventListener`
-и `Application/Service` запрещены. Inbox/Outbox-сообщения, их обработчики
-и вспомогательные DTO находятся
+и `Application/Service` запрещены. Технические Inbox/Outbox-типы конкретных
+внешних интеграций находятся
 в `Infrastructure/Messaging/Inbox/<Operation>/` или `Outbox/<Operation>/`;
 файлы непосредственно в Inbox/Outbox не размещать. Обработчик бизнесового
 продолжения преобразует сообщение в собственный Command/Query и вызывает шину.
@@ -107,10 +138,10 @@ Shared Presentation-метку `IntegrationEventInterface`. Инфраструк
 реализуют Shared Domain `EventInterface`; их синхронная шина основана на
 EventDispatcher. Listener ограничены своим контекстом, выполняются до commit
 и не производят внешних побочных эффектов. Listener находятся в Infrastructure
-владельца: адаптируют события, вызывают собственные прикладные сценарии
-или записывают outbox. Бизнесовые решения в listener и транспортных handlers
-запрещены. Outbox использует то же подключение PostgreSQL и таблицу
-`messenger_messages`; отдельной бизнес-модели в Shared нет.
+владельца: адаптируют события и вызывают собственные прикладные сценарии.
+Надёжное исходящее намерение сохраняется до commit по правилам его канала.
+Бизнесовые решения в listener и транспортных handlers запрещены.
+Транспортное хранение не становится общей бизнес-моделью в Shared.
 
 Ожидаемые доменные исключения наследуют Shared Domain `DomainException`.
 HTTP-маппинг задаёт модульный Presentation-провайдер
@@ -129,7 +160,7 @@ PHP-атрибуты, constructor property promotion, readonly для неизм
 make start / make start-all / make stop / make logs
 make console CMD="debug:router"
 make composer CMD="…"
-make worker / make outbox-worker / make scheduler
+make worker / make scheduler
 ```
 
 Обязательные проверки перед завершением, линтеры, тесты и подготовка тестовой БД

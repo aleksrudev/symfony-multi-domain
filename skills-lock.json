@@ -32,6 +32,13 @@
       "skillPath": "skills/eda-knowledge/SKILL.md",
       "computedHash": "c772145076ca02a899326798c876379ad1844ff3a018ac30b30eb636de386aa8"
     },
+    "grasp-knowledge": {
+      "source": "dykyi-roman/awesome-claude-code",
+      "sourceType": "github",
+      "ref": "7e1fea8899b7994073951dfd1f6a10532ddbb867",
+      "skillPath": "skills/grasp-knowledge/SKILL.md",
+      "computedHash": "b0cabc51a8a5150cb12a3cd407695c45801843cd524b9b989d69474771d70977"
+    },
     "php-best-practices": {
       "source": "asyrafhussin/agent-skills",
       "sourceType": "github",
