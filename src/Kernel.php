@@ -25,6 +25,7 @@ class Kernel extends BaseKernel
             'Catalog' => __DIR__.'/Catalog',
             'Ordering' => __DIR__.'/Ordering',
             'Inventory' => __DIR__.'/Inventory',
+            'Notifications' => __DIR__.'/Notifications',
         ];
     }
 

@@ -16,6 +16,7 @@
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный синхронный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
 | Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на события `ordering.order_submitted` и `ordering.order_cancelled`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
 | Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий `ordering.order_submitted` и `ordering.order_cancelled` через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog` и `Inventory`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
+| Notifications | Локальный ящик уведомлений покупателей и администратора, статусы доставки (`pending`, `sent`, `failed`), попытки и ошибки, публичный контракт `NotificationsContractInterface`, административный просмотр ящика. | `src/Notifications/` | [src/Notifications/AGENTS.md](../../src/Notifications/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `notifications`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
 а не модули приложения.
@@ -97,6 +98,7 @@ test-БД и их подготовке — в [правилах проверок
 - `Catalog`: sync: [], events: []
 - `Ordering`: sync: [Catalog, Inventory], events: []
 - `Inventory`: sync: [], events: [Ordering]
+- `Notifications`: sync: [], events: []
 
 Циклические зависимости отсутствуют. Целевые асинхронные команды между модулями запрещены.
 

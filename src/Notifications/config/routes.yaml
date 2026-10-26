@@ -1,0 +1,7 @@
+notifications_api:
+    resource: ../Presentation/Http/Controller/Api/
+    type: attribute
+    prefix: /api/v1
+    name_prefix: notifications_
+    format: json
+
