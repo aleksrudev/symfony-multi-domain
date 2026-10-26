@@ -9,7 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 final readonly class ProbeCommand implements CommandInterface
 {
-    public function __construct(#[Assert\Positive] public int $value = 1, public bool $fail = false, public bool $publish = false)
+    public function __construct(#[Assert\Positive] public int $value = 1, public bool $fail = false)
     {
     }
 }

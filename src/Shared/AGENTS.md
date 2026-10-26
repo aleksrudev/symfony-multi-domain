@@ -5,13 +5,11 @@
 
 Назначение механизмов определяют
 [правила надёжной доставки](../../docs/ai/rules/transactional-messaging.md).
-В main реализованы контракт метаданных IntegrationEvent и анализ sync/events.
-Нейтральные Outbox и Idempotent Consumer реализованы и зарегистрированы только
-в отдельных OutboxKernel и IdempotentConsumerKernel для тестов этапов 2–3.
-IntegrationEventDispatcher и event.bus ещё не реализованы;
-production-регистрация новых механизмов относится к этапу 4.
-Текущие Application Inbox/Outbox и native fanout остаются до единого переключения
-на этапе 4, затем удаляются без совместимости.
+Реализованы контракт метаданных IntegrationEvent, графы sync/events и композиция
+Dispatcher → нейтральный Outbox → Messenger event.bus → Idempotent Consumer.
+Нейтральные механизмы также проверяются отдельно в OutboxKernel и
+IdempotentConsumerKernel; TransactionalMessagingKernel проверяет полную цепочку.
+InboxBus/OutboxBus и native fanout удалены без совместимости.
 
 Допустимы только независимые от предметной области механизмы, необходимые
 нескольким модулям:
@@ -27,16 +25,17 @@ production-регистрация новых механизмов относит
 - config: регистрация только общих сервисов.
 
 Shared/Application/Bus и общая доставка в Shared/Infrastructure/Messaging —
-технические исключения из структуры бизнес-модулей. Текущие Inbox/Outbox
-контракты и цепочка IntegrationEventMessage/IntegrationEventHandler заменяются
-вместе с конфигурацией и fixtures. Не сохраняй их через aliases, адаптеры
-или параллельные пути. Совместимость архитектурных экспериментов не требуется.
+технические исключения из структуры бизнес-модулей. Не восстанавливай удалённые
+Inbox/Outbox API через aliases, обёртки или параллельные пути.
+Совместимость архитектурных экспериментов не требуется.
 
 services.yaml подключает узкие ресурсы сервисов без перечисления классов.
 Адаптеры шин объявляют private AsAlias; MessageBusInterface внедряется по
 именам аргументов шин, default Connection — по типу. HTTP listener использует
 AsEventListener, расписание — AutowireIterator для поставщиков.
-Messaging/IntegrationEvent подключает только `*Handler.php`; DTO и метка не сервисы.
+Messaging/IntegrationEvent содержит контракт и OutboxIntegrationEventDispatcher.
+Messaging/Messenger содержит publisher с bind $messageBus: '@event.bus'. Outbox
+подключает Writer/Relay/Console, Consumer — только Consumer/; Identity и DTO не сервисы.
 Следуй общим [правилам регистрации](../../docs/ai/rules/architecture.md#регистрация-сервисов-и-атрибуты).
 
 Зависимости от бизнес-модулей, их Contracts и тестовых fixtures запрещены.
@@ -90,13 +89,7 @@ IntegrationEventInterface в Presentation/Contracts/Event объявляет ч�
 от PHP. Это точечное исключение Shared для публичных Event-контрактов;
 Domain/Application его не используют.
 
-Текущие IntegrationEventMessage и IntegrationEventHandler находятся в
-Infrastructure/Messaging/IntegrationEvent/. IntegrationEventMessage реализует старый Outbox marker,
-общий handler вызывает native EventDispatcher, получатели ставят Inbox DTO.
-InboxBus не реализует Transactional Inbox. Не расширять этот путь для новых
-интеграций; он удаляется на этапе подключения новой композиции.
-
-Целевые нейтральные механизмы принадлежат Infrastructure/Messaging:
+Нейтральные механизмы принадлежат Infrastructure/Messaging:
 OutboxWriter принимает object, relay вызывает нейтральный OutboxPublisher;
 Consumer принимает consumerId, MessageIdentity(namespace, id) и callback.
 Они не импортируют IntegrationEventInterface, Messenger или Envelope.
@@ -116,8 +109,8 @@ last_error и логи содержат только класс ошибки; bo
 
 Таблица shared.outbox_messages создана отдельной миграцией
 Version20261026000000, ORM исключает её через schema_filter.
-app:outbox:relay и app:outbox:retry пока доступны только в OutboxKernel;
-make/Compose outbox-worker сохраняют прежнюю команду до этапа 4.
+app:outbox:relay и app:outbox:retry зарегистрированы в приложении.
+make/Compose outbox-worker запускают app:outbox:relay; async worker — Messenger.
 Relay завершается после текущей транзакции по SIGTERM/SIGINT при наличии pcntl;
 расширение включено в Dockerfile. Retry меняет только одну failed-запись,
 сбрасывает попытки/ошибку и сохраняет body/created_at.
@@ -145,8 +138,9 @@ ORM-изменения реакции выполняй внутри callback; pe
 не подменяет manager и завершает свои вложенные транзакции.
 
 Таблица shared.processed_messages имеет отдельную миграцию Version20261026000100
-и исключена из ORM diff. На этапе 3 миграция применена только к отдельной
-Consumer test-БД без Outbox/Messenger-таблиц. Receipt не содержит payload и TTL.
+и исключена из ORM diff. Независимая Consumer test-БД не содержит таблиц
+Outbox/Messenger; отдельная Messaging test-БД содержит все три механизма.
+Receipt не содержит payload и TTL.
 Тесты MessageIdentityTest, IdempotentConsumerSchemaTest, IdempotentConsumerTest,
 IdempotentConsumerOrmTest проверяют дедупликацию, независимые namespaces/consumerId,
 конкурирующие commit/rollback, границы SQL/ORM, отказ flush/commit и reset manager.
@@ -157,10 +151,13 @@ IdempotentConsumerOrmTest проверяют дедупликацию, неза�
 через Consumer. Общей транзакции event.bus нет; retry/failed общие для события.
 Самостоятельные очереди/Delivery на подписчика и исторический replay не вводятся.
 
-Текущие тесты доставки: tests/Integration/IntegrationEventDeliveryTest.php,
-PostgresIntegrationEventTest.php, OutboxBusTest.php и PostgresOutboxTest.php
-в том же каталоге. Они проверяют прежний runtime и будут переписаны/заменены
-при переключении; прежний API ради них не сохраняется.
+Тесты композиции: IntegrationEventDeliveryTest, PostgresIntegrationEventTest и
+IdempotentConsumerOutboxTest в tests/Integration/. Они используют отдельную
+MESSAGING_TEST_DATABASE_URL. Полный fixture kernel отключает статическое
+подключение DAMA, чтобы observer и worker видели настоящие commit/rollback.
+Проверяются source snapshot/rollback, атомарный relay → async, A-success/B-failure,
+общий retry/failed, свежий Envelope, выбор handlers при получении,
+receipt/эффект/следующее событие и штатный reset закрытого EM реальным consume.
 Контракт метаданных проверяется tests/Unit/Infrastructure/IntegrationEventContractTest.php.
 Для native compiler-проверок DTO используется отдельный PHP-процесс без
 расширений (-n): отладочные расширения окружения не должны менять отказ PHP
@@ -169,7 +166,8 @@ PostgresIntegrationEventTest.php, OutboxBusTest.php и PostgresOutboxTest.php
 Границы и графы проверяются tests/Unit/Architecture/ArchitectureTest.php
 и DependencyGraphTest.php через tools/architecture.php и bin/architecture.
 Технические Alpha/Beta остаются только в tests.
-PostgreSQL-проверки требуют отдельную OUTBOX_TEST_DATABASE_URL с проверкой
+PostgreSQL-проверки требуют отдельные OUTBOX_TEST_DATABASE_URL,
+CONSUMER_TEST_DATABASE_URL и MESSAGING_TEST_DATABASE_URL с проверкой
 суффикса test-БД; сами миграции не применяют.
 
 ## Расписание и проверки

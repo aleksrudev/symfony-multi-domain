@@ -12,7 +12,7 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: шины, доменные события, публичный контракт метаданных событий и доставка через Outbox → EventDispatcher → Inbox, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: шины, доменные события, публичный контракт метаданных событий и доставка через Transactional Outbox → Messenger event.bus → Idempotent Consumer, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 
 Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
 пустой список; Shared подключается отдельно как техническая основа.
@@ -35,7 +35,7 @@ Shared не является модулем пользователей или а
 соответствующую основу. Правила использования — в
 [rules/domain-types.md](rules/domain-types.md).
 
-Контракты шин Command, Query, Inbox и Outbox находятся в `src/Shared/Application/Bus/`,
+Контракты шин Command и Query находятся в `src/Shared/Application/Bus/`,
 контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.
 HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 реализация шин, сборка расписания и compiler passes —
@@ -47,46 +47,46 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 
 Типизированный публичный контракт `IntegrationEventInterface` находится в
 `src/Shared/Presentation/Contracts/Event/`. Он объявляет читаемые свойства
-eventId/eventAt/source/type: string и schemaVersion: int. Общая `IntegrationEventMessage`
-и `IntegrationEventHandler` находятся в `src/Shared/Infrastructure/Messaging/IntegrationEvent/`.
-Инфраструктурный listener владельца отправляет обёртку напрямую через
-OutboxBusInterface. Handler использует штатный Symfony EventDispatcher; listener потребителей
-ставят собственные сообщения через InboxBusInterface.
-Outbox и Inbox используют Doctrine transport на одном default connection.
-Собственного реестра, кодеков или compiler pass межмодульных событий нет.
-Семантика публикации и подключения — в
-[правилах межмодульных событий](rules/integration-events.md).
+eventId/eventAt/source/type: string и schemaVersion: int. Публичный DTO формирует
+инфраструктурный listener владельца и передаёт в IntegrationEventDispatcherInterface.
+Dispatcher проверяет метаданные и записывает объект через нейтральный OutboxWriter
+в той же default-транзакции. Сервисы Dispatcher находятся в
+`src/Shared/Infrastructure/Messaging/IntegrationEvent/`.
 
-Это описание фактического кода main. Inbox/Outbox API и нынешняя композиция
-шин подлежат удалению при реализации нового канала. Назначение паттернов и правила
-новых решений описаны в [надёжной доставке](rules/transactional-messaging.md).
-Самостоятельная событийная шина пока не реализована; внешних интеграций нет.
-Проект экспериментальный: старые API, форматы и тестовые пути ради совместимости
-не оставляются. Не создавай бизнес-модулям дополнительные Inbox/Outbox API по этой карте.
+Outbox находится в `src/Shared/Infrastructure/Messaging/Outbox/`: Writer/ для записи,
+Publisher/ для порта доставки, Relay/ для relay и Console/ для технических команд.
+Он принимает object и не зависит от IntegrationEvent/Messenger/Envelope.
+Отдельный `Messaging/Messenger/MessengerOutboxPublisher` получает event.bus через DI.
+Relay атомарно переносит снимок из shared.outbox_messages в Doctrine async на том же
+connection. make outbox-worker запускает app:outbox:relay; make worker обрабатывает async.
+Самостоятельные очереди и Delivery на подписчика не создаются.
 
-Выбранное изменение доставки и порядок реализации описаны в
-[плане из пяти этапов](../superpowers/plans/2026-10-26-module-events-implementation.md):
-InboxBus удаляется, Transactional Outbox относится к Infrastructure, публичные
-события идут через Messenger event.bus в async, реакции защищает Idempotent Consumer.
-Outbox принимает object, Idempotent Consumer — MessageIdentity/callback;
-они не зависят от IntegrationEvent/Messenger. Событийные и транспортные
-адаптеры собирают текущую цепочку.
-Метаданные и анализ sync/events реализованы. Нейтральный Outbox добавлен в
-src/Shared/Infrastructure/Messaging/Outbox/: Writer/ для записи, Publisher/
-для порта доставки, Relay/ для relay и Console/ для технических команд. Его собственная таблица shared.outbox_messages
-исключена из ORM diff; миграция Version20261026000000 пока применена только
-к выделенной тестовой БД. Компоненты зарегистрированы только в tests/Fixtures/OutboxKernel.php.
-Их тесты проверяют plain DTO, rollback, видимость, конкуренцию, failed/retry
-и корректное завершение по сигналу. Dockerfile включает pcntl для CLI-сигналов.
-Idempotent Consumer добавлен в src/Shared/Infrastructure/Messaging/IdempotentConsumer/:
-Identity/ содержит MessageIdentity, Consumer/ — контракт и Doctrine-реализацию.
-Он регистрируется только в tests/Fixtures/IdempotentConsumerKernel.php.
-Отдельная миграция Version20261026000100 создаёт shared.processed_messages,
-исключённую из ORM diff; пока применена только к отдельной Consumer test-БД
-без Outbox/Messenger-таблиц. Тесты проверяют callback/receipt, конкуренцию
-и чистый UnitOfWork без событийного DTO и транспорта.
-Новая событийная доставка относится к следующим этапам;
-фактический runtime выше ещё не переключён.
+Idempotent Consumer находится в `Messaging/IdempotentConsumer/`: Identity/ содержит
+MessageIdentity(namespace, id), Consumer/ — контракт и Doctrine-реализацию.
+Он получает consumerId/identity/callback без payload, Outbox или Messenger.
+Подписчик — стандартный AsMessageHandler(bus: 'event.bus') в Infrastructure/Integration
+потребителя: извлекает source/eventId и через Consumer вызывает собственную Command.
+Receipt в shared.processed_messages, локальный эффект и следующее исходящее событие
+фиксируются вместе. Общей doctrine_transaction на event.bus нет; retry/failed общие
+для события. Доменные события сохраняют синхронную локальную шину EventDispatcher.
+
+Все механизмы зарегистрированы в Shared. DTO не сервисы; aliases private.
+Собственного реестра доставки, codec framework и compiler pass событий нет.
+Прежние InboxBus/OutboxBus, transport outbox и native fanout удалены без совместимости.
+Новые бизнес-модули и внешние интеграции не добавлены. Назначение паттернов —
+в [надёжной доставке](rules/transactional-messaging.md), контракт и семантика —
+в [межмодульных событиях](rules/integration-events.md).
+
+shared.outbox_messages и shared.processed_messages имеют независимые миграции
+Version20261026000000 и Version20261026000100 и исключены из ORM diff.
+Подготовлены только согласованные отдельные test-БД: Outbox, Consumer и Messaging.
+Нейтральные OutboxKernel и IdempotentConsumerKernel проверяются независимо;
+TransactionalMessagingKernel собирает полную цепочку с техническими Alpha/Beta.
+Dockerfile включает pcntl; тесты проверяют корректное завершение relay по сигналу.
+
+Этапы 1–4 [плана](../superpowers/plans/2026-10-26-module-events-implementation.md)
+прошли ревью пользователя. Композиция подключена;
+полная приёмка и реестр docs/ai/events.md относятся к этапу 5.
 
 ## Связи модулей
 

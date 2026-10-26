@@ -63,7 +63,16 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep 'messenger:consume' | grep -v grep || exit 1"]
+      test:
+        - CMD
+        - php
+        - -r
+        - >-
+          foreach (glob("/proc/[0-9]*/cmdline") as $$file) {
+            $$arguments = explode("\0", @file_get_contents($$file) ?: "");
+            if (in_array("messenger:consume", $$arguments, true)) { exit(0); }
+          }
+          exit(1);
       interval: 30s
       timeout: 5s
       retries: 3
@@ -86,7 +95,16 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep 'messenger:consume' | grep -v grep || exit 1"]
+      test:
+        - CMD
+        - php
+        - -r
+        - >-
+          foreach (glob("/proc/[0-9]*/cmdline") as $$file) {
+            $$arguments = explode("\0", @file_get_contents($$file) ?: "");
+            if (in_array("messenger:consume", $$arguments, true)) { exit(0); }
+          }
+          exit(1);
       interval: 30s
       timeout: 5s
       retries: 3
@@ -113,14 +131,23 @@ services:
     networks:
       - default
     healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep 'messenger:consume' | grep -v grep || exit 1"]
+      test:
+        - CMD
+        - php
+        - -r
+        - >-
+          foreach (glob("/proc/[0-9]*/cmdline") as $$file) {
+            $$arguments = explode("\0", @file_get_contents($$file) ?: "");
+            if (in_array("app:outbox:relay", $$arguments, true)) { exit(0); }
+          }
+          exit(1);
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 30s
     volumes:
       - ./var:/app/var/
-    command: ['php', 'bin/console', 'messenger:consume', 'outbox', '-vv', '--limit=100', '--memory-limit=128M', '--time-limit=3600']
+    command: ['php', 'bin/console', 'app:outbox:relay', '--limit=100', '--time-limit=3600', '--sleep=1000']
 
 ###> doctrine/doctrine-bundle ###
   database:

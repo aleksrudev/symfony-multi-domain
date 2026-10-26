@@ -100,7 +100,7 @@ API-контроллеры находятся в `Presentation/Http/Controller/A
 Плоский список, неизвестные каналы/модули и самозависимости отклоняются.
 
 Transactional Outbox и Idempotent Consumer — независимые механизмы
-Shared Infrastructure. Целевые API: `append(object)`, порт доставки `publish(object)`
+Shared Infrastructure. API: `append(object)`, порт доставки `publish(object)`
 и `consume(consumerId, MessageIdentity, callback)`. Они не импортируют
 IntegrationEventInterface, Symfony Messenger или Envelope.
 Общие Application InboxBus/OutboxBus и промежуточные DTO на каждый переход
@@ -109,22 +109,23 @@ IntegrationEventInterface, Symfony Messenger или Envelope.
 Публичные события находятся в Presentation/Contracts/Event/ и реализуют Shared
 Presentation-контракт IntegrationEventInterface. Он задаёт читаемые свойства
 `eventId/eventAt/source/type: string` и `schemaVersion: int`; DTO реализует их
-public readonly-свойствами. Владелец формирует метаданные, а целевой
+public readonly-свойствами. Владелец формирует метаданные, а
 IntegrationEventDispatcher проверяет их и сохраняет объект через OutboxWriter.
 
-Целевая композиция использует Messenger event.bus с routing
+Композиция использует Messenger event.bus с routing
 IntegrationEventInterface → async. Имя шины задаётся Messenger publisher через DI;
 Outbox relay о нём не знает. Адаптер подписчика переводит source/eventId
 в MessageIdentity и оборачивает собственный сценарий в Idempotent Consumer.
 Receipt и локальный эффект атомарны; retry/failed общие для события.
 Общая doctrine_transaction на event.bus запрещена.
 
-Реализованы метаданные и sync/events; нейтральные Outbox и Idempotent Consumer
-проверяются отдельно в OutboxKernel и IdempotentConsumerKernel и пока не
-зарегистрированы в приложении. Новая событийная доставка и event.bus ещё
-не реализованы.
-Текущая цепочка Outbox → EventDispatcher → Inbox удаляется целиком при подключении
-новой, вместе с шинами/маркерами/config/fixtures. Совместимости старых типов нет.
+Outbox и Consumer зарегистрированы в Shared; их независимость проверяется
+отдельными OutboxKernel и IdempotentConsumerKernel. Полную цепочку проверяет
+TransactionalMessagingKernel. Dispatcher находится в
+Shared/Infrastructure/Messaging/IntegrationEvent/, Messenger publisher —
+в Messaging/Messenger/. make outbox-worker запускает app:outbox:relay,
+make worker — messenger:consume async. Шины inbox.bus/outbox.bus, их API
+и транспортные обёртки удалены без совместимости.
 Фактическое состояние и этапы описаны в карте и инструкции Shared.
 
 В Application бизнес-модуля разрешены только `Command/` и `Query/`:

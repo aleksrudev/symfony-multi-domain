@@ -4,12 +4,12 @@
 адаптера подписчика и обработки. См. [архитектуру](architecture.md),
 [контракты модулей](module-contracts.md) и [надёжную доставку](transactional-messaging.md).
 
-В main реализованы типизированный контракт метаданных и графы sync/events.
-Нейтральные Outbox и Idempotent Consumer реализованы отдельно в test-kernels
-и пока не подключены к приложению. Messenger event.bus ещё не реализована.
-Ниже описан выбранный целевой путь из [плана этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
-Текущий runtime Outbox → EventDispatcher → Inbox заменяется целиком на этапе
-подключения; не используй его как шаблон для нового кода.
+Реализована цепочка Dispatcher → Transactional Outbox → Messenger event.bus →
+Doctrine async → адаптер подписчика → Idempotent Consumer → собственная Command.
+Нейтральные Outbox/Consumer проверяются независимо; полную цепочку собирает
+TransactionalMessagingKernel. Старые API/обёртки/native fanout удалены.
+[План этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md)
+отделяет подключение от последующей приёмки и ведения реестра событий.
 
 ## Владелец и смысл
 
@@ -42,8 +42,8 @@
 типизированный Shared Presentation-контракт `IntegrationEventInterface` из
 `Shared/Presentation/Contracts/Event/`. Это точечное исключение для зависимости
 Contracts от Shared Contracts; остальные Shared Contracts не разрешены.
-Domain/Application не используют этот контракт. Внутренние `EventInterface`,
-`InboxMessageInterface` и `OutboxMessageInterface` публичный DTO не реализует.
+Domain/Application не используют этот контракт. Публичный DTO не реализует
+внутренний EventInterface и не получает транспортных маркеров.
 Доменные ID и enum преобразуй в значения. Ссылки на сущности, агрегаты,
 ORM-коллекции и ленивую загрузку через контракт запрещены.
 
@@ -84,9 +84,10 @@ Listener выполняет адаптацию без бизнес-расчёт�
 значениями. Отдельного Shared DTO метаданных или контекста доставки нет.
 IntegrationEventInterface объявляет читаемые свойства eventId/eventAt/source/type
 типа string и schemaVersion типа int. Public readonly-свойства DTO выполняют
-этот контракт. Генерация остаётся у владельца; в целевой доставке значения
+этот контракт. Генерация остаётся у владельца; значения
 проверяет IntegrationEventDispatcher, не общий Outbox/Consumer.
-ID/source/type непустые, до 190 символов; schemaVersion >= 1.
+ID/source/type содержат 1–190 символов UTF-8 без NUL; schemaVersion >= 1.
+Dispatcher и его интерфейс находятся в Shared/Infrastructure/Messaging/IntegrationEvent/.
 
 | Поле | Смысл |
 | --- | --- |
@@ -155,7 +156,7 @@ eventId защищаются инвариантами владельца. Отм
 для сообщения события. Не обещай отдельные очереди, бюджеты повторов
 или восстановление только одной реакции.
 
-В целевой конфигурации async — Doctrine default connection; 3 повтора,
+В конфигурации async — Doctrine default connection; 3 повтора,
 задержка 1000 мс, множитель 3, максимум 30000 мс; затем стандартный failed.
 Неуспешный handler может исчерпать общий бюджет. Восстановление текущего события —
 messenger:failed:retry. HandledStamp — оптимизация Messenger, не надёжный receipt.

@@ -141,11 +141,11 @@ Kernel для проверки адаптеров. Технические fixtur
 
 Тесты технической загрузки используют только tests/Fixtures и отдельный Kernel.
 Они не создают production-модули и не регистрируются обычным Kernel. Команды,
-inbox и базовая outbox-маршрутизация проверяются на SQLite in-memory.
-Дополнительный outbox-тест на PostgreSQL запускается при наличии
-`OUTBOX_TEST_DATABASE_URL`, указывающего на отдельную БД с суффиксом `_test`;
-CI подготавливает её отдельно. Тест проверяет атомарность записи между схемой
-модуля и таблицей `messenger_messages`.
+Query, локальное расписание и routing событий проверяются на SQLite/in-memory.
+Полная надёжная доставка проверяется отдельно на PostgreSQL.
+PostgreSQL-проверки надёжности используют отдельные guarded test-БД для
+Outbox, Consumer и полной композиции, как описано ниже. CI подготавливает
+их отдельно; тесты не применяют миграции.
 
 ### Доменные события и outbox
 
@@ -202,15 +202,22 @@ Outbox/Messenger; CONSUMER_TEST_DATABASE_URL указывает на отдел�
 не применяют. Проверяются реальная блокировка второго процесса на receipt,
 commit/rollback победителя, изоляция идентификаторов, flush/commit failure,
 очистка UnitOfWork и явный reset закрытого manager.
-Обе переменные можно передать из окружения хоста:
+Полная композиция проверяется через TransactionalMessagingKernel и
+MESSAGING_TEST_DATABASE_URL в IntegrationEventDeliveryTest,
+PostgresIntegrationEventTest, IdempotentConsumerOutboxTest и WorkerHealthCheckTest.
+Healthchecks relay, async-worker и scheduler проверяются при работающих
+и завершённых реальных процессах из Compose-конфигурации.
+Эта отдельная test-БД
+содержит три существующие миграции: Messenger transport, Outbox и Consumer.
+Статическое подключение DAMA в этом kernel отключено для настоящих commit/rollback.
+Все три переменные можно передать из окружения хоста:
 
 ```console
-make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_DATABASE_URL php php -d memory_limit=256M"
+make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_DATABASE_URL -e MESSAGING_TEST_DATABASE_URL php php -d memory_limit=256M"
 ```
 
-Новая событийная доставка реализуется следующими этапами
-[плана](../../superpowers/plans/2026-10-26-module-events-implementation.md).
-Добавляй эти проверки вместе с соответствующей реализацией:
+Событийная доставка подключена по [плану](../../superpowers/plans/2026-10-26-module-events-implementation.md).
+При изменениях сохраняй следующие проверки:
 
 - Outbox принимает plain object без IntegrationEvent/Messenger и сохраняет
   снимок в source-транзакцию; ошибка serialize/INSERT и последующий отказ
@@ -240,9 +247,8 @@ make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_
 - Заменённые API/config/fixtures удалены при переключении, без двойного пути
   и aliases совместимости.
 
-Нынешние IntegrationEventDeliveryTest/PostgresIntegrationEventTest проверяют
-прежний runtime и переписываются на этапе подключения, а не сохраняют старую
-доставку ради тестов. Обязательная PostgreSQL-приёмка требует реально выполненных
+IntegrationEventDeliveryTest/PostgresIntegrationEventTest проверяют новую
+композицию, без старых шин и промежуточных DTO. Обязательная PostgreSQL-приёмка требует реально выполненных
 тестов: SKIP не доказывает гарантии. Подготовка test-БД согласуется отдельно,
 тесты не применяют миграции сами.
 

@@ -21,7 +21,7 @@ Command/Query-сценарии в Application — оркестраторы до�
 или другие каталоги верхнего уровня в Application. Реализация публичного
 межмодульного интерфейса — задача Presentation/Adapter по
 [правилам контрактов](module-contracts.md).
-Контракты Command/Query и прежние Inbox/Outbox находятся в Shared/Application/Bus;
+Контракты Command/Query находятся в Shared/Application/Bus;
 контракт шины доменных событий находится в Shared/Domain/Event.
 Назначение паттернов для новых решений определяют
 [правила надёжной доставки](transactional-messaging.md).
@@ -37,9 +37,9 @@ Command/Query-сценарии в Application — оркестраторы до�
 Infrastructure/Messaging/EventListener/, вызывающие собственный Command/Query.
 Оркестрация реакции остаётся в Command/Query handler. Публичный факт формирует
 инфраструктурный listener владельца по [правилам межмодульных событий](integration-events.md).
-Целевая доставка использует Dispatcher → нейтральный Outbox → Messenger event.bus.
+Доставка использует Dispatcher → нейтральный Outbox → Messenger event.bus.
 Dispatcher и транспортный адаптер знают протокол, общий механизм Outbox — нет.
-Новая композиция пока не подключена; текущий runtime описан в карте.
+Композиция подключена в Shared; фактический состав описан в карте.
 Для конкретного исходящего внешнего эффекта допускается инфраструктурный Outbox
 по правилам надёжной доставки. Не добавляй универсальную очередь внутреннего
 продолжения и транспортную Command только ради асинхронности.

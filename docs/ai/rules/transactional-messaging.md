@@ -12,14 +12,12 @@ Transactional Outbox сохраняет исходящее намерение а
 эффект. Это независимые инфраструктурные механизмы; их первое применение —
 интеграционные события. Общая Application-шина сообщений для них не создаётся.
 
-В main реализованы контракт метаданных IntegrationEvent и разделение графов
-sync/events. Нейтральные Outbox и Consumer реализованы и проверяются в отдельных
-test-kernels; в приложение они ещё не подключены. Messenger event.bus не реализована.
-Последовательность подключения описана в [плане этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
-Текущие Shared/Application/Bus/Inbox и Outbox и композиция
-Outbox → EventDispatcher → Inbox — заменяемый runtime, не образец для нового кода.
-При подключении новой доставки удаляются его API/DTO/config/test paths целиком;
-совместимые aliases, fallback и чтение форматов предыдущего эксперимента не нужны.
+Outbox и Consumer зарегистрированы в Shared и скомпонованы через событийные
+и транспортные адаптеры с Messenger event.bus. Каждый механизм проверяется
+в независимом test-kernel; композиция — в отдельной PostgreSQL Messaging test-БД.
+Старые Application Inbox/Outbox и native fanout удалены. Совместимые aliases,
+fallback и чтение форматов предыдущего эксперимента не нужны.
+Состояние приёмки описано в [плане этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 
 Межмодульно разрешены синхронный публичный интерфейс/HTTP и асинхронные
 публичные события. Адресные async-команды другим модулям запрещены.
@@ -37,12 +35,12 @@ Outbox → EventDispatcher → Inbox — заменяемый runtime, не об
 | Query, синхронный вызов, локальное доменное событие или запуск Scheduler | Не требуют паттернов автоматически | Требования определяет сценарий |
 
 Новые внешние интеграции и полный Transactional Inbox заранее не создавай.
-InboxBus удаляется, полноценный Inbox не используется как его автоматическая замена.
+InboxBus удалён, полноценный Inbox не используется как его автоматическая замена.
 Обычная очередь или processed-ID журнал не являются всем Transactional Inbox.
 
 ## Outbox: исходящее намерение и бизнесовые данные
 
-Целевой контракт в Shared Infrastructure:
+Контракт в Shared Infrastructure:
 `OutboxWriterInterface::append(object $message): void`.
 
 1. В текущей default-транзакции немедленно сохранить самостоятельный снимок
