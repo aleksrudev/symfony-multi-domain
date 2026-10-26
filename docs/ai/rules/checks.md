@@ -177,7 +177,22 @@ PHP отклоняет отсутствие каждого обязательн�
 текущий readonly DTO сохраняет метаданные/вложенные значения при сериализации.
 Компиляторные проверки используют изолированный PHP -n, без отладочных расширений.
 
-Нейтральные механизмы и новая доставка реализуются следующими этапами
+Нейтральный Outbox проверяется DoctrineOutboxWriterTest (SQLite),
+TransactionalOutboxSchemaTest, TransactionalOutboxTest, OutboxRelayTest и
+OutboxCommandsTest (PostgreSQL). OutboxKernel регистрирует только новую основу,
+тестовый publisher и ORM-probe; Messenger/Consumer не нужны. Тесты используют
+подготовленную test-БД, не применяют миграции сами. Проверка SIGTERM требует pcntl,
+который включён в Dockerfile; сервисы для установки/проверки перезапускать не нужно.
+Для запуска PostgreSQL-тестов переменная OUTBOX_TEST_DATABASE_URL должна быть
+доступна внутри PHP-процесса. При передаче уже заданной переменной хоста:
+
+```console
+make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL php php -d memory_limit=256M"
+```
+
+Значение должно указывать на отдельную БД с суффиксом _test, проверяемую guard.
+При нехватке стандартных 128M допускается временный process-only memory_limit,
+без изменения php.ini. Независимый Consumer и новая событийная доставка реализуются следующими этапами
 [плана](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 Добавляй эти проверки вместе с соответствующей реализацией:
 

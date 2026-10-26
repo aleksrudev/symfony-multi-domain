@@ -6,7 +6,7 @@ namespace Tests\Integration;
 
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
-use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
+use App\Shared\Infrastructure\Messaging\IntegrationEvent\IntegrationEventMessage;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;

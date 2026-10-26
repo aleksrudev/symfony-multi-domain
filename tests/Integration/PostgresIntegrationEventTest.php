@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
-use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
+use App\Shared\Infrastructure\Messaging\IntegrationEvent\IntegrationEventMessage;
 use DAMA\DoctrineTestBundle\PHPUnit\SkipDatabaseRollback;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;

@@ -48,7 +48,7 @@ HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
 Типизированный публичный контракт `IntegrationEventInterface` находится в
 `src/Shared/Presentation/Contracts/Event/`. Он объявляет читаемые свойства
 eventId/eventAt/source/type: string и schemaVersion: int. Общая `IntegrationEventMessage`
-и `IntegrationEventHandler` находятся в `src/Shared/Infrastructure/Messaging/`.
+и `IntegrationEventHandler` находятся в `src/Shared/Infrastructure/Messaging/IntegrationEvent/`.
 Инфраструктурный listener владельца отправляет обёртку напрямую через
 OutboxBusInterface. Handler использует штатный Symfony EventDispatcher; listener потребителей
 ставят собственные сообщения через InboxBusInterface.
@@ -71,8 +71,15 @@ InboxBus удаляется, Transactional Outbox относится к Infrastr
 Outbox принимает object, Idempotent Consumer — MessageIdentity/callback;
 они не зависят от IntegrationEvent/Messenger. Событийные и транспортные
 адаптеры собирают текущую цепочку.
-Метаданные и анализ sync/events уже реализованы. Новая доставка — целевое
-состояние следующих этапов; фактический runtime выше ещё не переключён.
+Метаданные и анализ sync/events реализованы. Нейтральный Outbox добавлен в
+src/Shared/Infrastructure/Messaging/Outbox/: Writer/ для записи, Publisher/
+для порта доставки, Relay/ для relay и Console/ для технических команд. Его собственная таблица shared.outbox_messages
+исключена из ORM diff; миграция Version20261026000000 пока применена только
+к выделенной тестовой БД. Компоненты зарегистрированы только в tests/Fixtures/OutboxKernel.php.
+Их тесты проверяют plain DTO, rollback, видимость, конкуренцию, failed/retry
+и корректное завершение по сигналу. Dockerfile включает pcntl для CLI-сигналов.
+Новая событийная доставка и Consumer относятся к следующим этапам;
+фактический runtime выше ещё не переключён.
 
 ## Связи модулей
 

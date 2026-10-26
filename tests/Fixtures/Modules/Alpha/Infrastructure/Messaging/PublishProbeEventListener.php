@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Fixtures\Modules\Alpha\Infrastructure\Messaging;
 
 use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
-use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
+use App\Shared\Infrastructure\Messaging\IntegrationEvent\IntegrationEventMessage;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Uid\Uuid;
 use Tests\Fixtures\Modules\Alpha\Domain\ProbePublishedDomainEvent;

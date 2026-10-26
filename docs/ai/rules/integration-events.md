@@ -5,7 +5,8 @@
 [контракты модулей](module-contracts.md) и [надёжную доставку](transactional-messaging.md).
 
 В main реализованы типизированный контракт метаданных и графы sync/events.
-Нейтральные Outbox/Idempotent Consumer и Messenger event.bus ещё не реализованы.
+Нейтральный Outbox реализован отдельно и пока не подключён к приложению.
+Idempotent Consumer и Messenger event.bus ещё не реализованы.
 Ниже описан выбранный целевой путь из [плана этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 Текущий runtime Outbox → EventDispatcher → Inbox заменяется целиком на этапе
 подключения; не используй его как шаблон для нового кода.

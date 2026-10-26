@@ -53,18 +53,18 @@ test-kernel. Новый прикладной канал и универсаль�
 Адрес текущего способа доставки задаётся DI-композицией, а не самим сообщением.
 Foreign key на бизнесовые таблицы и ORM-сущность Outbox не создаются.
 
-- [ ] После согласования написать тест структуры таблицы и отсутствия протокольных полей/foreign key.
-- [ ] Выполнить `make composer CMD="exec -- phpunit tests/Integration/TransactionalOutboxSchemaTest.php"` на выделенной PostgreSQL test-БД. До миграции ожидается FAIL, отсутствие БД не скрывать как успешную приёмку.
-- [ ] Создать миграцию с `CREATE SCHEMA IF NOT EXISTS shared` и одной Outbox-таблицей. В down удалять только её; миграцию Messenger не менять.
-- [ ] Настроить OutboxKernel на `OUTBOX_TEST_DATABASE_URL` с `tools/test-database-guard.php`; зарегистрировать только нейтральные компоненты этапа и test publisher.
-- [ ] После согласованной подготовки через `make test-db-prepare` повторить тест и `make console CMD="doctrine:schema:update --dump-sql --env=test"`: ORM не предлагает удалить техническую таблицу.
+- [x] После согласования написать тест структуры таблицы и отсутствия протокольных полей/foreign key.
+- [x] Выполнить `make composer CMD="exec -- phpunit tests/Integration/TransactionalOutboxSchemaTest.php"` на выделенной PostgreSQL test-БД. До миграции ожидается FAIL, отсутствие БД не скрывать как успешную приёмку.
+- [x] Создать миграцию с `CREATE SCHEMA IF NOT EXISTS shared` и одной Outbox-таблицей. В down удалять только её; миграцию Messenger не менять.
+- [x] Настроить OutboxKernel на `OUTBOX_TEST_DATABASE_URL` с `tools/test-database-guard.php`; зарегистрировать только нейтральные компоненты этапа и test publisher.
+- [x] После согласованной подготовки через `make test-db-prepare` повторить тест и `make console CMD="doctrine:schema:update --dump-sql --env=test"`: ORM не предлагает удалить техническую таблицу. В приложении пока нет ORM-моделей; фактический schema diff с моделью проверяет `testOrmDiffDoesNotDropTechnicalOutboxStorage` отдельного OutboxKernel.
 
 ## Задача 2. Нейтральный контракт записи и снимок
 
 **Files:**
 
-- Create: `src/Shared/Infrastructure/Messaging/Outbox/OutboxWriterInterface.php`.
-- Create: `src/Shared/Infrastructure/Messaging/Outbox/DoctrineOutboxWriter.php`.
+- Create: `src/Shared/Infrastructure/Messaging/Outbox/Writer/OutboxWriterInterface.php`.
+- Create: `src/Shared/Infrastructure/Messaging/Outbox/Writer/DoctrineOutboxWriter.php`.
 - Create: `tests/Fixtures/Messaging/PlainMessage.php` и `NestedMessageValue.php`.
 - Create/Test: `tests/Unit/Infrastructure/DoctrineOutboxWriterTest.php`.
 - Create/Test: `tests/Integration/TransactionalOutboxTest.php`.
@@ -76,18 +76,18 @@ Foreign key на бизнесовые таблицы и ORM-сущность Out
 - PlainMessage — обычный readonly DTO с вложенным значением, строкой с `\0` и ID операции. Не реализует никаких messaging-интерфейсов.
 - Минимальный формат текущей реализации: `base64_encode(serialize($message))`. Он сохраняет PHP-типы и допускает бинарные данные в PostgreSQL TEXT. Отдельные Envelope, codec registry и новый сериализаторный порт не создаются.
 
-- [ ] Добавить `testAppendAcceptsPlainObjectWithoutMessageInterfaces` и `testAppendRequiresActiveTransaction`. Проверить снимок объекта с вложенным DTO и нулевым байтом.
-- [ ] Добавить PostgreSQL-тесты `testBusinessWriteAndSnapshotCommitTogether`, `testLaterFailureRollsBackSnapshot`, `testSerializationOrInsertFailureRollsBackBusinessWrite` и `testAnotherConnectionCannotReadUncommittedSnapshot`.
-- [ ] Выполнить целевые тесты и подтвердить FAIL до реализации.
-- [ ] Реализовать append: проверить активную транзакцию, немедленно сериализовать объект и INSERT в ту же default-транзакцию. Не читать eventId/eventAt/source/type/schemaVersion и не делать flush/commit/dispatch.
-- [ ] Повторить тесты: изменение исходного mutable-объекта после append не меняет снимок; ошибка __serialize или записи не подавляется.
+- [x] Добавить `testAppendAcceptsPlainObjectWithoutMessageInterfaces` и `testAppendRequiresActiveTransaction`. Проверить снимок объекта с вложенным DTO и нулевым байтом.
+- [x] Добавить PostgreSQL-тесты `testBusinessWriteAndSnapshotCommitTogether`, `testFailureRollsBackSnapshotAndBusinessWrite` (data provider: later/serialize/insert) и `testAnotherConnectionCannotReadUncommittedSnapshot`.
+- [x] Выполнить целевые тесты и подтвердить FAIL до реализации.
+- [x] Реализовать append: проверить активную транзакцию, немедленно сериализовать объект и INSERT в ту же default-транзакцию. Не читать eventId/eventAt/source/type/schemaVersion и не делать flush/commit/dispatch.
+- [x] Повторить тесты: изменение исходного mutable-объекта после append не меняет снимок; ошибка __serialize или записи не подавляется.
 
 ## Задача 3. Порт доставки и relay
 
 **Files:**
 
-- Create: `src/Shared/Infrastructure/Messaging/Outbox/OutboxPublisherInterface.php`.
-- Create: `src/Shared/Infrastructure/Messaging/Outbox/OutboxRelay.php`.
+- Create: `src/Shared/Infrastructure/Messaging/Outbox/Publisher/OutboxPublisherInterface.php`.
+- Create: `src/Shared/Infrastructure/Messaging/Outbox/Relay/OutboxRelay.php`.
 - Create: `tests/Fixtures/Messaging/RecordingOutboxPublisher.php`.
 - Create/Test: `tests/Integration/OutboxRelayTest.php`.
 - Modify: `tests/Fixtures/OutboxKernel.php`.
@@ -99,22 +99,22 @@ Foreign key на бизнесовые таблицы и ORM-сущность Out
 - Consumes relay: `Connection`, PSR Clock и `OutboxPublisherInterface`; нет зависимости на Messenger.
 - Test publisher может записывать объект в нейтральную probe-таблицу тем же connection либо имитировать внешний эффект/отказ. Маршрутизацию событий не воспроизводит.
 
-- [ ] Написать тесты доставки PlainMessage и второго произвольного DTO через тестовый publisher; сравнить тип, вложенные значения и исходный ID.
-- [ ] Добавить тесты send/decode failure, rollback после publish до удаления, конкурентного relay и продолжения после неуспешной записи. Для publisher вне БД показать допустимую повторную отправку после сбоя.
-- [ ] Выполнить `make composer CMD="exec -- phpunit tests/Integration/OutboxRelayTest.php"`; подтвердить ожидаемый FAIL.
-- [ ] Реализовать отдельную транзакцию relayOne: выбрать `failed_at IS NULL AND available_at <= now` через `ORDER BY available_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`; восстановить объект; вызвать publisher; удалить строку; commit.
-- [ ] Неверные base64/serialize, __PHP_Incomplete_Class, отсутствие нужного PHP-класса и результат не object считать отказом доставки. Старые форматы и upcasters не поддерживать.
-- [ ] Вызов publisher и удаление выполнять во вложенном DBAL savepoint. При отказе откатить savepoint, сохранив внешнюю блокировку, и обновить попытку. Ошибка внешнего commit не считается сохранённым успехом.
-- [ ] Сохранить 3 повтора после первой попытки: 1000, 3000, 9000 мс; после четвёртого отказа поставить failed_at. Ошибка соединения прерывает процесс с ненулевым exit code.
-- [ ] Логировать ID Outbox-записи, номер попытки и класс ошибки без body. Не извлекать метаданные IntegrationEvent для логирования.
-- [ ] Повторить тесты на PostgreSQL с двумя процессами/соединениями и барьером. Атомарность внешнего HTTP/брокера с удалением Outbox не обещать; для адаптера Doctrine async она отдельно проверяется на этапе 4.
+- [x] Написать тесты доставки PlainMessage и второго произвольного DTO через тестовый publisher; сравнить тип, вложенные значения и исходный ID.
+- [x] Добавить тесты send/decode failure, rollback после publish до удаления, конкурентного relay и продолжения после неуспешной записи. Для publisher вне БД показать допустимую повторную отправку после сбоя.
+- [x] Выполнить `make composer CMD="exec -- phpunit tests/Integration/OutboxRelayTest.php"`; подтвердить ожидаемый FAIL.
+- [x] Реализовать отдельную транзакцию relayOne: выбрать `failed_at IS NULL AND available_at <= now` через `ORDER BY available_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`; восстановить объект; вызвать publisher; удалить строку; commit.
+- [x] Неверные base64/serialize, __PHP_Incomplete_Class, отсутствие нужного PHP-класса и результат не object считать отказом доставки. Старые форматы и upcasters не поддерживать.
+- [x] Вызов publisher и удаление выполнять во вложенном DBAL savepoint. При отказе откатить savepoint, сохранив внешнюю блокировку, и обновить попытку. Ошибка внешнего commit не считается сохранённым успехом.
+- [x] Сохранить 3 повтора после первой попытки: 1000, 3000, 9000 мс; после четвёртого отказа поставить failed_at. Ошибка соединения прерывает процесс с ненулевым exit code.
+- [x] Логировать ID Outbox-записи, номер попытки и класс ошибки без body. Не извлекать метаданные IntegrationEvent для логирования.
+- [x] Повторить тесты на PostgreSQL с двумя процессами/соединениями и барьером. Атомарность внешнего HTTP/брокера с удалением Outbox не обещать; для адаптера Doctrine async она отдельно проверяется на этапе 4.
 
 ## Задача 4. Команды relay и восстановления
 
 **Files:**
 
-- Create: `src/Shared/Infrastructure/Messaging/Outbox/RelayOutboxCommand.php`.
-- Create: `src/Shared/Infrastructure/Messaging/Outbox/RetryOutboxCommand.php`.
+- Create: `src/Shared/Infrastructure/Messaging/Outbox/Console/RelayOutboxCommand.php`.
+- Create: `src/Shared/Infrastructure/Messaging/Outbox/Console/RetryOutboxCommand.php`.
 - Create/Test: `tests/Integration/OutboxCommandsTest.php`.
 
 **Interfaces:**
@@ -122,10 +122,10 @@ Foreign key на бизнесовые таблицы и ORM-сущность Out
 - `app:outbox:relay --limit=100 --time-limit=3600 --sleep=1000`: sleep в миллисекундах, только при отсутствии готовых записей.
 - `app:outbox:retry <id>`: сброс attempts/failed_at/last_error и available_at = now для одной failed-записи; body сохраняется.
 
-- [ ] Добавить CommandTester/process-проверки лимитов, пустой очереди, параметров, SIGTERM после текущей транзакции и retry одной записи. Неверный/несуществующий/not-failed ID возвращает ненулевой exit code без изменения данных.
-- [ ] Реализовать технические команды Shared через AsCommand и корректное завершение по сигналу Console SignalableCommandInterface.
-- [ ] Проверить retry на нейтральном DTO: повтор использует прежние тип и данные, не требует полей события.
-- [ ] Выполнить целевые тесты, `make lint` и `git diff --check`. Runtime-регистрацию и замену worker выполнить только на этапе 4.
+- [x] Добавить CommandTester/process-проверки лимитов, пустой очереди, параметров, SIGTERM после текущей транзакции и retry одной записи. Неверный/несуществующий/not-failed ID возвращает ненулевой exit code без изменения данных.
+- [x] Реализовать технические команды Shared через AsCommand и корректное завершение по сигналу Console SignalableCommandInterface.
+- [x] Проверить retry на нейтральном DTO: повтор использует прежние тип и данные, не требует полей события.
+- [x] Выполнить целевые тесты, `make lint` и `git diff --check`. Runtime-регистрацию и замену worker выполнить только на этапе 4.
 
 ## Готовность этапа
 
@@ -133,3 +133,25 @@ Outbox сохраняет и доставляет произвольные по�
 IntegrationEvent и Messenger в его API/механизме. Таблица Idempotent Consumer
 и event.bus для этих проверок не нужны. Композиция с интеграционными событиями —
 [этап 4](2026-10-26-module-events-stage-4-messenger-cutover.md).
+
+## Результат этапа
+
+Этап 1 закоммичен после ревью: ec57313. Этап 2 прошёл ревью пользователя; коммит и переход к этапу 3 согласованы.
+
+Создание миграции и подготовка выделенной PostgreSQL-БД symfony_db_outbox_test
+отдельно согласованы. Миграция Version20261026000000 применена только к ней.
+Dev/prod БД не менялись. Добавление pcntl в Dockerfile и установка в текущем
+PHP-контейнере без перезапуска сервисов также согласованы; реальный SIGTERM
+проверен двумя процессами с барьером после начала publish.
+
+Полный PHPUnit после исправления замечания ревью: 159 тестов, 661 assertions,
+без пропусков. Запуск использовал временный process-only memory_limit=256M
+и OUTBOX_TEST_DATABASE_URL выделенной БД. Линтеры, Deptrac, контейнеры test/prod
+и Doctrine metadata проходят. ORM schema diff проверен в OutboxKernel с
+тестовой моделью, поскольку обычный Kernel не содержит бизнес-моделей.
+
+Независимое ревью обнаружило пропуск недоступного PHP-класса во внутреннем
+хранилище native-контейнеров. Шесть регрессионных случаев сначала упали,
+после исправления проходят: проверяется также native __serialize-состояние;
+пользовательские сериализационные hooks повторно не вызываются.
+Общая событийная доставка, production discovery и worker не переключены.

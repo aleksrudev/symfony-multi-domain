@@ -13,8 +13,9 @@ Transactional Outbox сохраняет исходящее намерение а
 интеграционные события. Общая Application-шина сообщений для них не создаётся.
 
 В main реализованы контракт метаданных IntegrationEvent и разделение графов
-sync/events. Нейтральные Outbox/Consumer и Messenger event.bus ещё не подключены:
-их реализация описана в [плане этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
+sync/events. Нейтральный Outbox реализован и проверяется в отдельном test-kernel;
+в приложение он ещё не подключён. Consumer и Messenger event.bus не реализованы.
+Последовательность подключения описана в [плане этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 Текущие Shared/Application/Bus/Inbox и Outbox и композиция
 Outbox → EventDispatcher → Inbox — заменяемый runtime, не образец для нового кода.
 При подключении новой доставки удаляются его API/DTO/config/test paths целиком;

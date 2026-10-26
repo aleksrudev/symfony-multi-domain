@@ -6,8 +6,8 @@ services:
     App\Shared\Infrastructure\Bus\Symfony\:
         resource: '../Infrastructure/Bus/Symfony/'
 
-    App\Shared\Infrastructure\Messaging\:
-        resource: '../Infrastructure/Messaging/*Handler.php'
+    App\Shared\Infrastructure\Messaging\IntegrationEvent\:
+        resource: '../Infrastructure/Messaging/IntegrationEvent/*Handler.php'
 
     App\Shared\Infrastructure\Schedule\:
         resource: '../Infrastructure/Schedule/'

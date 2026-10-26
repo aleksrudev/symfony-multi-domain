@@ -6,8 +6,9 @@
 Назначение механизмов определяют
 [правила надёжной доставки](../../docs/ai/rules/transactional-messaging.md).
 В main реализованы контракт метаданных IntegrationEvent и анализ sync/events.
-OutboxWriter, Idempotent Consumer, IntegrationEventDispatcher и event.bus пока
-не реализованы; их наличие в планах не означает существующий runtime.
+Нейтральный Outbox реализован и зарегистрирован только в отдельном OutboxKernel
+для тестов этапа 2. Idempotent Consumer, IntegrationEventDispatcher и event.bus
+ещё не реализованы; production-регистрация нового Outbox относится к этапу 4.
 Текущие Application Inbox/Outbox и native fanout остаются до единого переключения
 на этапе 4, затем удаляются без совместимости.
 
@@ -34,7 +35,7 @@ services.yaml подключает узкие ресурсы сервисов б
 Адаптеры шин объявляют private AsAlias; MessageBusInterface внедряется по
 именам аргументов шин, default Connection — по типу. HTTP listener использует
 AsEventListener, расписание — AutowireIterator для поставщиков.
-Messaging подключает только `*Handler.php`; DTO и метка не сервисы.
+Messaging/IntegrationEvent подключает только `*Handler.php`; DTO и метка не сервисы.
 Следуй общим [правилам регистрации](../../docs/ai/rules/architecture.md#регистрация-сервисов-и-атрибуты).
 
 Зависимости от бизнес-модулей, их Contracts и тестовых fixtures запрещены.
@@ -88,7 +89,8 @@ IntegrationEventInterface в Presentation/Contracts/Event объявляет ч�
 от PHP. Это точечное исключение Shared для публичных Event-контрактов;
 Domain/Application его не используют.
 
-Доставка пока прежняя: IntegrationEventMessage реализует старый Outbox marker,
+Текущие IntegrationEventMessage и IntegrationEventHandler находятся в
+Infrastructure/Messaging/IntegrationEvent/. IntegrationEventMessage реализует старый Outbox marker,
 общий handler вызывает native EventDispatcher, получатели ставят Inbox DTO.
 InboxBus не реализует Transactional Inbox. Не расширять этот путь для новых
 интеграций; он удаляется на этапе подключения новой композиции.
@@ -98,6 +100,31 @@ OutboxWriter принимает object, relay вызывает нейтраль�
 Consumer принимает consumerId, MessageIdentity(namespace, id) и callback.
 Они не импортируют IntegrationEventInterface, Messenger или Envelope.
 Схемы, миграции и тесты механизмов независимы; MessageIdentity — DTO, не сервис.
+
+Реализованный Outbox находится в Infrastructure/Messaging/Outbox/:
+Writer/ содержит контракт записи и DoctrineOutboxWriter, Publisher/ — порт доставки,
+Relay/ — OutboxRelay, Console/ — команды relay/retry.
+DoctrineOutboxWriter требует активную default-транзакцию и сохраняет base64
+от serialize(object); flush/commit и чтения метаданных события нет.
+OutboxRelay владеет отдельной транзакцией, выбирает запись FOR UPDATE SKIP LOCKED,
+передаёт object через OutboxPublisherInterface и удаляет запись. Publish/delete
+защищены savepoint; отказ сохраняет попытку, не снимая внешнюю блокировку.
+Задержки после первых трёх отказов — 1/3/9 секунд, четвёртый помечает failed_at.
+last_error и логи содержат только класс ошибки; body в логи не передаётся.
+Ошибка соединения/внешнего commit выходит вызывающей стороне.
+
+Таблица shared.outbox_messages создана отдельной миграцией
+Version20261026000000, ORM исключает её через schema_filter.
+app:outbox:relay и app:outbox:retry пока доступны только в OutboxKernel;
+make/Compose outbox-worker сохраняют прежнюю команду до этапа 4.
+Relay завершается после текущей транзакции по SIGTERM/SIGINT при наличии pcntl;
+расширение включено в Dockerfile. Retry меняет только одну failed-запись,
+сбрасывает попытки/ошибку и сохраняет body/created_at.
+
+Тесты новой основы: DoctrineOutboxWriterTest, TransactionalOutboxSchemaTest,
+TransactionalOutboxTest, OutboxRelayTest и OutboxCommandsTest. PostgreSQL-часть
+использует отдельную guarded test-БД; снимок, failed/retry, savepoint,
+внешний commit, конкуренция и SIGTERM проверяются без Messenger/Consumer/событий.
 
 Событийный Dispatcher проверяет метаданные и вызывает Writer.
 Отдельный Messenger publisher получает event.bus через DI.

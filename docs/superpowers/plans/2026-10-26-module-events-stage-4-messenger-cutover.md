@@ -89,7 +89,7 @@
 
 - Delete: `src/Shared/Application/Bus/Inbox/`, `src/Shared/Application/Bus/Outbox/`.
 - Delete: `src/Shared/Infrastructure/Bus/Symfony/InboxMessageBus.php`, `OutboxMessageBus.php` в том же каталоге.
-- Delete: `src/Shared/Infrastructure/Messaging/IntegrationEventMessage.php` и `IntegrationEventHandler.php`.
+- Delete: `src/Shared/Infrastructure/Messaging/IntegrationEvent/IntegrationEventMessage.php` и `src/Shared/Infrastructure/Messaging/IntegrationEvent/IntegrationEventHandler.php`.
 - Delete: `tests/Fixtures/Modules/Beta/Application/Message/`, `EnqueueRecordingProbeListener.php` и `EnqueueFailingProbeListener.php` в `Beta/Infrastructure/Integration/Alpha/`.
 - Delete: `tests/Fixtures/Modules/Alpha/Application/ProbeInbox.php`, `ProbeOutbox.php`.
 - Delete/Replace: `tests/Integration/OutboxBusTest.php`, `PostgresOutboxTest.php`; их гарантии покрывают новые тесты этапов 2–3.
