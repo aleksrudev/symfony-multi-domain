@@ -66,38 +66,30 @@ Application сценарии:
 ## Публичный API и зависимости
 
 Экспортируемые публичные события:
-- `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`eventId`, `eventAt` в UTC RFC 3339, `type = 'ordering.order_submitted'`, `source = 'ordering'`, `schemaVersion = 1`) и payload (`orderId`, `buyerId`, `items: list<SubmittedOrderItem>`, `totalAmount`, `currency`).
+- `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`eventId`, `eventAt` в UTC RFC 3339, `type = 'ordering.order_submitted'`, `source = 'Ordering'`, `schemaVersion = 1`) и payload (`orderId`, `buyerId`, `items: list<SubmittedOrderItem>`, `totalAmount`, `currency`).
 - Вложенный DTO: `App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem` (`productId`, `quantity`, `productName`, `priceAmount`).
 
 Публикация в Outbox:
-- `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener`: помечен `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]`. Проверяет полноту данных оформленного заказа без скрывающих ошибки fallback-значений, упаковывает публичное событие в `IntegrationEventMessage` и вызывает `OutboxBusInterface::publish()` внутри транзакции команды.
+- `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener`: помечен `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]`. Проверяет полноту данных оформленного заказа без скрывающих ошибки fallback-значений, передаёт публичное событие в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
 
 Зависимости от других бизнес-модулей:
-- Модуль зависит от `Catalog` и `Inventory` (объявлены в `src/Ordering/config/dependencies.php`).
+- Модуль зависит от `Catalog` и `Inventory` синхронно (`src/Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`).
 - Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` помечен `#[AsAlias(ProductOfferProviderInterface::class)]` и вызывает контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
-- Адаптер `InventoryReservationAdapter` в `Infrastructure/Integration/Inventory/InventoryReservationAdapter.php` помечен `#[AsAlias(InventoryReservationGatewayInterface::class)]` и вызывает контракт `InventoryContractInterface::requestReservation()` поставщика `Inventory`.
+- Для `Inventory` зависимость используется синхронно в задаче T09 при вызове `InventoryContractInterface::getReservationResult()`.
 
-Сообщения Outbox (`Infrastructure/Messaging/Outbox/<Operation>/`):
-- `RequestReservation`: `RequestReservationOutboxMessage` + `RequestReservationOutboxItem` + `RequestReservationOutboxHandler` (`#[AsMessageHandler(bus: 'outbox.bus')]`). Инфраструктурный listener `OrderSubmittedReservationRequestListener` формирует сообщение из доменного события оформления заказа и публикует в `outbox.bus` внутри транзакции команды. Handler вызывает `InventoryReservationGatewayInterface` для доставки в контракт склада.
+### Интеграция межмодульных событий и T08–T10
 
-### Интеграция T08–T10
+Ordering управляет оформлением, публикацией интеграционного факта `OrderSubmittedEvent` через outbox, а в T09 — периодической сверкой (`ReconcileStockCommand`).
+Публикация `OrderSubmittedEvent` передаётся через `IntegrationEventDispatcherInterface`, сохраняется в таблице `shared.outbox_messages`, перекладывается relay в `event.bus` (async) и асинхронно обрабатывается подписчиками (модуль `Inventory`).
+Целевые асинхронные команды между модулями отсутствуют.
+Граф зависимостей:
+- `Ordering`: sync: [Catalog, Inventory], events: []
+- `Inventory`: sync: [], events: [Ordering]
 
-Выбран вариант 1 из [системного анализа](../../docs/demo-shop-system-analysis.md):
-Ordering управляет оформлением, сверкой и отменой. Публикация `OrderSubmittedEvent`
-сохраняется как отдельный публичный факт; доставка запроса резерва выполняется
-через `RequestReservationOutboxMessage` и контракт склада.
-Граф зависимостей: `Ordering → Catalog, Inventory`, `Inventory → []`.
-
-В T09 порт чтения и собственная модель находятся в
+В T09 порт чтения результата резерва и собственная модель находятся в
 `Application/Command/ReconcileStock/Provider/`; адаптер вызывает
 `InventoryContractInterface::getReservationResult()`. Scheduler только инициирует
-собственный сценарий, переходы и проверки текущего статуса остаются в Domain Ordering.
-T10 использует такой же путь для `requestRelease()` и опрашивает `released`.
-Обратная подписка Ordering на события склада не добавляется.
-
-При подключении T12 к зависимостям добавляется Notifications, который не
-зависит от Ordering. Эти положения — целевой план, а не описание уже
-реализованных классов и настроек.
+собственный сценарий через `ScheduleContributorInterface`, переходы и проверки текущего статуса остаются в Domain Ordering.
 
 ### HTTP API
 

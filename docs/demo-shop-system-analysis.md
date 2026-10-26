@@ -188,19 +188,12 @@ Application. После переработки T08 `Ordering/config/dependencies
    `Infrastructure/Messaging/Outbox/RequestReservation/`. Оно содержит снимок
    `orderId` и позиций, без агрегатов и чужих DTO. Заказ и сообщение
    сохраняются атомарно до commit.
-4. После commit outbox worker через технический адаптер
-   `Ordering/Infrastructure/Integration/Inventory/` вызывает
-   `InventoryContractInterface::requestReservation()`.
-   Входящий адаптер склада вызывает собственный Application-сценарий принятия
-   запроса. Через собственный порт и его инфраструктурную реализацию сценарий
-   ставит внутреннее сообщение в `inbox.bus`; Application не импортирует
-   инфраструктурные Inbox DTO. Успешный возврат `void` означает долговечную
-   постановку в очередь, без изменения складских бизнес-таблиц.
-   При доставке outbox запись Inbox использует тот же default connection
-   и коммитится вместе с транзакцией доставки; отдельный commit внутри
-   принимающего адаптера не выполняется.
-   Отдельный `async` worker вызывает собственную команду резерва и сохраняет
-   результат в транзакции `Inventory`.
+4. Relay outbox перекладывает сохранённое публичное событие `OrderSubmittedEvent`
+   в `event.bus` (транспорт `async`). Подписчик склада `OrderSubmittedReservationConsumer`
+   обеспечивает идемпотентность через `IdempotentConsumerInterface` и запускает
+   собственную команду `ReserveStockCommand`.
+   Обработчик команды резервирует складские остатки и фиксирует результат резерва
+   в собственной транзакции `Inventory`.
 5. Scheduler `Ordering` выбирает заказы `pending_stock` и читает состояние
    операции через `Inventory.Contracts`. При готовом результате он запускает
    локальную команду перехода. Команда повторно проверяет текущее состояние,

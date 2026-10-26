@@ -95,7 +95,7 @@ final class SubmitOrderControllerTest extends TestCase
         $doctrine = $this->kernel->getContainer()->get('doctrine');
         /** @var Connection $connection */
         $connection = $doctrine->getConnection();
-        $outboxCount = (int) $connection->fetchOne("SELECT COUNT(*) FROM messenger_messages WHERE queue_name = 'outbox'");
+        $outboxCount = (int) $connection->fetchOne('SELECT COUNT(*) FROM shared.outbox_messages');
         self::assertGreaterThanOrEqual(1, $outboxCount);
     }
 

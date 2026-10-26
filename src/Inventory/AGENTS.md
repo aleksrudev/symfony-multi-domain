@@ -50,25 +50,20 @@
 
 Application сценарии:
 - В Application бизнес-модуля разрешены только `Command/` и `Query/`:
-  - `RequestReservationCommand` / `RequestReservationHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор принятия запроса на резервирование через порт `ReservationQueuePortInterface`.
-  - `RequestReleaseCommand` / `RequestReleaseHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор принятия запроса на освобождение через порт `ReleaseQueuePortInterface`.
   - `ChangeStockOnHandCommand` / `ChangeStockOnHandHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор изменения остатка.
-  - `ReserveStockCommand` / `ReserveStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор резервирования остатков по заказу (вызывается из Inbox воркера).
-  - `ReleaseStockCommand` / `ReleaseStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор освобождения остатков по заказу (вызывается из Inbox воркера).
+  - `ReserveStockCommand` / `ReserveStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор резервирования остатков по заказу (вызывается из подписчика событий `OrderSubmittedReservationConsumer`).
+  - `ReleaseStockCommand` / `ReleaseStockHandler` (`#[AsMessageHandler(bus: 'command.bus')]`): оркестратор освобождения остатков по заказу.
   - `GetStockPositionQuery` / `GetStockPositionHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает позицию и преобразует её в модель `GetStockPositionQueryResult`.
   - `GetReservationQuery` / `GetReservationHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает результат резервации по заказу и преобразует его в `GetReservationQueryResult`.
 - Каталоги `Application/Message`, `Application/EventListener` и `Application/Service` запрещены.
 
-Сообщения Inbox (`Infrastructure/Messaging/Inbox/<Operation>/`):
-- `ReserveStock`: `ReserveStockInboxMessage` + `ReserveStockInboxItem` + `ReserveStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): транслирует входящее сообщение в `ReserveStockCommand` на `command.bus` в отдельной транзакции воркера. Адаптер `ReservationInboxQueueAdapter` реализует `ReservationQueuePortInterface` и ставит сообщение в `inbox.bus`.
-- `ReleaseStock`: `ReleaseStockInboxMessage` + `ReleaseStockInboxHandler` (`#[AsMessageHandler(bus: 'inbox.bus')]`): транслирует входящее сообщение в `ReleaseStockCommand` на `command.bus` в отдельной транзакции воркера. Адаптер `ReleaseInboxQueueAdapter` реализует `ReleaseQueuePortInterface` и ставит сообщение в `inbox.bus`.
+Интеграция входящих событий (`Infrastructure/Integration/Ordering/`):
+- `OrderSubmittedReservationConsumer` (`#[AsMessageHandler(bus: 'event.bus')]`): слушает публичное интеграционное событие `OrderSubmittedEvent` от `Ordering`. Обеспечивает идемпотентность через `IdempotentConsumerInterface` по составному ключу `MessageIdentity(source, eventId)` с ID реакции `inventory.reserve-stock-on-order-submitted` и транслирует в `ReserveStockCommand` на `command.bus`.
 
 ## Публичный API и зависимости
 
-- Модуль автономен и не зависит от других модулей (`config/dependencies.php: []`).
+- Зависимости модуля: `config/dependencies.php` возвращает `['sync' => [], 'events' => ['Ordering']]`.
 - Экспортируемый контракт `InventoryContractInterface` (`Presentation/Contracts/InventoryContractInterface.php`):
-  - `requestReservation(ReservationRequest $request): void` — долговечно принимает запрос в очередь `inbox.bus` через `RequestReservationCommand`, возвращает void без блокировок и синхронной модификации остатков;
-  - `requestRelease(ReleaseRequest $request): void` — принимает запрос освобождения в очередь `inbox.bus` через `RequestReleaseCommand`;
   - `getReservationResult(string $orderId): ReservationResult` — запрашивает результат через `query.bus`, возвращает статус (`not_found`, `pending`, `reserved`, `rejected`, `released`), причину отказа и список позиций.
 - Адаптер контракта: `InventoryContractAdapter` в `Presentation/Adapter/InventoryContractAdapter.php` с `#[AsAlias]`.
 - Конфигурация DI: узкие `resource` в `services.yaml` по слоям, все сервисы и алиасы по умолчанию private.

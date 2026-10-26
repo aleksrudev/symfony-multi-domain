@@ -15,12 +15,6 @@ services:
     App\Ordering\Infrastructure\Messaging\EventListener\:
         resource: '../Infrastructure/Messaging/EventListener/'
 
-    App\Ordering\Infrastructure\Messaging\Outbox\:
-        resource: '../Infrastructure/Messaging/Outbox/'
-        exclude:
-            - '../Infrastructure/Messaging/Outbox/**/*Message.php'
-            - '../Infrastructure/Messaging/Outbox/**/*Item.php'
-
     App\Ordering\Infrastructure\Persistence\Doctrine\Repository\:
         resource: '../Infrastructure/Persistence/Doctrine/Repository/'
 

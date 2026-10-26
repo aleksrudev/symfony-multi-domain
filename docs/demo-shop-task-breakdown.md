@@ -21,8 +21,8 @@
 - Сохраняется сессионная аутентификация с CSRF-защитой. HTTP-клиент хранит
   cookie в отдельном cookie jar для каждого пользователя и передаёт
   `X-CSRF-Token` в запросах на изменение состояния.
-- PHP >= 8.4.17, Symfony 8, Doctrine ORM 3, PostgreSQL 16; существующие
-  `command.bus`, `query.bus`, `inbox.bus`, `outbox.bus` и Scheduler.
+- PHP >= 8.4.17, Symfony 8, Doctrine ORM 3, PostgreSQL 16;
+  `command.bus`, `query.bus`, `event.bus`, Transactional Outbox, Idempotent Consumer и Scheduler.
 - Бизнес-модули: `Catalog`, `Ordering`, `Inventory`, `Notifications`.
   Выбран вариант 1: процессом управляет `Ordering`, который зависит только
   от опубликованных `Presentation/Contracts` соседей через адаптеры в
@@ -343,9 +343,8 @@ Application-порт и переводит `pending_stock` в `confirmed` либ
 - [ ] **T09.3. Подключить ограниченный опрос.** Выборка по состоянию и
   времени следующей проверки, стабильный порядок и положительный batch size.
   Поставщик в `Ordering/Infrastructure/Schedule/` реализует Shared
-  `ScheduleContributorInterface` и планирует собственный Inbox из
-  `Infrastructure/Messaging/Inbox/ReconcileStock/` через `async` с явной
-  `inbox.bus`; handler вызывает команду сверки на `command.bus`.
+  `ScheduleContributorInterface` и планирует периодический запуск команды сверки
+  на `command.bus`.
   Нужные индексы и поля принадлежат
   Ordering; создание и применение миграции требуют отдельного согласования.
 - [ ] **T09.4. Проверить исходы и остановку обработки.** Через контракт

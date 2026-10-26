@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
-    'Catalog',
-    'Inventory',
+    'sync' => [
+        'Catalog',
+        'Inventory',
+    ],
+    'events' => [],
 ];

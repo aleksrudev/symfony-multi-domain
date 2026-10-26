@@ -2,4 +2,7 @@
 
 declare(strict_types=1);
 
-return [];
+return [
+    'sync' => [],
+    'events' => [],
+];

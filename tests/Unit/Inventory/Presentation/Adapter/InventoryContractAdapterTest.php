@@ -4,16 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inventory\Presentation\Adapter;
 
-use App\Inventory\Application\Command\RequestRelease\RequestReleaseCommand;
-use App\Inventory\Application\Command\RequestReservation\RequestReservationCommand;
 use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
 use App\Inventory\Application\Query\GetReservation\GetReservationQueryResult;
 use App\Inventory\Domain\Exception\ReservationNotFoundException;
 use App\Inventory\Presentation\Adapter\InventoryContractAdapter;
-use App\Inventory\Presentation\Contracts\Dto\ReleaseRequest;
-use App\Inventory\Presentation\Contracts\Dto\ReservationItemRequest;
-use App\Inventory\Presentation\Contracts\Dto\ReservationRequest;
-use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -22,54 +16,13 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(InventoryContractAdapter::class)]
 final class InventoryContractAdapterTest extends TestCase
 {
-    private CommandBusInterface&MockObject $commandBus;
     private QueryBusInterface&MockObject $queryBus;
     private InventoryContractAdapter $adapter;
 
     protected function setUp(): void
     {
-        $this->commandBus = $this->createMock(CommandBusInterface::class);
         $this->queryBus = $this->createMock(QueryBusInterface::class);
-        $this->adapter = new InventoryContractAdapter($this->commandBus, $this->queryBus);
-    }
-
-    public function testRequestReservationDispatchesCommand(): void
-    {
-        $orderId = '00000000-0000-4000-8000-000000000001';
-        $request = new ReservationRequest(
-            orderId: $orderId,
-            items: [
-                new ReservationItemRequest('prod-1', 2),
-                new ReservationItemRequest('prod-2', 4),
-            ],
-        );
-
-        $this->commandBus
-            ->expects(self::once())
-            ->method('dispatch')
-            ->with(self::callback(static function (RequestReservationCommand $cmd) use ($orderId): bool {
-                return $cmd->orderId === $orderId
-                    && 2 === count($cmd->items)
-                    && 'prod-1' === $cmd->items[0]->productId
-                    && 2 === $cmd->items[0]->quantity;
-            }));
-
-        $this->adapter->requestReservation($request);
-    }
-
-    public function testRequestReleaseDispatchesCommand(): void
-    {
-        $orderId = '00000000-0000-4000-8000-000000000001';
-        $request = new ReleaseRequest(orderId: $orderId);
-
-        $this->commandBus
-            ->expects(self::once())
-            ->method('dispatch')
-            ->with(self::callback(static function (RequestReleaseCommand $cmd) use ($orderId): bool {
-                return $cmd->orderId === $orderId;
-            }));
-
-        $this->adapter->requestRelease($request);
+        $this->adapter = new InventoryContractAdapter($this->queryBus);
     }
 
     public function testGetReservationResultSuccess(): void

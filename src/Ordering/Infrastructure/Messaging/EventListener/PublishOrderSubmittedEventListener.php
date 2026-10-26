@@ -7,8 +7,7 @@ namespace App\Ordering\Infrastructure\Messaging\EventListener;
 use App\Ordering\Domain\Event\OrderSubmittedEvent as DomainOrderSubmittedEvent;
 use App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem;
 use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent as PublicOrderSubmittedEvent;
-use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
-use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
+use App\Shared\Infrastructure\Messaging\IntegrationEvent\IntegrationEventDispatcherInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Uid\Uuid;
 
@@ -16,7 +15,7 @@ use Symfony\Component\Uid\Uuid;
 final readonly class PublishOrderSubmittedEventListener
 {
     public function __construct(
-        private OutboxBusInterface $outboxBus,
+        private IntegrationEventDispatcherInterface $dispatcher,
     ) {
     }
 
@@ -50,7 +49,7 @@ final readonly class PublishOrderSubmittedEventListener
             eventId: Uuid::v7()->toRfc4122(),
             eventAt: $event->eventAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.u\Z'),
             type: 'ordering.order_submitted',
-            source: 'ordering',
+            source: 'Ordering',
             schemaVersion: 1,
             orderId: $order->id()->value,
             buyerId: $order->buyerId()->value,
@@ -59,6 +58,6 @@ final readonly class PublishOrderSubmittedEventListener
             currency: $currency->value,
         );
 
-        $this->outboxBus->publish(new IntegrationEventMessage($publicEvent));
+        $this->dispatcher->dispatch($publicEvent);
     }
 }

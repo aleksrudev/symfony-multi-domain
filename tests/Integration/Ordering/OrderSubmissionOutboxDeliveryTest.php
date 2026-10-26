@@ -9,9 +9,7 @@ use App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface;
 use App\Inventory\Domain\Entity\StockPosition;
 use App\Inventory\Domain\Repository\StockPositionRepositoryInterface;
 use App\Inventory\Domain\ValueObject\ProductId;
-use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxHandler;
-use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxItem;
-use App\Inventory\Infrastructure\Messaging\Inbox\ReserveStock\ReserveStockInboxMessage;
+use App\Inventory\Infrastructure\Integration\Ordering\OrderSubmittedReservationConsumer;
 use App\Inventory\Presentation\Contracts\InventoryContractInterface;
 use App\Ordering\Application\Command\SubmitOrder\SubmitOrderCommand;
 use App\Ordering\Domain\Collection\OrderItemCollection;
@@ -21,10 +19,9 @@ use App\Ordering\Domain\Entity\OrderItem;
 use App\Ordering\Domain\Repository\OrderRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId as OrderingOrderId;
-use App\Ordering\Infrastructure\Messaging\Outbox\RequestReservation\RequestReservationOutboxHandler;
-use App\Ordering\Infrastructure\Messaging\Outbox\RequestReservation\RequestReservationOutboxItem;
-use App\Ordering\Infrastructure\Messaging\Outbox\RequestReservation\RequestReservationOutboxMessage;
+use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
+use App\Shared\Infrastructure\Messaging\Outbox\Relay\OutboxRelay;
 use Tests\Integration\IntegrationTestCase;
 
 final class OrderSubmissionOutboxDeliveryTest extends IntegrationTestCase
@@ -35,8 +32,8 @@ final class OrderSubmissionOutboxDeliveryTest extends IntegrationTestCase
     private InventoryContractInterface $inventoryContract;
     private StockPositionRepositoryInterface $stockRepo;
     private StockPositionDataProviderInterface $stockProvider;
-    private RequestReservationOutboxHandler $outboxHandler;
-    private ReserveStockInboxHandler $inboxHandler;
+    private OutboxRelay $outboxRelay;
+    private OrderSubmittedReservationConsumer $reservationConsumer;
 
     protected function setUp(): void
     {
@@ -48,8 +45,8 @@ final class OrderSubmissionOutboxDeliveryTest extends IntegrationTestCase
         $this->inventoryContract = $container->get(InventoryContractInterface::class);
         $this->stockRepo = $container->get(StockPositionRepositoryInterface::class);
         $this->stockProvider = $container->get(StockPositionDataProviderInterface::class);
-        $this->outboxHandler = $container->get(RequestReservationOutboxHandler::class);
-        $this->inboxHandler = $container->get(ReserveStockInboxHandler::class);
+        $this->outboxRelay = $container->get(OutboxRelay::class);
+        $this->reservationConsumer = $container->get(OrderSubmittedReservationConsumer::class);
 
         $fixtures = new CatalogFixtures();
         $fixtures->load($this->em);
@@ -60,9 +57,12 @@ final class OrderSubmissionOutboxDeliveryTest extends IntegrationTestCase
         $conn->executeStatement("DELETE FROM inventory.reservation_items WHERE order_id LIKE '00000000-0000-4000-8000-000000000c%'");
         $conn->executeStatement("DELETE FROM inventory.reservations WHERE order_id LIKE '00000000-0000-4000-8000-000000000c%'");
         $conn->executeStatement("DELETE FROM inventory.stock_positions WHERE product_id = '".CatalogFixtures::PRODUCT_KEYBOARD."'");
+        $conn->executeStatement('DELETE FROM shared.outbox_messages');
+        $conn->executeStatement('DELETE FROM shared.processed_messages');
+        $conn->executeStatement("DELETE FROM public.messenger_messages WHERE queue_name = 'async'");
     }
 
-    public function testOrderSubmissionDispatchesOutboxAndReachesInventoryInbox(): void
+    public function testOrderSubmissionDispatchesOutboxAndReachesInventoryConsumer(): void
     {
         $prodId = new ProductId(CatalogFixtures::PRODUCT_KEYBOARD);
         $inventoryProd = new ProductId(CatalogFixtures::PRODUCT_KEYBOARD);
@@ -91,32 +91,51 @@ final class OrderSubmissionOutboxDeliveryTest extends IntegrationTestCase
         $order = $this->orderProvider->findById(new OrderingOrderId($orderIdStr));
         self::assertSame('pending_stock', $order->status()->value);
 
-        // 2. Outbox handler delivers reservation request to inventory contract
-        $outboxMessage = new RequestReservationOutboxMessage($orderIdStr, [
-            new RequestReservationOutboxItem($inventoryProd->value, 3),
-        ]);
-        ($this->outboxHandler)($outboxMessage);
+        // 2. Verify outbox contains the published OrderSubmittedEvent
+        $conn = $this->em->getConnection();
+        $outboxRows = $conn->fetchAllAssociative('SELECT * FROM shared.outbox_messages');
+        self::assertCount(1, $outboxRows);
 
-        // Inventory has received task into inbox, but not yet mutated stock synchronously
-        $stockBeforeWorker = $this->stockProvider->findByProductId($inventoryProd);
-        self::assertSame(0, $stockBeforeWorker->reserved());
-        self::assertSame(10, $stockBeforeWorker->available());
+        /** @var OrderSubmittedEvent $event */
+        $event = unserialize(base64_decode($outboxRows[0]['body'], true));
+        self::assertInstanceOf(OrderSubmittedEvent::class, $event);
+        self::assertSame('Ordering', $event->source);
+        self::assertSame('ordering.order_submitted', $event->type);
+        self::assertSame($orderIdStr, $event->orderId);
+        self::assertSame(3, $event->items[0]->quantity);
 
-        // 3. Simulating async worker consuming inbox task
-        $inboxMessage = new ReserveStockInboxMessage($orderIdStr, [
-            new ReserveStockInboxItem($inventoryProd->value, 3),
-        ]);
-        ($this->inboxHandler)($inboxMessage);
+        // Stock has not changed yet
+        $stockBeforeRelay = $this->stockProvider->findByProductId($inventoryProd);
+        self::assertSame(0, $stockBeforeRelay->reserved());
+        self::assertSame(10, $stockBeforeRelay->available());
+
+        // 3. Outbox relay transfers message to Messenger async transport
+        $relayed = $this->outboxRelay->relayOne();
+        self::assertTrue($relayed);
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM shared.outbox_messages'));
+        self::assertSame(1, (int) $conn->fetchOne("SELECT COUNT(*) FROM public.messenger_messages WHERE queue_name = 'async'"));
+
+        // 4. Consumer handles event with idempotent consumer
+        ($this->reservationConsumer)($event);
         $this->em->flush();
         $this->em->clear();
 
         // Stock is now reserved
-        $stockAfterWorker = $this->stockProvider->findByProductId($inventoryProd);
-        self::assertSame(3, $stockAfterWorker->reserved());
-        self::assertSame(7, $stockAfterWorker->available());
+        $stockAfterConsumer = $this->stockProvider->findByProductId($inventoryProd);
+        self::assertSame(3, $stockAfterConsumer->reserved());
+        self::assertSame(7, $stockAfterConsumer->available());
 
         $reservationResult = $this->inventoryContract->getReservationResult($orderIdStr);
         self::assertSame('reserved', $reservationResult->status);
+
+        // 5. Duplicate event does not reserve twice (idempotence)
+        ($this->reservationConsumer)($event);
+        $this->em->flush();
+        $this->em->clear();
+
+        $stockAfterDuplicate = $this->stockProvider->findByProductId($inventoryProd);
+        self::assertSame(3, $stockAfterDuplicate->reserved());
+        self::assertSame(7, $stockAfterDuplicate->available());
     }
 
     public function testOrderAndOutboxRollbackTogetherOnFailure(): void
@@ -144,6 +163,10 @@ final class OrderSubmissionOutboxDeliveryTest extends IntegrationTestCase
         $this->em->clear();
         $loadedOrder = $this->orderProvider->findById($orderId);
         self::assertSame('draft', $loadedOrder->status()->value); // Remains draft!
+
+        // And no outbox message created
+        $conn = $this->em->getConnection();
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM shared.outbox_messages'));
 
         // And no reservation in inventory
         $reservationResult = $this->inventoryContract->getReservationResult($orderIdStr);

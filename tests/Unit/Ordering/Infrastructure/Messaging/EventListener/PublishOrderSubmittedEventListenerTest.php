@@ -16,15 +16,14 @@ use App\Ordering\Domain\ValueObject\ProductId;
 use App\Ordering\Domain\ValueObject\ProductSnapshot;
 use App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener;
 use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent as PublicOrderSubmittedEvent;
-use App\Shared\Application\Bus\Outbox\OutboxBusInterface;
-use App\Shared\Infrastructure\Messaging\IntegrationEventMessage;
+use App\Shared\Infrastructure\Messaging\IntegrationEvent\IntegrationEventDispatcherInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
 #[CoversClass(PublishOrderSubmittedEventListener::class)]
 final class PublishOrderSubmittedEventListenerTest extends TestCase
 {
-    public function testListenerPublishesIntegrationEventMessage(): void
+    public function testListenerPublishesIntegrationEvent(): void
     {
         $order = Order::createDraft(
             new OrderId('00000000-0000-4000-8000-000000000001'),
@@ -37,18 +36,13 @@ final class PublishOrderSubmittedEventListenerTest extends TestCase
             new ProductSnapshot(new ProductId('prod-1'), 'Product 1', 10000, Currency::RUB),
         ]));
 
-        $eventAt = new \DateTimeImmutable('2026-10-19 12:00:00+00:00');
+        $eventAt = new \DateTimeImmutable('2026-10-19 12:00:00.123456+00:00');
         $event = new DomainOrderSubmittedEvent($order, $eventAt);
 
-        $outboxBus = $this->createMock(OutboxBusInterface::class);
-        $outboxBus->expects(self::once())
-            ->method('publish')
-            ->with(self::callback(static function (object $message): bool {
-                if (!$message instanceof IntegrationEventMessage) {
-                    return false;
-                }
-
-                $publicEvent = $message->event;
+        $dispatcher = $this->createMock(IntegrationEventDispatcherInterface::class);
+        $dispatcher->expects(self::once())
+            ->method('dispatch')
+            ->with(self::callback(static function (object $publicEvent): bool {
                 if (!$publicEvent instanceof PublicOrderSubmittedEvent) {
                     return false;
                 }
@@ -57,7 +51,7 @@ final class PublishOrderSubmittedEventListenerTest extends TestCase
                     && 'buyer-1' === $publicEvent->buyerId
                     && 20000 === $publicEvent->totalAmount
                     && 'RUB' === $publicEvent->currency
-                    && 'ordering' === $publicEvent->source
+                    && 'Ordering' === $publicEvent->source
                     && 'ordering.order_submitted' === $publicEvent->type
                     && 1 === $publicEvent->schemaVersion
                     && 1 === count($publicEvent->items)
@@ -67,7 +61,7 @@ final class PublishOrderSubmittedEventListenerTest extends TestCase
                     && 10000 === $publicEvent->items[0]->priceAmount;
             }));
 
-        $listener = new PublishOrderSubmittedEventListener($outboxBus);
+        $listener = new PublishOrderSubmittedEventListener($dispatcher);
         $listener($event);
     }
 }
