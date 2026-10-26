@@ -78,7 +78,14 @@ src/Shared/Infrastructure/Messaging/Outbox/: Writer/ для записи, Publis
 к выделенной тестовой БД. Компоненты зарегистрированы только в tests/Fixtures/OutboxKernel.php.
 Их тесты проверяют plain DTO, rollback, видимость, конкуренцию, failed/retry
 и корректное завершение по сигналу. Dockerfile включает pcntl для CLI-сигналов.
-Новая событийная доставка и Consumer относятся к следующим этапам;
+Idempotent Consumer добавлен в src/Shared/Infrastructure/Messaging/IdempotentConsumer/:
+Identity/ содержит MessageIdentity, Consumer/ — контракт и Doctrine-реализацию.
+Он регистрируется только в tests/Fixtures/IdempotentConsumerKernel.php.
+Отдельная миграция Version20261026000100 создаёт shared.processed_messages,
+исключённую из ORM diff; пока применена только к отдельной Consumer test-БД
+без Outbox/Messenger-таблиц. Тесты проверяют callback/receipt, конкуренцию
+и чистый UnitOfWork без событийного DTO и транспорта.
+Новая событийная доставка относится к следующим этапам;
 фактический runtime выше ещё не переключён.
 
 ## Связи модулей

@@ -6,9 +6,10 @@
 Назначение механизмов определяют
 [правила надёжной доставки](../../docs/ai/rules/transactional-messaging.md).
 В main реализованы контракт метаданных IntegrationEvent и анализ sync/events.
-Нейтральный Outbox реализован и зарегистрирован только в отдельном OutboxKernel
-для тестов этапа 2. Idempotent Consumer, IntegrationEventDispatcher и event.bus
-ещё не реализованы; production-регистрация нового Outbox относится к этапу 4.
+Нейтральные Outbox и Idempotent Consumer реализованы и зарегистрированы только
+в отдельных OutboxKernel и IdempotentConsumerKernel для тестов этапов 2–3.
+IntegrationEventDispatcher и event.bus ещё не реализованы;
+production-регистрация новых механизмов относится к этапу 4.
 Текущие Application Inbox/Outbox и native fanout остаются до единого переключения
 на этапе 4, затем удаляются без совместимости.
 
@@ -125,6 +126,30 @@ Relay завершается после текущей транзакции по
 TransactionalOutboxTest, OutboxRelayTest и OutboxCommandsTest. PostgreSQL-часть
 использует отдельную guarded test-БД; снимок, failed/retry, savepoint,
 внешний commit, конкуренция и SIGTERM проверяются без Messenger/Consumer/событий.
+
+Реализованный Consumer находится в Infrastructure/Messaging/IdempotentConsumer/:
+Identity/ содержит readonly MessageIdentity, Consumer/ — интерфейс и
+DoctrineIdempotentConsumer с private AsAlias. Identity и consumerId содержат
+1–190 символов UTF-8 без NUL, значения не нормализуются. Identity не сервис.
+
+consume принимает только consumerId, identity и callable(): void. До транзакции
+проверяет отсутствие внешней транзакции, открытый default EntityManager и
+совпадение его Connection с подключением receipt. INSERT ON CONFLICT DO NOTHING
+защищает ключ (consumer_id, namespace, message_id). Дубликат пропускает callback;
+новая отметка коммитится с callback и ORM flush. После завершения/rollback
+открытый UnitOfWork очищается, включая дубликат. Consumer не восстанавливает EM;
+после ORM-ошибки reset принадлежит вызывающей инфраструктуре.
+Flush/clear охватывает весь default UnitOfWork, а не выбранные сущности.
+ORM-изменения реакции выполняй внутри callback; pending-изменений другого
+сценария на входе быть не должно. Callback не управляет внешним commit/rollback,
+не подменяет manager и завершает свои вложенные транзакции.
+
+Таблица shared.processed_messages имеет отдельную миграцию Version20261026000100
+и исключена из ORM diff. На этапе 3 миграция применена только к отдельной
+Consumer test-БД без Outbox/Messenger-таблиц. Receipt не содержит payload и TTL.
+Тесты MessageIdentityTest, IdempotentConsumerSchemaTest, IdempotentConsumerTest,
+IdempotentConsumerOrmTest проверяют дедупликацию, независимые namespaces/consumerId,
+конкурирующие commit/rollback, границы SQL/ORM, отказ flush/commit и reset manager.
 
 Событийный Dispatcher проверяет метаданные и вызывает Writer.
 Отдельный Messenger publisher получает event.bus через DI.

@@ -29,7 +29,7 @@ Inbox, общий MessageInterface и registry обработчиков не с�
 
 **Files:**
 
-- Create: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/MessageIdentity.php`.
+- Create: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/Identity/MessageIdentity.php`.
 - Create после согласования: `migrations/Version20261026000100.php`.
 - Modify: `config/packages/doctrine.yaml` — исключение технической таблицы из ORM schema diff.
 - Create: `tests/Fixtures/IdempotentConsumerKernel.php`.
@@ -39,23 +39,23 @@ Inbox, общий MessageInterface и registry обработчиков не с�
 **Interfaces:**
 
 - `final readonly class MessageIdentity`: `__construct(public string $namespace, public string $id)`.
-- Оба значения непустые, до 190 символов; constructor отклоняет неверные значения через InvalidArgumentException. Namespace означает область уникальности любого протокола, а не обязательно source события.
+- Оба значения содержат 1–190 символов UTF-8 без NUL, не нормализуются; constructor отклоняет неверные значения через InvalidArgumentException. Namespace означает область уникальности любого протокола, а не обязательно source события.
 - `shared.processed_messages`: NOT NULL `consumer_id VARCHAR(190)`, `namespace VARCHAR(190)`, `message_id VARCHAR(190)`, `processed_at TIMESTAMP(6) WITHOUT TIME ZONE` UTC.
 - PRIMARY KEY `(consumer_id, namespace, message_id)`. Внешних ключей и payload нет.
 
-- [ ] Написать unit-тесты корректной identity, пустых и слишком длинных значений. Конкретные примеры: `MessageIdentity('provider.webhook', 'delivery-42')` и `MessageIdentity('batch.import', 'delivery-42')` различаются.
-- [ ] Выполнить `make composer CMD="exec -- phpunit tests/Unit/Infrastructure/MessageIdentityTest.php"`, подтвердить FAIL, реализовать DTO и получить PASS.
-- [ ] После согласования написать schema-тест и подтвердить FAIL до миграции.
-- [ ] Создать отдельную миграцию processed_messages с CREATE SCHEMA IF NOT EXISTS shared; в down удалять только таблицу, не схему. Не менять миграцию Outbox и не требовать наличия его таблицы.
-- [ ] Настроить отдельный kernel с default PostgreSQL connection и существующим test-database-guard, без Outbox, Messenger handlers и IntegrationEvent fixtures.
-- [ ] После согласованной подготовки БД получить PASS схемы и проверить, что ORM schema diff не предлагает удалить processed_messages.
+- [x] Написать unit-тесты корректной identity, пустых и слишком длинных значений. Конкретные примеры: `MessageIdentity('provider.webhook', 'delivery-42')` и `MessageIdentity('batch.import', 'delivery-42')` различаются.
+- [x] Выполнить `make composer CMD="exec -- phpunit tests/Unit/Infrastructure/MessageIdentityTest.php"`, подтвердить FAIL, реализовать DTO и получить PASS.
+- [x] После согласования написать schema-тест и подтвердить FAIL до миграции.
+- [x] Создать отдельную миграцию processed_messages с CREATE SCHEMA IF NOT EXISTS shared; в down удалять только таблицу, не схему. Не менять миграцию Outbox и не требовать наличия его таблицы.
+- [x] Настроить отдельный kernel с default PostgreSQL connection и существующим test-database-guard, без Outbox, Messenger handlers и IntegrationEvent fixtures.
+- [x] После согласованной подготовки БД получить PASS схемы и проверить, что ORM schema diff не предлагает удалить processed_messages.
 
 ## Задача 2. Транзакционная отметка и callback
 
 **Files:**
 
-- Create: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/IdempotentConsumerInterface.php`.
-- Create: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/DoctrineIdempotentConsumer.php`.
+- Create: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/Consumer/IdempotentConsumerInterface.php`.
+- Create: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/Consumer/DoctrineIdempotentConsumer.php`.
 - Create/Test: `tests/Integration/IdempotentConsumerTest.php`.
 - Modify: `tests/Fixtures/IdempotentConsumerKernel.php`.
 
@@ -66,21 +66,21 @@ Inbox, общий MessageInterface и registry обработчиков не с�
 - `consumerId` — непустой стабильный ID обработки до 190 символов. Он не выводится из имени PHP-класса.
 - Callback обеспечивает локальный эффект; consumer не знает, вызывается ли внутри Command, обработчик webhook или другая операция.
 
-- [ ] Написать `testRepeatedIdentityDoesNotRepeatEffect`, `testDifferentConsumersProcessSameIdentity` и `testSameIdFromDifferentNamespacesDoesNotCollide`. Использовать строки из задачи 1 и SQL/ORM callback, а не событие.
-- [ ] Добавить `testFailureRollsBackReceiptAndEffect` и `testTwoProcessesApplyOneEffect`: первый callback меняет probe-строку и падает; после rollback нет эффекта и receipt.
-- [ ] Добавить `testOuterTransactionIsRejected`: выбранная Doctrine-реализация владеет внешней транзакцией обработки; при уже активной транзакции callback не вызывается. Это ограничение реализации, не правило транспорта.
-- [ ] Выполнить `make composer CMD="exec -- phpunit tests/Integration/IdempotentConsumerTest.php"` и подтвердить ожидаемый FAIL.
-- [ ] Реализовать транзакцию и `INSERT ... ON CONFLICT DO NOTHING` по `(consumer_id, namespace, message_id)`. При 0 вставленных строк callback пропускается; предварительный SELECT не используется как защита.
-- [ ] После INSERT выполнить callback, flush единственного EntityManager и внешний commit. Ошибка callback/flush/commit откатывает receipt и эффект вместе.
-- [ ] Повторить тесты: при конкуренции второй процесс после commit первого пропускает callback, после rollback первого получает возможность выполнить его. Перезапуск не требует объекта исходного сообщения.
-- [ ] Проверить сохранение receipt без TTL; автоматическая очистка не включается.
+- [x] Написать `testRepeatedIdentityDoesNotRepeatEffect`, `testDifferentConsumersProcessSameIdentity` и `testSameIdFromDifferentNamespacesDoesNotCollide`. Использовать строки из задачи 1 и SQL/ORM callback, а не событие.
+- [x] Добавить `testFailureRollsBackReceiptAndEffect` и `testTwoProcessesApplyOneEffect`: первый callback меняет probe-строку и падает; после rollback нет эффекта и receipt.
+- [x] Добавить `testOuterTransactionIsRejected`: выбранная Doctrine-реализация владеет внешней транзакцией обработки; при уже активной транзакции callback не вызывается. Это ограничение реализации, не правило транспорта.
+- [x] Выполнить `make composer CMD="exec -- phpunit tests/Integration/IdempotentConsumerTest.php"` и подтвердить ожидаемый FAIL.
+- [x] Реализовать транзакцию и `INSERT ... ON CONFLICT DO NOTHING` по `(consumer_id, namespace, message_id)`. При 0 вставленных строк callback пропускается; предварительный SELECT не используется как защита.
+- [x] После INSERT выполнить callback, flush единственного EntityManager и внешний commit. Ошибка callback/flush/commit откатывает receipt и эффект вместе.
+- [x] Повторить тесты: при конкуренции второй процесс после commit первого пропускает callback, после rollback первого получает возможность выполнить его. Перезапуск не требует объекта исходного сообщения.
+- [x] Проверить сохранение receipt без TTL; автоматическая очистка не включается.
 
 ## Задача 3. Граница Doctrine UnitOfWork
 
 **Files:**
 
-- Modify: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/DoctrineIdempotentConsumer.php`.
-- Create: `tests/Fixtures/Messaging/ConsumerProbe.php` — нейтральная ORM-fixture.
+- Modify: `src/Shared/Infrastructure/Messaging/IdempotentConsumer/Consumer/DoctrineIdempotentConsumer.php`.
+- Create: `tests/Fixtures/Messaging/Consumer/Entity/ConsumerProbe.php` — нейтральная ORM-fixture.
 - Create/Test: `tests/Integration/IdempotentConsumerOrmTest.php`.
 - Modify: `tests/Fixtures/IdempotentConsumerKernel.php` — mapping только test-fixture.
 
@@ -90,12 +90,12 @@ Inbox, общий MessageInterface и registry обработчиков не с�
 - Produces: чистый UnitOfWork между обработками и отсутствие нового receipt при недоступном EntityManager.
 - Восстановление manager между доставками относится к вызывающему адаптеру/worker, не к Consumer.
 
-- [ ] Написать `testUnflushedChangesCannotLeakIntoNextCallback`: первый callback меняет managed entity и падает до flush; следующий меняет другую строку; первая строка остаётся прежней.
-- [ ] Написать `testFlushFailureDoesNotCommitReceiptOrUndoPreviousSuccess` с реальной constraint-ошибкой ORM и `testClosedEntityManagerRejectsCallbackWithoutReceipt`.
-- [ ] Выполнить тесты и подтвердить ожидаемый FAIL до защиты UnitOfWork.
-- [ ] Проверять открытый manager до callback; после завершения/rollback очищать открытый UnitOfWork. На закрытом manager пробрасывать обычную ошибку без попытки собственного reset контейнера и без зависимостей на Messenger exceptions.
-- [ ] В тесте восстановить manager средствами test-kernel и повторить нейтральную identity: обработка завершается. Штатный reset worker проверяется отдельно на этапе 4.
-- [ ] Выполнить целевые тесты, `make lint` и `git diff --check`.
+- [x] Написать `testUnflushedChangesCannotLeakIntoNextCallback`: первый callback меняет managed entity и падает до flush; следующий меняет другую строку; первая строка остаётся прежней.
+- [x] Написать `testFlushFailureDoesNotCommitReceiptOrUndoPreviousSuccess` с реальной constraint-ошибкой ORM и `testClosedEntityManagerRejectsCallbackWithoutReceipt`.
+- [x] Выполнить тесты и подтвердить ожидаемый FAIL до защиты UnitOfWork.
+- [x] Проверять открытый manager до callback; после завершения/rollback очищать открытый UnitOfWork. На закрытом manager пробрасывать обычную ошибку без попытки собственного reset контейнера и без зависимостей на Messenger exceptions.
+- [x] В тесте восстановить manager средствами test-kernel и повторить нейтральную identity: обработка завершается. Штатный reset worker проверяется отдельно на этапе 4.
+- [x] Выполнить целевые тесты, `make lint` и `git diff --check`.
 
 ## Готовность этапа
 
@@ -103,3 +103,26 @@ Identity и callback достаточно для безопасной обраб
 Envelope, таблица Outbox и event.bus для проверки механизма не нужны.
 Связка с событиями и атомарная запись следующего события проверяются
 на [этапе 4](2026-10-26-module-events-stage-4-messenger-cutover.md).
+
+## Результат этапа
+
+Этап 2 закоммичен после пользовательского ревью: f983064. Этап 3 прошёл пользовательское ревью; коммит и переход к этапу 4 согласованы.
+Классы сгруппированы в Identity/ и Consumer/ по ответственности.
+
+Миграция Version20261026000100 и подготовка symfony_db_consumer_test отдельно
+согласованы. Через make console созданы отдельная БД и только таблица Consumer;
+наличие Outbox/Messenger-таблиц не требуется и их отсутствие проверено тестом.
+Dev/prod БД не менялись. Схема Outbox и её миграция не изменялись.
+
+Целевые тесты: 35 тестов, 147 assertions. Полный PHPUnit с раздельными
+Consumer/Outbox test-БД: 194 теста, 808 assertions, без пропусков.
+Прогон использует временный process-only memory_limit=256M.
+Линтеры, Deptrac, контейнеры test/prod и Doctrine metadata проходят;
+ORM diff проверен с реальной тестовой моделью.
+
+Независимое ревью завершено без Critical/Important/Minor замечаний.
+Consumer владеет всем default UnitOfWork; отдельной изоляции заранее
+накопленных чужих изменений нет. Callback не подменяет manager и не управляет
+внешней транзакцией. Внешние эффекты и сторонние соединения не атомарны с receipt.
+Messenger ACK/retry/worker reset и запись следующего Outbox-сообщения
+проверяются на этапе 4. Production discovery и текущая доставка не переключены.

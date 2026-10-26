@@ -119,9 +119,10 @@ Outbox relay о нём не знает. Адаптер подписчика пе
 Receipt и локальный эффект атомарны; retry/failed общие для события.
 Общая doctrine_transaction на event.bus запрещена.
 
-Реализованы метаданные и sync/events; нейтральный Outbox проверяется отдельно
-в OutboxKernel и пока не зарегистрирован в приложении. Новая событийная
-доставка, Idempotent Consumer и event.bus ещё не реализованы.
+Реализованы метаданные и sync/events; нейтральные Outbox и Idempotent Consumer
+проверяются отдельно в OutboxKernel и IdempotentConsumerKernel и пока не
+зарегистрированы в приложении. Новая событийная доставка и event.bus ещё
+не реализованы.
 Текущая цепочка Outbox → EventDispatcher → Inbox удаляется целиком при подключении
 новой, вместе с шинами/маркерами/config/fixtures. Совместимости старых типов нет.
 Фактическое состояние и этапы описаны в карте и инструкции Shared.

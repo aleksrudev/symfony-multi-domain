@@ -13,8 +13,8 @@ Transactional Outbox сохраняет исходящее намерение а
 интеграционные события. Общая Application-шина сообщений для них не создаётся.
 
 В main реализованы контракт метаданных IntegrationEvent и разделение графов
-sync/events. Нейтральный Outbox реализован и проверяется в отдельном test-kernel;
-в приложение он ещё не подключён. Consumer и Messenger event.bus не реализованы.
+sync/events. Нейтральные Outbox и Consumer реализованы и проверяются в отдельных
+test-kernels; в приложение они ещё не подключены. Messenger event.bus не реализована.
 Последовательность подключения описана в [плане этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 Текущие Shared/Application/Bus/Inbox и Outbox и композиция
 Outbox → EventDispatcher → Inbox — заменяемый runtime, не образец для нового кода.
@@ -76,9 +76,12 @@ Writer не вызывает flush/commit. Не подавляй ошибку с
 
 ## Idempotent Consumer: отметка и локальный эффект
 
-Целевой контракт:
+Контракт Consumer:
 `consume(string $consumerId, MessageIdentity $identity, callable $reaction): void`,
-где callback имеет тип `callable(): void`. MessageIdentity — readonly namespace/id.
+где callback имеет тип `callable(): void`. MessageIdentity — readonly namespace/id
+в Infrastructure/Messaging/IdempotentConsumer/Identity/. Интерфейс и
+Doctrine-реализация находятся в соседнем Consumer/.
+Все три идентификатора содержат 1–190 символов UTF-8 без NUL и не нормализуются.
 
 Consumer не получает payload, IntegrationEvent или Envelope и не вызывает
 CommandBus сам. Callback задаёт конкретную операцию; Consumer обеспечивает
@@ -95,6 +98,10 @@ CommandBus сам. Callback задаёт конкретную операцию; 
 - Выбранная Doctrine-реализация владеет внешней транзакцией обработки.
   Уже активная транзакция отклоняется; command.bus внутри callback использует
   тот же connection и не фиксирует receipt раньше внешнего commit.
+- Doctrine-реализация делает flush/clear всего default UnitOfWork.
+  Изменения реакции выполняются внутри callback; незавершённые изменения
+  другого сценария на входе не изолируются и недопустимы. Callback не подменяет
+  manager и не управляет внешним commit/rollback; вложенные транзакции завершает.
 - После завершения/rollback очищается открытый UnitOfWork. На закрытом EM
   callback не запускается; восстановление между доставками принадлежит
   вызывающей инфраструктуре.

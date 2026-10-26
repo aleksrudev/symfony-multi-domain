@@ -192,7 +192,23 @@ make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL php php -d memory
 
 Значение должно указывать на отдельную БД с суффиксом _test, проверяемую guard.
 При нехватке стандартных 128M допускается временный process-only memory_limit,
-без изменения php.ini. Независимый Consumer и новая событийная доставка реализуются следующими этапами
+без изменения php.ini.
+
+Consumer проверяется MessageIdentityTest, IdempotentConsumerSchemaTest,
+IdempotentConsumerTest и IdempotentConsumerOrmTest. Его Kernel не подключает
+Outbox/Messenger; CONSUMER_TEST_DATABASE_URL указывает на отдельную guarded test-БД
+без их таблиц. Подготовка выполняется после согласования: создание отдельной БД
+и применение только Version20261026000100 через make console. Тесты сами миграции
+не применяют. Проверяются реальная блокировка второго процесса на receipt,
+commit/rollback победителя, изоляция идентификаторов, flush/commit failure,
+очистка UnitOfWork и явный reset закрытого manager.
+Обе переменные можно передать из окружения хоста:
+
+```console
+make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_DATABASE_URL php php -d memory_limit=256M"
+```
+
+Новая событийная доставка реализуется следующими этапами
 [плана](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 Добавляй эти проверки вместе с соответствующей реализацией:
 
