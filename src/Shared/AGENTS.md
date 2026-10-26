@@ -5,11 +5,10 @@
 
 Назначение механизмов определяют
 [правила надёжной доставки](../../docs/ai/rules/transactional-messaging.md).
-Реализованы контракт метаданных IntegrationEvent, графы sync/events и композиция
+Shared предоставляет контракт метаданных IntegrationEvent и композицию
 Dispatcher → нейтральный Outbox → Messenger event.bus → Idempotent Consumer.
 Нейтральные механизмы также проверяются отдельно в OutboxKernel и
 IdempotentConsumerKernel; TransactionalMessagingKernel проверяет полную цепочку.
-InboxBus/OutboxBus и native fanout удалены без совместимости.
 
 Допустимы только независимые от предметной области механизмы, необходимые
 нескольким модулям:
@@ -95,32 +94,41 @@ Consumer принимает consumerId, MessageIdentity(namespace, id) и callba
 Они не импортируют IntegrationEventInterface, Messenger или Envelope.
 Схемы, миграции и тесты механизмов независимы; MessageIdentity — DTO, не сервис.
 
-Реализованный Outbox находится в Infrastructure/Messaging/Outbox/:
+Outbox находится в Infrastructure/Messaging/Outbox/:
 Writer/ содержит контракт записи и DoctrineOutboxWriter, Publisher/ — порт доставки,
 Relay/ — OutboxRelay, Console/ — команды relay/retry.
 DoctrineOutboxWriter требует активную default-транзакцию и сохраняет base64
 от serialize(object); flush/commit и чтения метаданных события нет.
-OutboxRelay владеет отдельной транзакцией, выбирает запись FOR UPDATE SKIP LOCKED,
-передаёт object через OutboxPublisherInterface и удаляет запись. Publish/delete
+OutboxRelay отклоняет внешнюю транзакцию и в своей выбирает готовую запись через
+`ORDER BY available_at, id LIMIT 1 FOR UPDATE SKIP LOCKED`,
+передаёт object через OutboxPublisherInterface и удаляет запись. `relayOne(): bool`
+возвращает false, если готовых записей нет; true — если доставлена одна запись
+или сохранена её неудачная попытка, а не только при успехе. Publish/delete
 защищены savepoint; отказ сохраняет попытку, не снимая внешнюю блокировку.
 Задержки после первых трёх отказов — 1/3/9 секунд, четвёртый помечает failed_at.
 last_error и логи содержат только класс ошибки; body в логи не передаётся.
 Ошибка соединения/внешнего commit выходит вызывающей стороне.
 
-Таблица shared.outbox_messages создана отдельной миграцией
-Version20261026000000, ORM исключает её через schema_filter.
+Таблица shared.outbox_messages описана отдельной миграцией
+[Version20261026000000](../../migrations/Version20261026000000.php), ORM исключает её через schema_filter.
+В ней только id/body/created_at/available_at/attempts/failed_at/last_error;
+частичный индекс готовых записей — (available_at, id) WHERE failed_at IS NULL.
+Времена хранятся в UTC с микросекундами. Изменение схемы требует проверки миграции,
+ORM diff и независимых тестов; наличие миграции не означает её применения в окружении.
+Правила восстановления снимка — в [Outbox](../../docs/ai/rules/transactional-messaging.md#outbox-исходящее-намерение-и-бизнесовые-данные).
+
 app:outbox:relay и app:outbox:retry зарегистрированы в приложении.
 make/Compose outbox-worker запускают app:outbox:relay; async worker — Messenger.
 Relay завершается после текущей транзакции по SIGTERM/SIGINT при наличии pcntl;
 расширение включено в Dockerfile. Retry меняет только одну failed-запись,
 сбрасывает попытки/ошибку и сохраняет body/created_at.
 
-Тесты новой основы: DoctrineOutboxWriterTest, TransactionalOutboxSchemaTest,
+Тесты Outbox: DoctrineOutboxWriterTest, TransactionalOutboxSchemaTest,
 TransactionalOutboxTest, OutboxRelayTest и OutboxCommandsTest. PostgreSQL-часть
 использует отдельную guarded test-БД; снимок, failed/retry, savepoint,
 внешний commit, конкуренция и SIGTERM проверяются без Messenger/Consumer/событий.
 
-Реализованный Consumer находится в Infrastructure/Messaging/IdempotentConsumer/:
+Consumer находится в Infrastructure/Messaging/IdempotentConsumer/:
 Identity/ содержит readonly MessageIdentity, Consumer/ — интерфейс и
 DoctrineIdempotentConsumer с private AsAlias. Identity и consumerId содержат
 1–190 символов UTF-8 без NUL, значения не нормализуются. Identity не сервис.
@@ -137,8 +145,11 @@ ORM-изменения реакции выполняй внутри callback; pe
 сценария на входе быть не должно. Callback не управляет внешним commit/rollback,
 не подменяет manager и завершает свои вложенные транзакции.
 
-Таблица shared.processed_messages имеет отдельную миграцию Version20261026000100
-и исключена из ORM diff. Независимая Consumer test-БД не содержит таблиц
+Таблица shared.processed_messages имеет отдельную миграцию
+[Version20261026000100](../../migrations/Version20261026000100.php)
+и исключена из ORM diff. Обе миграции независимо создают схему shared при её
+отсутствии; down удаляет только собственную таблицу, а не схему или таблицу
+соседнего механизма. Независимая Consumer test-БД не содержит таблиц
 Outbox/Messenger; отдельная Messaging test-БД содержит все три механизма.
 Receipt не содержит payload и TTL.
 Тесты MessageIdentityTest, IdempotentConsumerSchemaTest, IdempotentConsumerTest,
@@ -151,7 +162,7 @@ IdempotentConsumerOrmTest проверяют дедупликацию, неза�
 через Consumer. Общей транзакции event.bus нет; retry/failed общие для события.
 Самостоятельные очереди/Delivery на подписчика и исторический replay не вводятся.
 [Реестр событий](../../docs/ai/events.md) описывает фактические бизнес-контракты;
-Shared-метка и технические Alpha/Beta в него не входят.
+Сам технический контракт Shared и fixtures Alpha/Beta в него не входят.
 
 Тесты композиции: IntegrationEventDeliveryTest, PostgresIntegrationEventTest и
 IdempotentConsumerOutboxTest в tests/Integration/. Они используют отдельную

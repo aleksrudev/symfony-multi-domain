@@ -7,6 +7,13 @@
 проверяй контейнер test/prod и Doctrine metadata. Сообщай фактические результаты
 и ограничения окружения.
 
+Для изменений только Markdown проверь относительные ссылки и якоря, парность
+кодовых блоков, `git diff --check` и актуальность карты. После удаления документов
+найди все ссылки на удалённые пути, включая скрытые проектные инструкции.
+`make lint` остаётся обязательным; полный PHPUnit и проверки контейнера только
+из-за правки текста не требуются. Для изменений кода и конфигурации применяй
+требования выше. Успех прошлого прогона не выдавай за свежую проверку.
+
 Основной интерфейс запуска — make. По умолчанию команды выполняются в Docker
 Compose-сервисе `php`. Для окружения без Docker make допускает `PHP=/path/to/php`,
 например `make test PHP=/path/to/php`. Требование PHP >= 8.4.17 сохраняется.
@@ -126,9 +133,13 @@ Infrastructure/Integration согласно sync/events. Точный Shared-к�
 ## Тесты
 
 `make test` запускает PHPUnit, `make test-unit` — только unit-тесты.
-Unit-тесты изолированы от контейнера и БД. Интеграции с контейнером/БД используют
-`Tests\Integration\IntegrationTestCase`; HTTP-тесты — WebTestCase либо прямой
-Kernel для проверки адаптеров. Технические fixtures находятся только в tests.
+Unit-тесты не требуют загрузки Symfony Kernel или внешней БД; технические
+проверки могут использовать SQLite in-memory. Для обычных интеграций доступен
+`Tests\Integration\IntegrationTestCase` на основе KernelTestCase. Независимые
+механизмы и процессные проверки используют собственные test-kernels и базовые
+классы из `tests/Fixtures/Messaging/`; не привязывай их к полному приложению.
+HTTP-тесты используют WebTestCase либо прямой Kernel для проверки адаптеров.
+Технические fixtures находятся только в tests.
 
 При изменении DI проверь, что сервисы загружаются узкими ресурсами и не требуют
 дублирующих `Class: ~`, tags, aliases или arguments. Все нужные шины и порты
@@ -144,8 +155,8 @@ Kernel для проверки адаптеров. Технические fixtur
 Query, локальное расписание и routing событий проверяются на SQLite/in-memory.
 Полная надёжная доставка проверяется отдельно на PostgreSQL.
 PostgreSQL-проверки надёжности используют отдельные guarded test-БД для
-Outbox, Consumer и полной композиции, как описано ниже. CI подготавливает
-их отдельно; тесты не применяют миграции.
+Outbox, Consumer и полной композиции, как описано ниже. Подготавливай их
+отдельно перед запуском; тесты не применяют миграции.
 
 ### Доменные события и outbox
 
@@ -179,10 +190,10 @@ PHP отклоняет отсутствие каждого обязательн�
 
 Нейтральный Outbox проверяется DoctrineOutboxWriterTest (SQLite),
 TransactionalOutboxSchemaTest, TransactionalOutboxTest, OutboxRelayTest и
-OutboxCommandsTest (PostgreSQL). OutboxKernel регистрирует только новую основу,
+OutboxCommandsTest (PostgreSQL). OutboxKernel регистрирует только нейтральный Outbox,
 тестовый publisher и ORM-probe; Messenger/Consumer не нужны. Тесты используют
 подготовленную test-БД, не применяют миграции сами. Проверка SIGTERM требует pcntl,
-который включён в Dockerfile; сервисы для установки/проверки перезапускать не нужно.
+который включён в Dockerfile.
 Для запуска PostgreSQL-тестов переменная OUTBOX_TEST_DATABASE_URL должна быть
 доступна внутри PHP-процесса. При передаче уже заданной переменной хоста:
 
@@ -226,7 +237,6 @@ IdempotentConsumerTest подтверждает сохранение receipt п�
 make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_DATABASE_URL -e MESSAGING_TEST_DATABASE_URL php php -d memory_limit=256M"
 ```
 
-Событийная доставка подключена по [плану](../../superpowers/plans/2026-10-26-module-events-implementation.md).
 При изменениях сохраняй следующие проверки:
 
 - Outbox принимает plain object без IntegrationEvent/Messenger и сохраняет
@@ -257,7 +267,7 @@ make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_
 - Заменённые API/config/fixtures удалены при переключении, без двойного пути
   и aliases совместимости.
 
-IntegrationEventDeliveryTest/PostgresIntegrationEventTest проверяют новую
+IntegrationEventDeliveryTest/PostgresIntegrationEventTest проверяют полную
 композицию, без старых шин и промежуточных DTO. Обязательная PostgreSQL-приёмка требует реально выполненных
 тестов: SKIP не доказывает гарантии. Подготовка test-БД согласуется отдельно,
 тесты не применяют миграции сами.

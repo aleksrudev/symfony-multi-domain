@@ -1,19 +1,22 @@
-# Project
+# Dev Container
 
-This is a Symfony application running on [FrankenPHP](https://frankenphp.dev), generated using [Symfony Docker](https://github.com/dunglas/symfony-docker). The stack includes Caddy (via FrankenPHP), [Mercure](https://mercure.rocks) for real-time, and [Vulcain](https://vulcain.rocks) for preloading. The Dockerfile uses multi-stage builds with separate dev and prod targets.
+Применяются корневые [AGENTS.md](../AGENTS.md). Этот файл относится только
+к `.devcontainer/`; работа через обычный Docker Compose не означает, что
+Dev Container запущен. Архитектуру приложения определяют
+[карта](../docs/ai/map.md) и инструкции владельцев.
 
-## Dev Container Environment
+Конфигурация использует Compose-сервис php, FrankenPHP и отдельный override
+с NET_ADMIN. `postStartCommand` запускает `init-firewall.sh`. Настройки VS Code
+включают bypassPermissions для Claude Code; это не отменяет согласований
+зависимостей, миграций, окружения и разрушительных действий по корневым правилам.
+Описание настройки — в [руководстве](../docs/ai/agents.md).
 
-This project runs inside a Dev Container with an outbound firewall that blocks all traffic except explicitly allowed domains.
+Firewall ограничивает исходящий доступ через iptables/ipset и dnsmasq.
+Кроме разрешённых доменов и диапазонов GitHub допускаются DNS, loopback,
+host gateway и частные IPv4-сети. Не описывай его как полную изоляцию сети.
 
-## Whitelisting a Domain
-
-If an outbound request fails (e.g., `curl`, `composer require`, `npm install` to a new registry), the domain likely needs to be added to the firewall allowlist.
-
-Edit `.devcontainer/init-firewall.sh` and add the domain to the `ipset=` line in the dnsmasq configuration block:
-
-```bash
-ipset=/github.com/anthropic.com/.../NEW_DOMAIN.COM/allowed-domains
-```
-
-Then rebuild the Dev Container to apply the change.
+Если запрос не проходит, сначала проверь причину и фактический runner.
+Не меняй allowlist, не отключай firewall и не пересобирай контейнер автоматически.
+После согласования домен добавляется в `ipset=` конфигурации dnsmasq внутри
+`init-firewall.sh`; применение меняет окружение и тоже должно входить
+в согласованный объём. Не запускай скрипт на хосте.

@@ -7,10 +7,9 @@
 Реализована цепочка Dispatcher → Transactional Outbox → Messenger event.bus →
 Doctrine async → адаптер подписчика → Idempotent Consumer → собственная Command.
 Нейтральные Outbox/Consumer проверяются независимо; полную цепочку собирает
-TransactionalMessagingKernel. Старые API/обёртки/native fanout удалены.
-[План этапов](../../superpowers/plans/2026-10-26-module-events-implementation.md)
-фиксирует реализацию и приёмку. Фактические публичные события и подписки ведутся
-в [реестре](../events.md).
+TransactionalMessagingKernel. Критерии приёмки описаны в
+[правилах проверок](checks.md#межмодульные-события), фактические публичные события
+и подписки — в [реестре](../events.md).
 
 ## Владелец и смысл
 
@@ -105,7 +104,29 @@ Dispatcher и его интерфейс находятся в Shared/Infrastruct
 
 ## Публикация и транзакция владельца
 
-Целевой вход — `IntegrationEventDispatcherInterface::dispatch(IntegrationEventInterface): void`.
+```mermaid
+flowchart TD
+    subgraph source["Транзакция владельца"]
+        A["Command → Domain Action"] --> B["Доменное событие → listener владельца"]
+        B --> C["Публичный DTO → IntegrationEventDispatcher"]
+        C --> D["OutboxWriter.append(object)"]
+    end
+    subgraph relay["Транзакция relay на том же connection"]
+        E["OutboxRelay → OutboxPublisherInterface"] --> F["MessengerOutboxPublisher → event.bus"]
+        F --> G["INSERT Doctrine async + DELETE Outbox"]
+    end
+    subgraph reaction["Отдельная транзакция каждой реакции"]
+        H["Адаптер подписчика: source/eventId → MessageIdentity"] --> I["IdempotentConsumer.consume(consumerId, identity, callback)"]
+        I --> J["Собственная Command: эффект + возможный следующий факт"]
+    end
+    D -->|"после commit"| E
+    G -->|"после commit, worker event.bus"| H
+```
+
+Receipt фиксируется с эффектом реакции; ACK относится к общей доставке события.
+Пути классов и инварианты реализаций — в [инструкции Shared](../../../src/Shared/AGENTS.md).
+
+Вход публикации — `IntegrationEventDispatcherInterface::dispatch(IntegrationEventInterface): void`.
 OutboxIntegrationEventDispatcher проверяет метаданные факта и передаёт object
 нейтральному OutboxWriterInterface. Сам Writer метаданные не читает.
 Publisher-адаптер Messenger, собранный через DI с event.bus, реализует нейтральный
@@ -132,8 +153,8 @@ OutboxPublisherInterface. В текущей композиции INSERT в Doctr
 `'events' => ['Owner']`. Это открывает события и публичные DTO, а не интерфейсы
 синхронного API. Для вызова API отдельно нужна зависимость sync.
 
-Чужой факт импортирует только Infrastructure/Integration/<Owner>/.
-Целевой адаптер — стандартный `AsMessageHandler(bus: 'event.bus')`:
+Чужой факт импортирует только `Infrastructure/Integration/<Owner>/`.
+Адаптер — стандартный `AsMessageHandler(bus: 'event.bus')`:
 создаёт `MessageIdentity(namespace: $event->source, id: $event->eventId)`,
 вызывает `consume($consumerId, $identity, $callback)`, а callback —
 собственную Command/Query. Application не получает чужой DTO.

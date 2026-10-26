@@ -12,7 +12,7 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: шины, доменные события, публичный контракт метаданных событий и доставка через Transactional Outbox → Messenger event.bus → Idempotent Consumer, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: CQRS, события и надёжная доставка, доменные базовые типы, HTTP-маппинг ошибок, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 
 Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
 пустой список; Shared подключается отдельно как техническая основа.
@@ -26,70 +26,33 @@ Shared содержит только механизмы, независимые 
 относятся к бизнес-модулю владельца. Аутентификация в шаблоне не реализована;
 Shared не является модулем пользователей или авторизации.
 
-Общая типизированная основа коллекций находится в
-`src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
-сущностей принадлежат бизнес-модулям и наследуются от неё.
+| Механизм Shared | Путь внутри `src/Shared/` |
+| --- | --- |
+| Основа типизированных коллекций | `Domain/Collection/AbstractCollection.php` |
+| Основы UUID/ULID | `Domain/ValueObject/UuidId.php`, `UlidId.php` |
+| Контракты Command/Query | `Application/Bus/` |
+| Локальные доменные события и контракт синхронной шины | `Domain/Event/` |
+| Публичный контракт метаданных IntegrationEvent | `Presentation/Contracts/Event/` |
+| HTTP-маппинг ошибок | `Presentation/Http/` |
+| Реализации синхронных шин | `Infrastructure/Bus/Symfony/` |
+| Dispatcher публичных событий | `Infrastructure/Messaging/IntegrationEvent/` |
+| Нейтральный Transactional Outbox | `Infrastructure/Messaging/Outbox/` |
+| Нейтральный Idempotent Consumer | `Infrastructure/Messaging/IdempotentConsumer/` |
+| Адаптер Outbox publisher для Messenger event.bus | `Infrastructure/Messaging/Messenger/` |
+| Расписание и compiler passes | `Infrastructure/Schedule/`, `Infrastructure/Symfony/DependencyInjection/` |
+| Регистрация общих сервисов | [config/services.yaml](../../src/Shared/config/services.yaml) |
 
-Общие основы UUID/ULID находятся в `src/Shared/Domain/ValueObject/UuidId.php`
-и `UlidId.php`; конкретные бизнесовые ID принадлежат модулям и наследуют
-соответствующую основу. Правила использования — в
-[rules/domain-types.md](rules/domain-types.md).
+Инварианты реализаций и принадлежащие им тесты описаны в
+[инструкции Shared](../../src/Shared/AGENTS.md). Назначение механизмов и
+эксплуатация — в [правилах надёжной доставки](rules/transactional-messaging.md),
+контракт и композиция событий — в [правилах межмодульных событий](rules/integration-events.md).
+Нейтральные OutboxKernel и IdempotentConsumerKernel проверяют механизмы отдельно;
+TransactionalMessagingKernel — полную цепочку. Требования к раздельным PostgreSQL
+test-БД и их подготовке — в [правилах проверок](rules/checks.md#межмодульные-события).
 
-Контракты шин Command и Query находятся в `src/Shared/Application/Bus/`,
-контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.
-HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
-реализация шин, сборка расписания и compiler passes —
-в `src/Shared/Infrastructure/`. Регистрация общих сервисов находится
-в [src/Shared/config/services.yaml](../../src/Shared/config/services.yaml).
-Файл подключает узкие ресурсы; aliases шин, HTTP listener и набор поставщиков
-расписания настраиваются атрибутами сервисов. Конкретные классы без необходимого
-переопределения в YAML не перечисляются.
-
-Типизированный публичный контракт `IntegrationEventInterface` находится в
-`src/Shared/Presentation/Contracts/Event/`. Он объявляет читаемые свойства
-eventId/eventAt/source/type: string и schemaVersion: int. Публичный DTO формирует
-инфраструктурный listener владельца и передаёт в IntegrationEventDispatcherInterface.
-Dispatcher проверяет метаданные и записывает объект через нейтральный OutboxWriter
-в той же default-транзакции. Сервисы Dispatcher находятся в
-`src/Shared/Infrastructure/Messaging/IntegrationEvent/`.
-
-Outbox находится в `src/Shared/Infrastructure/Messaging/Outbox/`: Writer/ для записи,
-Publisher/ для порта доставки, Relay/ для relay и Console/ для технических команд.
-Он принимает object и не зависит от IntegrationEvent/Messenger/Envelope.
-Отдельный `Messaging/Messenger/MessengerOutboxPublisher` получает event.bus через DI.
-Relay атомарно переносит снимок из shared.outbox_messages в Doctrine async на том же
-connection. make outbox-worker запускает app:outbox:relay; make worker обрабатывает async.
-Самостоятельные очереди и Delivery на подписчика не создаются.
-
-Idempotent Consumer находится в `Messaging/IdempotentConsumer/`: Identity/ содержит
-MessageIdentity(namespace, id), Consumer/ — контракт и Doctrine-реализацию.
-Он получает consumerId/identity/callback без payload, Outbox или Messenger.
-Подписчик — стандартный AsMessageHandler(bus: 'event.bus') в Infrastructure/Integration
-потребителя: извлекает source/eventId и через Consumer вызывает собственную Command.
-Receipt в shared.processed_messages, локальный эффект и следующее исходящее событие
-фиксируются вместе. Общей doctrine_transaction на event.bus нет; retry/failed общие
-для события. Доменные события сохраняют синхронную локальную шину EventDispatcher.
-
-Все механизмы зарегистрированы в Shared. DTO не сервисы; aliases private.
-Собственного реестра доставки, codec framework и compiler pass событий нет.
-Прежние InboxBus/OutboxBus, transport outbox и native fanout удалены без совместимости.
-Новые бизнес-модули и внешние интеграции не добавлены. Назначение паттернов —
-в [надёжной доставке](rules/transactional-messaging.md), контракт и семантика —
-в [межмодульных событиях](rules/integration-events.md).
-
-shared.outbox_messages и shared.processed_messages имеют независимые миграции
-Version20261026000000 и Version20261026000100 и исключены из ORM diff.
-Подготовлены только согласованные отдельные test-БД: Outbox, Consumer и Messaging.
-Нейтральные OutboxKernel и IdempotentConsumerKernel проверяются независимо;
-TransactionalMessagingKernel собирает полную цепочку с техническими Alpha/Beta.
-Dockerfile включает pcntl; тесты проверяют корректное завершение relay по сигналу.
-
-Все пять этапов [плана](../superpowers/plans/2026-10-26-module-events-implementation.md)
-выполнены и прошли ревью пользователя. Сквозная PostgreSQL-приёмка проверяет
-SIGKILL до ACK, конкурентных worker, восстановление relay/failed и ORM reset.
-[Реестр событий и подписчиков](events.md) создан и пуст: бизнес-модулей
-и их публичных событий пока нет. Поддерживай его вместе с изменениями контрактов
-и реакций; технические Alpha/Beta остаются только fixtures.
+[Реестр событий и подписчиков](events.md) пуст: публичных бизнесовых событий
+пока нет. Перечни фактов и подписок ведутся только в реестре, вместе с кодом;
+технические Alpha/Beta в него не входят.
 
 ## Связи модулей
 
@@ -104,11 +67,9 @@ SIGKILL до ACK, конкурентных worker, восстановление 
 При изменении связей указывай здесь потребителя, поставщика и назначение
 связи. Разрешение зависимости проверяй по `src/<Consumer>/config/dependencies.php`,
 а конкретный публичный контракт — по AGENTS.md поставщика.
-Декларация содержит оба списка sync/events: sync открывает интерфейсы/DTO,
-events — события/DTO. Циклы запрещены только в sync; взаимные events допустимы.
-Плоская форма отклоняется. Проверки находятся в tools/architecture.php,
-tests/Unit/Architecture/DependencyGraphTest.php и ArchitectureTest.php
-в том же каталоге.
+Формат sync/events и ограничения графов описаны в
+[архитектуре](rules/architecture.md#межмодульные-зависимости).
+Подписки перечисляй в [реестре](events.md), здесь оставляй только назначение связи.
 
 ## Куда класть код
 

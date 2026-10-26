@@ -179,7 +179,7 @@ Repository. Проверка положительной цены остаётс�
 каждый Action через `Class: ~` не перечисляй. Не сканируй весь Domain.
 Action не является обработчиком Messenger
 и не получает Symfony-атрибутов регистрации. Обработчики Command/Query
-и прикладных сообщений в Application предпочтительно помечаются
+в Application помечаются
 `#[AsMessageHandler(bus: 'command.bus')]` с соответствующей явной шиной
 по [правилам регистрации](architecture.md#регистрация-сервисов-и-атрибуты).
 
@@ -229,7 +229,7 @@ Listener не вызывает Action, Repository или DataProvider напря
 Публикацию публичного события адаптирует инфраструктурный listener владельца по
 [правилам межмодульных событий](integration-events.md).
 Одно доменное событие может иметь несколько независимых listener.
-Подключай их как сервисы владельца с autoconfigure и предпочтительно помечай
+Подключай их как сервисы владельца с autoconfigure и помечай
 `#[AsEventListener(event: OrderSubmittedEvent::class)]` над классом с `__invoke()`.
 Не дублируй регистрацию атрибута тегом `kernel.event_listener`.
 Это синхронные listener EventDispatcher, а не обработчики Messenger.
@@ -245,7 +245,7 @@ Listener не вызывает Action, Repository или DataProvider напря
 протокол событий не проникает в Domain/Application.
 
 Технические Inbox/Outbox-типы внешней интеграции группируются в
-Infrastructure/Messaging/Inbox|Outbox/<Operation>/.
+`Infrastructure/Messaging/Inbox/<Operation>/` или `Outbox/<Operation>/`.
 Файлы непосредственно в Inbox/Outbox не размещай. Не импортируй транспортные
 типы в Application и не используй Command/Query как DTO очереди.
 Адаптер получателя преобразует входящие значения в собственный сценарий;
