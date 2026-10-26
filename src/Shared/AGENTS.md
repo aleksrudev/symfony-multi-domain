@@ -150,6 +150,8 @@ IdempotentConsumerOrmTest проверяют дедупликацию, неза�
 Адаптер подписчика переводит source/eventId в identity и вызывает свой сценарий
 через Consumer. Общей транзакции event.bus нет; retry/failed общие для события.
 Самостоятельные очереди/Delivery на подписчика и исторический replay не вводятся.
+[Реестр событий](../../docs/ai/events.md) описывает фактические бизнес-контракты;
+Shared-метка и технические Alpha/Beta в него не входят.
 
 Тесты композиции: IntegrationEventDeliveryTest, PostgresIntegrationEventTest и
 IdempotentConsumerOutboxTest в tests/Integration/. Они используют отдельную
@@ -158,6 +160,14 @@ MESSAGING_TEST_DATABASE_URL. Полный fixture kernel отключает ст
 Проверяются source snapshot/rollback, атомарный relay → async, A-success/B-failure,
 общий retry/failed, свежий Envelope, выбор handlers при получении,
 receipt/эффект/следующее событие и штатный reset закрытого EM реальным consume.
+Приёмка PostgresIntegrationEventTest дополнительно проверяет SIGKILL после commit
+до ACK, SIGKILL relay после send до commit и конкурирующих worker с наблюдением
+реальных PostgreSQL-блокировок. ProcessBarrier и процессные entrypoints находятся
+в tests/Fixtures/Messaging/Integration/. После аварии тест ускоряет только истечение
+lease мёртвого worker; исходное сообщение/receipt не подменяются.
+Вариант FailFirstMessagingKernel меняет порядок стандартных handlers для проверки
+ORM-ошибки первым. Изоляция commit сохраняется; незавершённые реакции восстанавливаются
+следующей доставкой после штатного reset, без гарантии отдельного прогресса каждого handler.
 Контракт метаданных проверяется tests/Unit/Infrastructure/IntegrationEventContractTest.php.
 Для native compiler-проверок DTO используется отдельный PHP-процесс без
 расширений (-n): отладочные расширения окружения не должны менять отказ PHP

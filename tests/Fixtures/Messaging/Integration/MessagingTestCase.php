@@ -39,12 +39,16 @@ abstract class MessagingTestCase extends TestCase
         $this->db->executeStatement('CREATE SCHEMA IF NOT EXISTS beta');
         $this->db->executeStatement('CREATE TABLE IF NOT EXISTS alpha.txn_probe (value INTEGER NOT NULL)');
         $this->db->executeStatement('CREATE TABLE IF NOT EXISTS beta.probe_recorded (event_id TEXT NOT NULL, occurred_at TEXT NOT NULL, value INTEGER NOT NULL, items JSONB NOT NULL)');
+        $this->db->executeStatement('DROP TRIGGER IF EXISTS hold_recording ON beta.probe_recorded');
+        $this->db->executeStatement('DROP FUNCTION IF EXISTS beta.hold_recording()');
         $this->db->executeStatement('CREATE TABLE IF NOT EXISTS beta.probe_failed_effects (event_id TEXT NOT NULL, value INTEGER NOT NULL)');
         $this->db->executeStatement('CREATE TABLE IF NOT EXISTS beta.failure_probe (id TEXT PRIMARY KEY, value INTEGER NOT NULL CHECK (value >= 0))');
         $this->db->executeStatement('CREATE TABLE IF NOT EXISTS beta.probe_control (mode TEXT NOT NULL)');
         $this->db->executeStatement('DROP TRIGGER IF EXISTS reject_outbox_delete ON shared.outbox_messages');
         $this->db->executeStatement('DELETE FROM shared.outbox_messages');
         $this->db->executeStatement('DELETE FROM shared.processed_messages');
+        $this->db->executeStatement('DROP TRIGGER IF EXISTS reject_async ON public.messenger_messages');
+        $this->db->executeStatement('DROP FUNCTION IF EXISTS public.reject_async()');
         $this->db->executeStatement('DELETE FROM public.messenger_messages');
         foreach (['alpha.txn_probe', 'beta.probe_recorded', 'beta.probe_failed_effects', 'beta.failure_probe', 'beta.probe_control'] as $table) {
             $this->db->executeStatement('DELETE FROM '.$table);

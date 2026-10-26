@@ -147,6 +147,78 @@ API не раскрываются Application или публичным Contract
 Транзакция БД не делает внешний HTTP/email exactly-once. Для такого эффекта
 нужен стабильный idempotency key получателя либо сверка результата.
 
+## Запуск, диагностика и восстановление
+
+После согласованного применения существующих миграций default-БД содержит
+messenger_messages, shared.outbox_messages и shared.processed_messages.
+Подготовка test-БД не применяет миграции к dev/prod. Команды миграций выполняй
+отдельно по корневым правилам согласования; тесты схему приложения не обновляют.
+
+В разных процессах запускаются:
+
+```console
+make outbox-worker
+make worker
+make scheduler
+```
+
+outbox-worker запускает app:outbox:relay с --limit=100, --time-limit=3600,
+--sleep=1000 (миллисекунды ожидания пустого Outbox). worker запускает
+messenger:consume async; scheduler — messenger:consume scheduler_default.
+У Messenger --sleep измеряется в секундах. Compose-профиль worker запускает
+те же роли, перезапуская процессы после завершения; make-команды работают
+на переднем плане. Healthchecks используют встроенный PHP и Linux /proc.
+SIGTERM/SIGINT останавливают relay после текущей транзакции при наличии pcntl.
+
+Диагностика Outbox выводит только техническое состояние, без body:
+
+```console
+make console CMD="dbal:run-sql 'SELECT id, created_at, available_at, attempts, failed_at, last_error FROM shared.outbox_messages ORDER BY id LIMIT 50'"
+make console CMD="messenger:failed:show --stats"
+```
+
+В Outbox нет колонок eventId/source/type; id здесь — ID технической записи.
+last_error и логи relay содержат класс ошибки, ID строки и попытку, без snapshot
+или сообщения исключения. Не добавляй дампы DTO/body в логи и диагностику.
+
+При отказе relay исправь причину и восстанови конкретную failed-запись:
+
+```console
+make console CMD="app:outbox:retry 123"
+```
+
+123 заменяется реальным id shared.outbox_messages. Команда допускает только
+failed-запись, сохраняет body/created_at и сбрасывает attempts/failed_at/last_error.
+Следующий relay публикует исходный снимок. После четырёх неудачных попыток
+автоматические повторы прекращаются; failed не удаляется по возрасту.
+В текущей Doctrine-композиции failed relay не оставляет committed async INSERT.
+Для будущего внешнего publisher failed не доказывает отсутствие внешнего эффекта.
+
+После передачи в async восстанавливается уже сообщение события:
+
+```console
+make console CMD="messenger:failed:retry 456 --force"
+```
+
+456 — реальный ID сообщения стандартного failed transport, не ID Outbox или
+публичного события. Команда непосредственно обрабатывает выбранное событие
+через штатный worker/routable bus. После исправления причины неуспешные реакции
+выполняются, успешные receipts предотвращают повтор эффекта и следующего факта.
+Восстановление не создаёт новый eventId и не меняет consumerId.
+
+Если процесс погиб после commit до ACK, Doctrine transport повторно выдаёт
+сообщение после истечения lease (штатный redeliver_timeout — 3600 секунд).
+Receipt защищает реакцию и при новом Envelope без HandledStamp. Глобальный FIFO
+и порядок по агрегату не гарантируются. processed_messages не имеет TTL;
+удаление отметок открывает повтор уже выполненных эффектов и требует отдельной
+политики. Очистка failed, pending Outbox и receipts по возрасту не настроена;
+успешно переданные Outbox-записи удаляет relay.
+
+[Реестр](../events.md) фиксирует действующие факты и реакции, а не историю доставки.
+Реакции, добавленные до получения сообщения, могут его получить; для уже ACK-фактов
+архив и исторический replay не создаются. Общие retry/failed и восстановление
+закрытого EntityManager описаны в [правилах событий](integration-events.md#retry-failed-и-выбор-обработчиков).
+
 ## Проверка решения
 
 - Указаны конкретный сбой, владелец, identity, snapshot, транзакция и момент ACK.

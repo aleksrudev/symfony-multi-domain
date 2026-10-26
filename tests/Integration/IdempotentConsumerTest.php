@@ -6,6 +6,7 @@ namespace Tests\Integration;
 
 use App\Shared\Infrastructure\Messaging\IdempotentConsumer\Identity\MessageIdentity;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Process\Process;
 use Tests\Fixtures\Messaging\Consumer\ConsumerStorageTestCase;
 
@@ -21,6 +22,19 @@ final class IdempotentConsumerTest extends ConsumerStorageTestCase
         self::assertSame(1, $this->db->fetchOne('SELECT COUNT(*) FROM shared.processed_messages'));
         self::assertSame('2026-10-26 09:00:00.123456', $this->db->fetchOne('SELECT processed_at FROM shared.processed_messages'));
         self::assertFalse($this->db->isTransactionActive());
+    }
+
+    public function testReceiptDoesNotExpireWhenClockAdvances(): void
+    {
+        $consumer = $this->consumer();
+        $clock = $this->kernel->getContainer()->get('test.service_container')->get(MockClock::class);
+        self::assertInstanceOf(MockClock::class, $clock);
+        $identity = new MessageIdentity('provider.webhook', 'delivery-42');
+        $consumer->consume('record-delivery', $identity, $this->increment(...));
+        $clock->modify('+20 years');
+        $consumer->consume('record-delivery', $identity, $this->increment(...));
+        self::assertSame(1, $this->effect());
+        self::assertSame('2026-10-26 09:00:00.123456', $this->db->fetchOne('SELECT processed_at FROM shared.processed_messages'));
     }
 
     public function testDifferentConsumersProcessSameIdentity(): void

@@ -144,4 +144,25 @@ final class ModuleKernelTest extends TestCase
             $kernel->shutdown();
         }
     }
+
+    public function testProductionRetryPolicyDelaysExponentiallyAndStopsAfterThreeRetries(): void
+    {
+        $kernel = new ModuleKernel('test', true);
+        try {
+            $kernel->boot();
+            $strategy = $kernel->getContainer()->get('test.service_container')->get('messenger.retry.multiplier_retry_strategy.async');
+            $event = new \Tests\Fixtures\Modules\Alpha\Presentation\Contracts\Event\ProbePublishedEvent(7, [], 'retry-policy', '2026-10-26T09:00:00.123456Z');
+            foreach ([[900, 1100], [2700, 3300], [8100, 9900]] as $retry => [$minimum, $maximum]) {
+                $envelope = new \Symfony\Component\Messenger\Envelope($event, [new \Symfony\Component\Messenger\Stamp\RedeliveryStamp($retry)]);
+                self::assertTrue($strategy->isRetryable($envelope));
+                $delay = $strategy->getWaitingTime($envelope);
+                self::assertGreaterThanOrEqual($minimum, $delay);
+                self::assertLessThanOrEqual($maximum, $delay);
+            }
+            self::assertFalse($strategy->isRetryable(new \Symfony\Component\Messenger\Envelope($event, [new \Symfony\Component\Messenger\Stamp\RedeliveryStamp(3)])));
+            self::assertSame(30000, $strategy->getWaitingTime(new \Symfony\Component\Messenger\Envelope($event, [new \Symfony\Component\Messenger\Stamp\RedeliveryStamp(10)])));
+        } finally {
+            $kernel->shutdown();
+        }
+    }
 }

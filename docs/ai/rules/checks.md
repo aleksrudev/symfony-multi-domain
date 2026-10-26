@@ -210,6 +210,16 @@ Healthchecks relay, async-worker и scheduler проверяются при ра
 Эта отдельная test-БД
 содержит три существующие миграции: Messenger transport, Outbox и Consumer.
 Статическое подключение DAMA в этом kernel отключено для настоящих commit/rollback.
+PostgresIntegrationEventTest проверяет crash после commit до ACK и после relay send
+до commit через SIGKILL отдельных процессов. Барьеры фиксируют фазу, а pg_stat_activity
+подтверждает конкуренцию по advisory/transactionid lock, не длительность sleep.
+После crash тест сдвигает только delivered_at мёртвого worker для ускорения lease;
+сообщение, receipts и эффекты остаются исходными.
+ORM-ошибка проверяется первой и последней реакцией со штатным reset между доставками.
+IntegrationEventDeliveryTest проверяет четыре отказа relay с настоящим Messenger
+publisher, retry сохранённого снимка, failed retry после runtime/ORM-ошибки и свежий
+Envelope. ModuleKernelTest отдельно проверяет production retry с jitter ±10%;
+IdempotentConsumerTest подтверждает сохранение receipt после продвижения Clock на 20 лет.
 Все три переменные можно передать из окружения хоста:
 
 ```console
