@@ -13,6 +13,7 @@ use App\Ordering\Domain\Enum\OrderStatus;
 use App\Ordering\Domain\Repository\OrderRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
+use App\Shared\Domain\Event\EventBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -35,7 +36,10 @@ final class RejectOrderHandlerTest extends TestCase
             ->method('save')
             ->with($order);
 
-        $action = new RejectOrderAction($orderRepo);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $eventBus->expects(self::once())->method('dispatch');
+
+        $action = new RejectOrderAction($orderRepo, $eventBus);
         $handler = new RejectOrderHandler($provider, $action);
         $handler(new RejectOrderCommand($orderIdStr, 'insufficient_stock'));
 

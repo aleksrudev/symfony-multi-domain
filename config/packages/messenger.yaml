@@ -18,6 +18,7 @@ framework:
                     auto_setup: false
         routing:
             'App\Shared\Presentation\Contracts\Event\IntegrationEventInterface': async
+            'App\Ordering\Infrastructure\Messaging\Outbox\OrderNotification\OrderNotificationMessage': async
         default_bus: default.bus
         buses:
             default.bus:

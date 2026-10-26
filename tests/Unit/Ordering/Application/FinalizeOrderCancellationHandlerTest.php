@@ -14,6 +14,7 @@ use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\Repository\OrderRepositoryInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use App\Ordering\Domain\ValueObject\OrderId;
+use App\Shared\Domain\Event\EventBusInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
@@ -36,7 +37,10 @@ final class FinalizeOrderCancellationHandlerTest extends TestCase
             ->method('save')
             ->with($order);
 
-        $action = new FinalizeOrderCancellationAction($orderRepository);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $eventBus->expects(self::once())->method('dispatch');
+
+        $action = new FinalizeOrderCancellationAction($orderRepository, $eventBus);
         $handler = new FinalizeOrderCancellationHandler($orderDataProvider, $action);
 
         $handler(new FinalizeOrderCancellationCommand($orderId->value));
@@ -48,7 +52,8 @@ final class FinalizeOrderCancellationHandlerTest extends TestCase
     {
         $orderDataProvider = $this->createMock(OrderDataProviderInterface::class);
         $orderRepository = $this->createMock(OrderRepositoryInterface::class);
-        $action = new FinalizeOrderCancellationAction($orderRepository);
+        $eventBus = $this->createMock(EventBusInterface::class);
+        $action = new FinalizeOrderCancellationAction($orderRepository, $eventBus);
         $handler = new FinalizeOrderCancellationHandler($orderDataProvider, $action);
 
         $this->expectException(OrderNotFoundException::class);
