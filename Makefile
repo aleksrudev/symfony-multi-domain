@@ -61,8 +61,8 @@ cc: ## Clear cache
 worker: ## Consume async transport
 	$(CONSOLE) messenger:consume async -vv
 
-outbox-worker: ## Consume the transactional outbox transport
-	$(CONSOLE) messenger:consume outbox -vv
+outbox-worker: ## Relay transactional outbox messages
+	$(CONSOLE) app:outbox:relay
 
 scheduler: ## Consume scheduler transport
 	$(CONSOLE) messenger:consume scheduler_default -vv

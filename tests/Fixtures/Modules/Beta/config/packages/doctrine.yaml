@@ -1,0 +1,10 @@
+doctrine:
+    orm:
+        entity_managers:
+            default:
+                mappings:
+                    BetaFixture:
+                        is_bundle: false
+                        type: attribute
+                        dir: '%kernel.project_dir%/tests/Fixtures/Modules/Beta/Domain/Entity'
+                        prefix: 'Tests\Fixtures\Modules\Beta\Domain\Entity'

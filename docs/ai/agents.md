@@ -1,5 +1,11 @@
 # Using AI Coding Agents with Dev Containers
 
+This is an environment setup guide. Project rules live in the root
+[AGENTS.md](../../AGENTS.md), the [module map](map.md), and the owners' instructions.
+The guide does not grant permission to install dependencies, change the environment,
+apply migrations, or perform destructive actions. Tool permission modes do not
+override the project's approval rules.
+
 This project ships with a [Dev Container](https://containers.dev/) configuration that enables
 AI coding agents to run autonomously inside a sandboxed environment with network-level restrictions.
 
@@ -8,7 +14,7 @@ but the setup also works with other agents such as [OpenAI Codex CLI](https://gi
 and [opencode](https://opencode.ai).
 
 This setup is ideal for letting AI agents work on your Symfony project autonomously
-while ensuring they cannot reach arbitrary internet hosts.
+with restrictions on outbound internet access.
 
 ## Prerequisites
 
@@ -27,8 +33,9 @@ while ensuring they cannot reach arbitrary internet hosts.
 4. Claude Code is pre-installed and configured in YOLO mode — open the Claude Code
    panel in Visual Studio Code or run `claude` in the integrated terminal to start using it.
 
-That's it. Claude Code will run without permission prompts, and the firewall ensures
-network access is restricted to only the necessary services.
+Claude Code's tool permission prompts are bypassed by this configuration.
+Agents still follow the project's approval rules. The firewall restricts outbound
+internet traffic; it also allows DNS, private networks, and the host gateway.
 
 ## What Is YOLO Mode?
 
@@ -49,7 +56,7 @@ The Dev Container configuration enables this via two Visual Studio Code settings
 
 Running an AI agent with full autonomy requires guardrails. The Dev Container includes
 a firewall script (`.devcontainer/init-firewall.sh`) that locks down outbound network
-access using `iptables` and `ipset`. Only the following destinations are allowed:
+access using `iptables` and `ipset`. The allowed internet destinations include:
 
 | Destination                                       | Reason                          |
 | ------------------------------------------------- | ------------------------------- |
@@ -57,11 +64,14 @@ access using `iptables` and `ipset`. Only the following destinations are allowed
 | Anthropic (`anthropic.com`)                       | Claude Code backend             |
 | npm registry (`registry.npmjs.org`)               | Node.js dependencies            |
 | Packagist (`packagist.org`, `repo.packagist.org`) | PHP/Composer dependencies       |
+| jsDelivr (`cdn.jsdelivr.net`)                     | AssetMapper dependencies        |
 | Visual Studio Code Marketplace                    | Extension downloads             |
 | Sentry, Statsig                                   | Telemetry (used by Claude Code) |
 | Host gateway IP                                   | Communication with Docker host  |
 
-All other outbound connections are **rejected**. The firewall uses
+DNS traffic, loopback, the host gateway, and private IPv4 networks
+(`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) are also allowed.
+Other outbound connections are **rejected**. The firewall uses
 [dnsmasq](https://thekelleys.org.uk/dnsmasq/doc.html) to dynamically resolve
 and whitelist IPs for allowed domains, handling CDN IP rotation gracefully.
 
@@ -71,7 +81,9 @@ so you can access your Symfony app from the host browser.
 
 ## Customizing the Allowed Domains
 
-To allow additional domains (e.g., a private registry or API), edit
+Changes to the firewall allowlist and container rebuilds require the environment
+approval described in [AGENTS.md](../../AGENTS.md). After approval, to allow
+additional domains (e.g., a private registry or API), edit
 `.devcontainer/init-firewall.sh` and add them to the `ipset` line in the
 dnsmasq configuration section:
 

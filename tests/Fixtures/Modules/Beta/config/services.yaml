@@ -1,0 +1,8 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+    Tests\Fixtures\Modules\Beta\Application\Command\:
+        resource: '../Application/Command/**/*Handler.php'
+    Tests\Fixtures\Modules\Beta\Infrastructure\:
+        resource: '../Infrastructure/'

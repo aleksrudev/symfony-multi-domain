@@ -12,10 +12,10 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: шины, доменные события, публичная метка событий и доставка через Outbox → EventDispatcher → Inbox, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, демо-вход и сессионный доступ, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
-| Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
-| Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, демо-фикстуры остатков. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
-| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, идемпотентность и оформление с фиксацией цен и ожиданием проверки наличия. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
+| Shared | Общая техническая основа: CQRS, события и надёжная доставка (Transactional Outbox, Idempotent Consumer), доменные базовые типы, HTTP-маппинг ошибок, сессионная безопасность, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный синхронный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
+| Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на событие `ordering.order_submitted`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
+| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление с публикацией интеграционного события `ordering.order_submitted` через Outbox, синхронный опрос `Catalog` и `Inventory`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
 а не модули приложения.
@@ -42,75 +42,60 @@ Shared содержит только механизмы, независимые 
 Не владеет каталожной витриной и актуальными ценами (владеет `Catalog`), остатками на складе
 (владеет `Inventory`) и оплатой (владеет `Payment`).
 
-Общая типизированная основа коллекций находится в
-`src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
-сущностей принадлежат бизнес-модулям и наследуются от неё.
+| Механизм Shared | Путь внутри `src/Shared/` |
+| --- | --- |
+| Основа типизированных коллекций | `Domain/Collection/AbstractCollection.php` |
+| Основы UUID/ULID | `Domain/ValueObject/UuidId.php`, `UlidId.php` |
+| Контракты Command/Query | `Application/Bus/` |
+| Локальные доменные события и контракт синхронной шины | `Domain/Event/` |
+| Публичный контракт метаданных IntegrationEvent | `Presentation/Contracts/Event/` |
+| HTTP-маппинг ошибок | `Presentation/Http/` |
+| Реализации синхронных шин | `Infrastructure/Bus/Symfony/` |
+| Dispatcher публичных событий | `Infrastructure/Messaging/IntegrationEvent/` |
+| Нейтральный Transactional Outbox | `Infrastructure/Messaging/Outbox/` |
+| Нейтральный Idempotent Consumer | `Infrastructure/Messaging/IdempotentConsumer/` |
+| Адаптер Outbox publisher для Messenger event.bus | `Infrastructure/Messaging/Messenger/` |
+| Расписание и compiler passes | `Infrastructure/Schedule/`, `Infrastructure/Symfony/DependencyInjection/` |
+| Регистрация общих сервисов | [config/services.yaml](../../src/Shared/config/services.yaml) |
 
-Общие основы UUID/ULID находятся в `src/Shared/Domain/ValueObject/UuidId.php`
-и `UlidId.php`; конкретные бизнесовые ID принадлежат модулям и наследуют
-соответствующую основу. Правила использования — в
-[rules/domain-types.md](rules/domain-types.md).
+Инварианты реализаций и принадлежащие им тесты описаны в
+[инструкции Shared](../../src/Shared/AGENTS.md). Назначение механизмов и
+эксплуатация — в [правилах надёжной доставки](rules/transactional-messaging.md),
+контракт и композиция событий — в [правилах межмодульных событий](rules/integration-events.md).
+Нейтральные OutboxKernel и IdempotentConsumerKernel проверяют механизмы отдельно;
+TransactionalMessagingKernel — полную цепочку. Требования к раздельным PostgreSQL
+test-БД и их подготовке — в [правилах проверок](rules/checks.md#межмодульные-события).
 
-Контракты шин Command, Query, Inbox и Outbox находятся в `src/Shared/Application/Bus/`,
-контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.
-HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
-реализация шин, сборка расписания и compiler passes —
-в `src/Shared/Infrastructure/`. Регистрация общих сервисов находится
-в [src/Shared/config/services.yaml](../../src/Shared/config/services.yaml).
-Файл подключает узкие ресурсы; aliases шин, HTTP listener и набор поставщиков
-расписания настраиваются атрибутами сервисов. Конкретные классы без необходимого
-переопределения в YAML не перечисляются.
-
-Пустая публичная метка `IntegrationEventInterface` находится в
-`src/Shared/Presentation/Contracts/Event/`. Общая `IntegrationEventMessage`
-и `IntegrationEventHandler` находятся в `src/Shared/Infrastructure/Messaging/`.
-Инфраструктурный listener владельца отправляет обёртку напрямую через
-OutboxBusInterface. Handler использует штатный Symfony EventDispatcher; listener потребителей
-ставят собственные сообщения через InboxBusInterface.
-Outbox и Inbox используют Doctrine transport на одном default connection.
-Собственного реестра, кодеков или compiler pass межмодульных событий нет.
-Семантика публикации и подключения — в
-[правилах межмодульных событий](rules/integration-events.md).
+[Реестр событий и подписчиков](events.md) пуст: публичных бизнесовых событий
+пока нет. Перечни фактов и подписок ведутся только в реестре, вместе с кодом;
+технические Alpha/Beta в него не входят.
 
 ## Связи модулей
 
 `Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Presentation\Contracts\CatalogContractInterface`
 (метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребитель: модуль `Ordering`
 (при оформлении заказа в задаче `T05`) через собственный адаптер `Ordering/Infrastructure/Integration/Catalog/CatalogOfferProvider.php`.
-Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php` пуст).
-`Inventory` экспортирует публичный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
-(методы `requestReservation`, `requestRelease`, `getReservationResult`).
-Модуль `Inventory` не зависит от других бизнес-модулей (`Inventory/config/dependencies.php` возвращает `[]`).
-Модуль `Ordering` зависит от `Catalog` и `Inventory`
-(`Ordering/config/dependencies.php` возвращает `['Catalog', 'Inventory']`).
-Потребитель складского контракта — `Ordering`: адаптер
-`Ordering/Infrastructure/Integration/Inventory/InventoryReservationAdapter.php`
-вызывает `requestReservation()` для технической доставки исходящего запроса.
-Контракт склада вызывает собственные команды принятия `RequestReservation`
-и `RequestRelease`; их инфраструктурные реализации портов ставят сообщения
-в `Infrastructure/Messaging/Inbox/ReserveStock/` и `ReleaseStock/`.
-Резерв и освобождение выполняются позже из Inbox handlers через собственные команды.
-Shared не зависит от бизнес-модулей и их Contracts.
+Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php`: `['sync' => [], 'events' => []]`).
+
+`Inventory` экспортирует публичный синхронный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
+(метод `getReservationResult(orderId): ReservationResult`).
+Потребитель синхронного складского контракта — `Ordering` (`Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`).
+`Inventory` подписывается на публичное интеграционное событие `ordering.order_submitted` через
+`Inventory/Infrastructure/Integration/Ordering/OrderSubmittedReservationConsumer.php`
+(`Inventory/config/dependencies.php`: `['sync' => [], 'events' => ['Ordering']]`).
+Обработчик использует `IdempotentConsumerInterface` и отправляет внутреннюю команду `ReserveStockCommand`.
 
 `Ordering` экспортирует публичное межмодульное событие `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`
-(реализует Shared `IntegrationEventInterface`), формируемое и публикуемое через `IntegrationEventMessage`
-в `outbox.bus` инфраструктурным listener при переводе заказа в `pending_stock`.
-У публичного события сейчас нет потребителей среди бизнес-модулей; подписка
-Inventory удалена. Отдельный listener
-`Ordering/Infrastructure/Messaging/EventListener/OrderSubmittedReservationRequestListener.php`
-того же локального доменного события записывает `RequestReservationOutboxMessage`
-со снимком позиций. Сообщение и технический handler находятся в
-`Ordering/Infrastructure/Messaging/Outbox/RequestReservation/`; handler
-доставляет запрос через собственный `InventoryReservationGatewayInterface`
-и указанный выше адаптер к контракту склада. Публичный факт и запрос резерва
-имеют разные назначения и не создают два пути резервирования.
+(реализует Shared `IntegrationEventInterface`), формируемое и публикуемое через `IntegrationEventDispatcherInterface`
+в нейтральный transactional outbox инфраструктурным listener при переводе заказа в `pending_stock`.
+Из outbox событие перекладывается relay в `event.bus` (транспорт `async`) и обрабатывается подписчиками (модуль `Inventory`).
 
-Это фактический граф реализации T08: `Ordering → Catalog, Inventory`.
-Опрос результата через `getReservationResult()` планируется в T09;
-поставщика расписания и переходов по результату склада в Ordering ещё нет.
-Критерии приёмки доставки, повторов и перехода сохранённых сообщений описаны
-в [задачах T08–T09](../demo-shop-task-breakdown.md); наличие нового графа
-само по себе не означает завершения всех этих проверок.
+Граф зависимостей:
+- `Catalog`: sync: [], events: []
+- `Ordering`: sync: [Catalog, Inventory], events: []
+- `Inventory`: sync: [], events: [Ordering]
+
+Циклические зависимости отсутствуют. Целевые асинхронные команды между модулями запрещены.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
 общие механизмы через провайдеры HTTP-ошибок и поставщиков расписания.
@@ -120,6 +105,9 @@ Inventory удалена. Отдельный listener
 При изменении связей указывай здесь потребителя, поставщика и назначение
 связи. Разрешение зависимости проверяй по `src/<Consumer>/config/dependencies.php`,
 а конкретный публичный контракт — по AGENTS.md поставщика.
+Формат sync/events и ограничения графов описаны в
+[архитектуре](rules/architecture.md#межмодульные-зависимости).
+Подписки перечисляй в [реестре](events.md), здесь оставляй только назначение связи.
 
 ## Куда класть код
 
@@ -133,10 +121,10 @@ Inventory удалена. Отдельный listener
 | Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
 | Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
 | Оркестрация доменных операций, Command/Query-сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
-| Listener собственного доменного события: вызов прикладного сценария или запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/` |
-| Внутреннее Inbox-сообщение, handler и вспомогательные DTO операции | `src/<Module>/Infrastructure/Messaging/Inbox/<Operation>/` |
-| Внутреннее Outbox-сообщение, handler и вспомогательные DTO операции | `src/<Module>/Infrastructure/Messaging/Outbox/<Operation>/` |
-| Синхронная адаптация собственного доменного события в публичное и запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
+| Listener адаптации собственного доменного факта | `src/<Module>/Infrastructure/Messaging/EventListener/` |
+| Технические Inbox-типы конкретной внешней интеграции | `src/<Module>/Infrastructure/Messaging/Inbox/<Operation>/`; [назначение](rules/transactional-messaging.md) |
+| Технические Outbox-типы конкретной внешней интеграции | `src/<Module>/Infrastructure/Messaging/Outbox/<Operation>/`; [назначение](rules/transactional-messaging.md) |
+| Синхронная адаптация собственного доменного события в публичный факт | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
 | Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
 | Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
 | Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
@@ -148,7 +136,7 @@ Inventory удалена. Отдельный listener
 | API-контроллер одного действия с `__invoke()` | `src/<Module>/Presentation/Http/Controller/Api/<Actor>/` |
 | Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
 | Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
-| Listener преобразования чужого публичного события в собственное Inbox-сообщение | `src/<Module>/Infrastructure/Integration/<Owner>/`; [правила](rules/integration-events.md) |
+| Адаптер чужого публичного события в собственный прикладной сценарий | `src/<Module>/Infrastructure/Integration/<Owner>/`; [правила](rules/integration-events.md) |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |
 | Сервисы, маршруты, mappings и настройки интеграций модуля | `src/<Module>/config/` |
 

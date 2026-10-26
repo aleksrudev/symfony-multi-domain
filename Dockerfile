@@ -38,7 +38,7 @@ ENV PHP_INI_SCAN_DIR=":$PHP_INI_DIR/app.conf.d"
 
 ###> recipes ###
 ###> doctrine/doctrine-bundle ###
-RUN install-php-extensions pdo_pgsql
+RUN install-php-extensions pdo_pgsql pcntl
 ###< doctrine/doctrine-bundle ###
 ###< recipes ###
 
