@@ -5,6 +5,7 @@ doctrine:
         connections:
             default:
                 url: '%env(resolve:DATABASE_URL)%'
+                schema_filter: '~^(?!shared\.(?:outbox_messages|processed_messages)$)~'
                 profiling_collect_backtrace: '%kernel.debug%'
     orm:
         default_entity_manager: default

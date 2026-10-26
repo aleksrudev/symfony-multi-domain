@@ -1,10 +1,7 @@
 framework:
     messenger:
-        # Uncomment this (and the failed transport below) to send failed messages to this transport for later handling.
-        # failure_transport: failed
         failure_transport: failed
         transports:
-            # https://symfony.com/doc/current/messenger.html#transport-configuration
             async:
                 dsn: 'doctrine://default?queue_name=async'
                 options:
@@ -14,37 +11,25 @@ framework:
                     delay: 1000
                     multiplier: 3
                     max_delay: 30000
-            outbox:
-                dsn: 'doctrine://default?queue_name=outbox'
+            sync: 'sync://'
+            failed:
+                dsn: 'doctrine://default?queue_name=failed'
                 options:
                     auto_setup: false
-                retry_strategy:
-                    max_retries: 3
-                    delay: 1000
-                    multiplier: 3
-                    max_delay: 30000
-            # failed: 'doctrine://default?queue_name=failed'
-            sync: 'sync://'
-            failed: 'doctrine://default?queue_name=failed'
-
         routing:
-            # Route your messages to the transports
-            # 'App\Message\YourMessage': async
-            'App\Shared\Application\Bus\Inbox\InboxMessageInterface': async
-            'App\Shared\Application\Bus\Outbox\OutboxMessageInterface': outbox
+            'App\Shared\Presentation\Contracts\Event\IntegrationEventInterface': async
         default_bus: default.bus
         buses:
             default.bus:
                 middleware:
                     - validation
-            inbox.bus:
+            event.bus:
+                default_middleware:
+                    allow_no_handlers: true
+                    allow_no_senders: false
                 middleware:
                     - validation
-                    - doctrine_transaction
-            outbox.bus:
-                middleware:
-                    - validation
-                    - doctrine_transaction
+                    - doctrine_ping_connection
             command.bus:
                 middleware:
                     - validation
@@ -52,11 +37,3 @@ framework:
             query.bus:
                 middleware:
                     - validation
-
-# when@test:
-#    framework:
-#        messenger:
-#            transports:
-#                # replace with your transport name here (e.g., my_transport: 'in-memory://')
-#                # For more Messenger testing tools, see https://github.com/zenstruck/messenger-test
-#                async: 'in-memory://'

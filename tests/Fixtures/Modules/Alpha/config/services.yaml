@@ -10,19 +10,13 @@ services:
     App\Shared\Application\Bus\Query\QueryBusInterface:
         alias: App\Shared\Infrastructure\Bus\Symfony\QueryMessageBus
         public: true
-    App\Shared\Application\Bus\Inbox\InboxBusInterface:
-        alias: App\Shared\Infrastructure\Bus\Symfony\InboxMessageBus
-        public: true
-    App\Shared\Application\Bus\Outbox\OutboxBusInterface:
-        alias: App\Shared\Infrastructure\Bus\Symfony\OutboxMessageBus
-        public: true
     Tests\Fixtures\Modules\Alpha\Application\ProbeHandler:
         public: true
-        tags:
-            - { name: messenger.message_handler, bus: command.bus, method: command, handles: Tests\Fixtures\Modules\Alpha\Application\ProbeCommand }
-            - { name: messenger.message_handler, bus: query.bus, method: query, handles: Tests\Fixtures\Modules\Alpha\Application\ProbeQuery }
-            - { name: messenger.message_handler, bus: inbox.bus, method: inbox, handles: Tests\Fixtures\Modules\Alpha\Application\ProbeInbox }
-            - { name: messenger.message_handler, bus: outbox.bus, method: outbox, handles: Tests\Fixtures\Modules\Alpha\Application\ProbeOutbox }
+    Tests\Fixtures\Modules\Alpha\Application\:
+        resource: '../Application/*Handler.php'
+        exclude: '../Application/ProbeHandler.php'
+    Tests\Fixtures\Modules\Alpha\Infrastructure\Messaging\:
+        resource: '../Infrastructure/Messaging/'
     Tests\Fixtures\Modules\Alpha\Presentation\Http\ProbeController:
         tags: [controller.service_arguments]
     Tests\Fixtures\Modules\Alpha\Infrastructure\ProbeSchedule: ~

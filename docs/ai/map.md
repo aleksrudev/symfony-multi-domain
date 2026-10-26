@@ -12,7 +12,7 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: шины, доменные события, публичная метка событий и доставка через Outbox → EventDispatcher → Inbox, базовые исключение и коллекция, основы UUID/ULID, HTTP-маппинг ошибок, расписание и DI-механизмы. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: CQRS, события и надёжная доставка, доменные базовые типы, HTTP-маппинг ошибок, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 
 Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
 пустой список; Shared подключается отдельно как техническая основа.
@@ -26,35 +26,33 @@ Shared содержит только механизмы, независимые 
 относятся к бизнес-модулю владельца. Аутентификация в шаблоне не реализована;
 Shared не является модулем пользователей или авторизации.
 
-Общая типизированная основа коллекций находится в
-`src/Shared/Domain/Collection/AbstractCollection.php`; коллекции конкретных
-сущностей принадлежат бизнес-модулям и наследуются от неё.
+| Механизм Shared | Путь внутри `src/Shared/` |
+| --- | --- |
+| Основа типизированных коллекций | `Domain/Collection/AbstractCollection.php` |
+| Основы UUID/ULID | `Domain/ValueObject/UuidId.php`, `UlidId.php` |
+| Контракты Command/Query | `Application/Bus/` |
+| Локальные доменные события и контракт синхронной шины | `Domain/Event/` |
+| Публичный контракт метаданных IntegrationEvent | `Presentation/Contracts/Event/` |
+| HTTP-маппинг ошибок | `Presentation/Http/` |
+| Реализации синхронных шин | `Infrastructure/Bus/Symfony/` |
+| Dispatcher публичных событий | `Infrastructure/Messaging/IntegrationEvent/` |
+| Нейтральный Transactional Outbox | `Infrastructure/Messaging/Outbox/` |
+| Нейтральный Idempotent Consumer | `Infrastructure/Messaging/IdempotentConsumer/` |
+| Адаптер Outbox publisher для Messenger event.bus | `Infrastructure/Messaging/Messenger/` |
+| Расписание и compiler passes | `Infrastructure/Schedule/`, `Infrastructure/Symfony/DependencyInjection/` |
+| Регистрация общих сервисов | [config/services.yaml](../../src/Shared/config/services.yaml) |
 
-Общие основы UUID/ULID находятся в `src/Shared/Domain/ValueObject/UuidId.php`
-и `UlidId.php`; конкретные бизнесовые ID принадлежат модулям и наследуют
-соответствующую основу. Правила использования — в
-[rules/domain-types.md](rules/domain-types.md).
+Инварианты реализаций и принадлежащие им тесты описаны в
+[инструкции Shared](../../src/Shared/AGENTS.md). Назначение механизмов и
+эксплуатация — в [правилах надёжной доставки](rules/transactional-messaging.md),
+контракт и композиция событий — в [правилах межмодульных событий](rules/integration-events.md).
+Нейтральные OutboxKernel и IdempotentConsumerKernel проверяют механизмы отдельно;
+TransactionalMessagingKernel — полную цепочку. Требования к раздельным PostgreSQL
+test-БД и их подготовке — в [правилах проверок](rules/checks.md#межмодульные-события).
 
-Контракты шин Command, Query, Inbox и Outbox находятся в `src/Shared/Application/Bus/`,
-контракт доменной шины событий и маркер события — в `src/Shared/Domain/Event/`.
-HTTP-маппинг ошибок — в `src/Shared/Presentation/Http/`,
-реализация шин, сборка расписания и compiler passes —
-в `src/Shared/Infrastructure/`. Регистрация общих сервисов находится
-в [src/Shared/config/services.yaml](../../src/Shared/config/services.yaml).
-Файл подключает узкие ресурсы; aliases шин, HTTP listener и набор поставщиков
-расписания настраиваются атрибутами сервисов. Конкретные классы без необходимого
-переопределения в YAML не перечисляются.
-
-Пустая публичная метка `IntegrationEventInterface` находится в
-`src/Shared/Presentation/Contracts/Event/`. Общая `IntegrationEventMessage`
-и `IntegrationEventHandler` находятся в `src/Shared/Infrastructure/Messaging/`.
-Инфраструктурный listener владельца отправляет обёртку напрямую через
-OutboxBusInterface. Handler использует штатный Symfony EventDispatcher; listener потребителей
-ставят собственные сообщения через InboxBusInterface.
-Outbox и Inbox используют Doctrine transport на одном default connection.
-Собственного реестра, кодеков или compiler pass межмодульных событий нет.
-Семантика публикации и подключения — в
-[правилах межмодульных событий](rules/integration-events.md).
+[Реестр событий и подписчиков](events.md) пуст: публичных бизнесовых событий
+пока нет. Перечни фактов и подписок ведутся только в реестре, вместе с кодом;
+технические Alpha/Beta в него не входят.
 
 ## Связи модулей
 
@@ -69,6 +67,9 @@ Outbox и Inbox используют Doctrine transport на одном default 
 При изменении связей указывай здесь потребителя, поставщика и назначение
 связи. Разрешение зависимости проверяй по `src/<Consumer>/config/dependencies.php`,
 а конкретный публичный контракт — по AGENTS.md поставщика.
+Формат sync/events и ограничения графов описаны в
+[архитектуре](rules/architecture.md#межмодульные-зависимости).
+Подписки перечисляй в [реестре](events.md), здесь оставляй только назначение связи.
 
 ## Куда класть код
 
@@ -82,10 +83,10 @@ Outbox и Inbox используют Doctrine transport на одном default 
 | Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
 | Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
 | Оркестрация доменных операций, Command/Query-сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
-| Listener собственного доменного события: вызов прикладного сценария или запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/` |
-| Внутреннее Inbox-сообщение, handler и вспомогательные DTO операции | `src/<Module>/Infrastructure/Messaging/Inbox/<Operation>/` |
-| Внутреннее Outbox-сообщение, handler и вспомогательные DTO операции | `src/<Module>/Infrastructure/Messaging/Outbox/<Operation>/` |
-| Синхронная адаптация собственного доменного события в публичное и запись outbox | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
+| Listener адаптации собственного доменного факта | `src/<Module>/Infrastructure/Messaging/EventListener/` |
+| Технические Inbox-типы конкретной внешней интеграции | `src/<Module>/Infrastructure/Messaging/Inbox/<Operation>/`; [назначение](rules/transactional-messaging.md) |
+| Технические Outbox-типы конкретной внешней интеграции | `src/<Module>/Infrastructure/Messaging/Outbox/<Operation>/`; [назначение](rules/transactional-messaging.md) |
+| Синхронная адаптация собственного доменного события в публичный факт | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
 | Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
 | Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
 | Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
@@ -97,7 +98,7 @@ Outbox и Inbox используют Doctrine transport на одном default 
 | API-контроллер одного действия с `__invoke()` | `src/<Module>/Presentation/Http/Controller/Api/<Actor>/` |
 | Реализация репозитория, DataProvider или другого порта, внешний адаптер | `src/<Module>/Infrastructure/` |
 | Doctrine-фикстуры начальных dev/test-данных | `src/<Module>/Infrastructure/Persistence/Doctrine/Fixtures/` |
-| Listener преобразования чужого публичного события в собственное Inbox-сообщение | `src/<Module>/Infrastructure/Integration/<Owner>/`; [правила](rules/integration-events.md) |
+| Адаптер чужого публичного события в собственный прикладной сценарий | `src/<Module>/Infrastructure/Integration/<Owner>/`; [правила](rules/integration-events.md) |
 | Адаптер к Contracts другого модуля | `src/<Module>/Infrastructure/Integration/` потребителя |
 | Сервисы, маршруты, mappings и настройки интеграций модуля | `src/<Module>/config/` |
 

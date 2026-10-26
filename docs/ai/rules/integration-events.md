@@ -1,14 +1,15 @@
-# Межмодульные события
+# Публичные межмодульные события
 
-Прочитай перед созданием, изменением или ревью публичных событий, их
-преобразования, публикации через outbox и приёма другим модулем. Границы слоёв
-описаны в [архитектуре](architecture.md), общий публичный API — в
-[контрактах модулей](module-contracts.md), внутренние события — в
-[правилах доменных событий](domain-actions.md#доменные-события-и-реакции).
+Прочитай при создании, изменении и ревью публичного факта, его публикации,
+адаптера подписчика и обработки. См. [архитектуру](architecture.md),
+[контракты модулей](module-contracts.md) и [надёжную доставку](transactional-messaging.md).
 
-Это соглашение для новых и изменяемых интеграций. Существующие отступления
-и задачи перехода фиксируй в AGENTS.md владельца. Описание целевой архитектуры
-не означает, что соответствующие классы и механизмы уже реализованы.
+Реализована цепочка Dispatcher → Transactional Outbox → Messenger event.bus →
+Doctrine async → адаптер подписчика → Idempotent Consumer → собственная Command.
+Нейтральные Outbox/Consumer проверяются независимо; полную цепочку собирает
+TransactionalMessagingKernel. Критерии приёмки описаны в
+[правилах проверок](checks.md#межмодульные-события), фактические публичные события
+и подписки — в [реестре](../events.md).
 
 ## Владелец и смысл
 
@@ -38,11 +39,11 @@
 
 Публичные типы не зависят от Domain, Application, Infrastructure, Symfony
 или Doctrine, включая Shared Application. Публичное событие реализует только
-пустую Shared Presentation-метку `IntegrationEventInterface` из
+типизированный Shared Presentation-контракт `IntegrationEventInterface` из
 `Shared/Presentation/Contracts/Event/`. Это точечное исключение для зависимости
 Contracts от Shared Contracts; остальные Shared Contracts не разрешены.
-Domain/Application не используют эту метку. Внутренние `EventInterface`,
-`InboxMessageInterface` и `OutboxMessageInterface` публичный DTO не реализует.
+Domain/Application не используют этот контракт. Публичный DTO не реализует
+внутренний EventInterface и не получает транспортных маркеров.
 Доменные ID и enum преобразуй в значения. Ссылки на сущности, агрегаты,
 ORM-коллекции и ленивую загрузку через контракт запрещены.
 
@@ -81,8 +82,12 @@ Listener выполняет адаптацию без бизнес-расчёт�
 
 Метаданные — скалярные readonly-поля публичного DTO наряду с бизнесовыми
 значениями. Отдельного Shared DTO метаданных или контекста доставки нет.
-Пустая метка IntegrationEventInterface не задаёт getters, генерацию или проверку
-этих полей: за контракт и корректное формирование отвечает владелец события.
+IntegrationEventInterface объявляет читаемые свойства eventId/eventAt/source/type
+типа string и schemaVersion типа int. Public readonly-свойства DTO выполняют
+этот контракт. Генерация остаётся у владельца; значения
+проверяет IntegrationEventDispatcher, не общий Outbox/Consumer.
+ID/source/type содержат 1–190 символов UTF-8 без NUL; schemaVersion >= 1.
+Dispatcher и его интерфейс находятся в Shared/Infrastructure/Messaging/IntegrationEvent/.
 
 | Поле | Смысл |
 | --- | --- |
@@ -90,7 +95,7 @@ Listener выполняет адаптацию без бизнес-расчёт�
 | `eventAt` | Момент доменной операции: строка RFC 3339 в UTC с шестью знаками микросекунд, например `2026-10-22T09:30:00.123456Z`. |
 | `type` | Стабильное логическое имя, например `ordering.order_submitted`, независимое от PHP namespace и транспорта. |
 | `source` | Стабильный идентификатор модуля — владельца факта. |
-| `schemaVersion` | Версия публичной схемы, изменяемая по правилам совместимости ниже. |
+| `schemaVersion` | Версия текущей публичной схемы; не обещает поддержку форматов прошлых экспериментов. |
 
 При повторной доставке, восстановлении из failed и передаче разным получателям
 сохраняй исходные eventId, eventAt, остальные метаданные и payload.
@@ -99,134 +104,115 @@ Listener выполняет адаптацию без бизнес-расчёт�
 
 ## Публикация и транзакция владельца
 
-Listener публикации находится в `Infrastructure/Messaging/EventListener/`
-владельца, например PublishOrderSubmittedEventListener. Он импортирует собственные
-Domain и Presentation/Contracts; Application остаётся независимым от Contracts.
-Подключай listener узким ресурсом с autoconfigure и
-`#[AsEventListener(event: DomainOrderSubmittedEvent::class)]` над классом
-с методом `__invoke()`.
-
-Listener синхронно формирует публичный DTO, включая метаданные, упаковывает
-его в Shared Infrastructure `IntegrationEventMessage` и напрямую вызывает
-OutboxBusInterface:
-
-```php
-$this->outboxBus->publish(new IntegrationEventMessage($publicEvent));
+```mermaid
+flowchart TD
+    subgraph source["Транзакция владельца"]
+        A["Command → Domain Action"] --> B["Доменное событие → listener владельца"]
+        B --> C["Публичный DTO → IntegrationEventDispatcher"]
+        C --> D["OutboxWriter.append(object)"]
+    end
+    subgraph relay["Транзакция relay на том же connection"]
+        E["OutboxRelay → OutboxPublisherInterface"] --> F["MessengerOutboxPublisher → event.bus"]
+        F --> G["INSERT Doctrine async + DELETE Outbox"]
+    end
+    subgraph reaction["Отдельная транзакция каждой реакции"]
+        H["Адаптер подписчика: source/eventId → MessageIdentity"] --> I["IdempotentConsumer.consume(consumerId, identity, callback)"]
+        I --> J["Собственная Command: эффект + возможный следующий факт"]
+    end
+    D -->|"после commit"| E
+    G -->|"после commit, worker event.bus"| H
 ```
 
-Listener не выбирает получателей и не начинает транзакцию. OutboxMessageBus
-отклоняет вызов вне активной транзакции default connection, в том числе
-при отсутствии listener.
+Receipt фиксируется с эффектом реакции; ACK относится к общей доставке события.
+Пути классов и инварианты реализаций — в [инструкции Shared](../../../src/Shared/AGENTS.md).
 
-IntegrationEventMessage — общая readonly-обёртка, реализующая
-OutboxMessageInterface; поле event типизировано IntegrationEventInterface.
-Не создавай отдельный OrderSubmittedOutboxMessage только ради этого маркера.
-Знание Outbox и технической обёртки допустимо в Infrastructure владельца.
-Дополнительный сервис, который только упаковывает DTO и делегирует publish,
-не вводи. Shared не импортирует конкретные бизнес-события.
+Вход публикации — `IntegrationEventDispatcherInterface::dispatch(IntegrationEventInterface): void`.
+OutboxIntegrationEventDispatcher проверяет метаданные факта и передаёт object
+нейтральному OutboxWriterInterface. Сам Writer метаданные не читает.
+Publisher-адаптер Messenger, собранный через DI с event.bus, реализует нейтральный
+порт relay; event.bus маршрутизирует IntegrationEventInterface в async.
 
-```text
-command.bus: транзакция владельца
-  → Action: изменение агрегата и собственное доменное событие
-  → синхронный инфраструктурный listener: публичный DTO с метаданными
-  → одна IntegrationEventMessage → OutboxBusInterface → Doctrine outbox
-commit
-  → outbox worker: IntegrationEventHandler → Symfony EventDispatcher
-  → listener каждого потребителя → собственное сообщение в Doctrine async
-commit транзакции рассылки
-  → inbox worker: инфраструктурный handler → собственный Command/Query
-  → прикладной сценарий в транзакции обработки этого Inbox-сообщения
-```
+Listener владельца находится в Infrastructure/Messaging/EventListener/,
+импортирует собственное доменное событие и Presentation/Contracts и использует
+AsEventListener при autoconfigure. Application остаётся независимым от Contracts.
+Listener не конструирует Envelope, IntegrationEventMessage или Inbox DTO.
 
-Изменения агрегата и запись outbox используют одну транзакцию и тот же DBAL
-connection. Ошибка маппинга или записи outbox откатывает изменения владельца;
-последующая ошибка команды до commit откатывает уже записанное сообщение.
-Не подавляй эти ошибки, не вызывай из listener flush/commit и не откладывай
-запись outbox до after-commit. Идемпотентное воспроизведение результата команды
-не создаёт нового события.
+Снимок сохраняется в source-транзакции через default connection.
+Ошибка маппинга/записи и последующая ошибка команды откатывают всё вместе.
+Запись после commit, независимый commit/flush из listener и подавление ошибки
+запрещены. Идемпотентное воспроизведение команды не создаёт новый факт.
+Подписчики выполняются после commit.
 
-## Рассылка и независимая обработка через Inbox
+Relay не знает IntegrationEvent или event.bus; способ передачи задаётся
+OutboxPublisherInterface. В текущей композиции INSERT в Doctrine async
+и удаление Outbox-записи выполняются атомарно на том же connection.
 
-IntegrationEventHandler помечен `#[AsMessageHandler(bus: 'outbox.bus')]`.
-Он передаёт сохранённый публичный DTO в штатный
-Symfony Component EventDispatcherInterface. Собственного registry, кодеков,
-атрибутов интеграционных подписок или compiler pass нет.
-Набор listener определяется конфигурацией к моменту доставки. Без listener
-одно outbox-сообщение штатно завершается без Inbox-записей. Новый listener
-может получить ещё не обработанное событие; обработанная история ему не доставляется.
+## Подписчики и независимая обработка
 
-Потребитель объявляет владельца в `config/dependencies.php`.
-Чужое событие импортирует только `Infrastructure/Integration/<Owner>/`.
-Адаптер с `#[AsEventListener(event: OrderSubmittedEvent::class)]` переводит
-контракт и нужные метаданные в собственный Inbox DTO и вызывает InboxBusInterface.
-Application/Domain потребителя не импортируют публичные типы владельца.
-Внутреннее сообщение реализует InboxMessageInterface и содержит собственные
-значения потребителя, без ссылок на чужие DTO. Сообщение, handler и вспомогательные
-DTO находятся в `Infrastructure/Messaging/Inbox/<Operation>/`, например
-Inbox/ReserveStock/. Файлы непосредственно в Inbox/ запрещены.
-Отдельный инфраструктурный `#[AsMessageHandler(bus: 'inbox.bus')]`
-преобразует сообщение в собственный Command/Query и вызывает прикладную шину.
-Оркестрация реакции остаётся в Application/Command или Application/Query,
-бизнесовые решения — в Domain. Handler не вызывает Action и Repository напрямую.
-Application не импортирует инфраструктурные Inbox DTO.
+Потребитель объявляет поставщика в `config/dependencies.php`:
+`'events' => ['Owner']`. Это открывает события и публичные DTO, а не интерфейсы
+синхронного API. Для вызова API отдельно нужна зависимость sync.
 
-В listener рассылки допустимы только маппинг и постановка собственного Inbox.
-Не вызывай command.bus, доменные операции, Repository, HTTP или другой
-внешний I/O. Не выполняй бизнесовые эффекты в общей цепочке EventDispatcher.
-Порядок listener не должен иметь бизнесового значения.
+Чужой факт импортирует только `Infrastructure/Integration/<Owner>/`.
+Адаптер — стандартный `AsMessageHandler(bus: 'event.bus')`:
+создаёт `MessageIdentity(namespace: $event->source, id: $event->eventId)`,
+вызывает `consume($consumerId, $identity, $callback)`, а callback —
+собственную Command/Query. Application не получает чужой DTO.
+Оркестрация и бизнесовые решения остаются в Application/Domain;
+адаптер не вызывает Action/Repository/DataProvider напрямую.
 
-Outbox и async используют Doctrine transport на одном default connection
-и общую messenger_messages с разными queue_name. Транзакция outbox.bus
-атомарно записывает все Inbox-сообщения данной рассылки. При ошибке любого
-listener/INSERT все её Inbox-записи откатываются; Messenger повторяет исходное
-outbox-сообщение. Изменения первоначальной команды уже закоммичены.
-Замена async на RabbitMQ, Kafka или другой connection требует отдельного
-решения атомарной доставки: текущая гарантия больше не действует.
+consumerId — стабильный логический ID конкретной реакции. Разные реакции
+одного модуля имеют разные IDs; переименование класса не меняет ID автоматически.
+Нейтральный ключ хранения — `(consumer_id, namespace, message_id)`.
+Idempotent Consumer получает identity/callback, не IntegrationEvent и не CommandBus.
 
-Каждый инфраструктурный Inbox handler работает позже в собственной транзакции
-inbox.bus. Вызов command.bus из него использует то же default connection;
-вложенный вызов не создаёт независимый commit бизнесовой реакции.
-Ошибка B откатывает и повторяет только сообщение B: успешный A не выполняется
-заново из-за сбоя B. И outbox, и async имеют три повтора и failed transport;
-восстановление из failed сохраняет исходное сообщение и eventId.
+Receipt и бизнесовые изменения реакции фиксируются одной транзакцией.
+Ошибка откатывает оба; callback после успешного commit повторно не применяется,
+включая повтор без HandledStamp и конкуренцию worker. Семантические дубли разных
+eventId защищаются инвариантами владельца. Отметки не очищаются автоматически.
 
-Обработка остаётся at-least-once. Сбой между commit рассылки и ack outbox
-может повторно поставить все Inbox-сообщения. Сбой между commit бизнесовой
-реакции и ack Inbox может повторить саму реакцию. InboxMessageInterface
-не обеспечивает дедупликацию. Каждый получатель выбирает смысловой ключ
-или `(source, eventId)` в области своей реакции и атомарно фиксирует эффект
-и отметку обработки. Внешние эффекты требуют собственного решения повторов.
-Общих таблиц дедупликации в Shared нет.
+## Retry, failed и выбор обработчиков
 
-## Сериализация и совместимость
+Общая doctrine_transaction на event.bus запрещена: она объединила бы реакции
+в одну транзакцию. Успех A сохраняется при отказе B, но retry/failed общие
+для сообщения события. Не обещай отдельные очереди, бюджеты повторов
+или восстановление только одной реакции.
 
-Штатный PHP-сериализатор Messenger сохраняет IntegrationEventMessage,
-публичный DTO и вложенные DTO, включая их PHP-классы. Снимок фиксируется
-при постановке outbox; worker не перечитывает агрегат. JSON-кодеки,
-логическая маршрутизация по source/type/schemaVersion и автоматическое
-восстановление старых схем этим механизмом не реализованы.
+В конфигурации async — Doctrine default connection; 3 повтора,
+базовая задержка 1000 мс, множитель 3, максимум 30000 мс; затем стандартный failed.
+Стандартный Messenger jitter составляет ±10%; тестовая композиция использует
+нулевые задержки, production-политика проверяется отдельно.
+Неуспешный handler может исчерпать общий бюджет. Восстановление текущего события —
+messenger:failed:retry. HandledStamp — оптимизация Messenger, не надёжный receipt.
 
-Удаление поля, изменение его типа или смысла требуют новой версии схемы
-и согласованного перехода получателей. При добавлении поля проверь чтение
-реальных ранее сериализованных объектов новым кодом: новое обязательное
-свойство может остаться неинициализированным. Если версии работают одновременно,
-проверь совместимость в обе стороны. Один schemaVersion её не обеспечивает.
+Reset worker/doctrine_ping_connection восстанавливает закрытый EntityManager
+перед следующей доставкой. Если ранний handler закрыл manager ORM-ошибкой,
+следующие реакции в этой попытке тоже могут отказать. Общий бюджет может
+исчерпаться до их фиксации; после устранения причины восстанавливается событие
+целиком. Уже committed-эффекты сохраняются, пропущенные реакции выполняются
+при повторе. Consumer не восстанавливает manager самостоятельно.
 
-Логический type не равен PHP class name. Но переименование/удаление PHP-типа,
-изменение структуры public DTO или собственного Inbox DTO должны учитывать
-все сообщения в outbox, async и failed. Сохраняй совместимые старые типы
-до обработки очередей либо отдельно проектируй преобразование формата.
-Не очищай сообщения ради обновления кода.
+Обработчики выбираются при получении. Новая подписка может получить ещё
+не обработанный факт, но уже ACK-события задним числом не воспроизводятся.
+Отсутствие handlers допустимо. Архив/replay и снимок списка получателей не создаются.
+FIFO и порядок по агрегату не предполагаются; нужный контроль версий
+или переходов относится к конкретному сценарию.
 
-При переходе со старого JSON/subscriberId IntegrationEventEnvelope на
-IntegrationEventMessage сначала обработай pending и failed старым кодом,
-останови старых worker, переключи версию и перезапусти worker.
-Автоматического чтения старого envelope нет. Если старые сообщения остаются,
-отдельно согласуй совместимость до переключения; несовместимые версии worker
-одновременно не запускай.
+## Сериализация текущего формата
 
-Следуй [проверкам межмодульных событий](checks.md#межмодульные-события).
-В AGENTS.md владельца указывай опубликованные и потребляемые события,
-поля и метаданные, версии PHP-типов, listener, Inbox DTO и handlers с путями
-`Infrastructure/Messaging/Inbox/<Operation>/` и вызываемыми Command/Query,
-ключи идемпотентности и порядок перехода версий. Общие правила не копируй.
+Outbox сохраняет самостоятельный PHP-снимок object; Messenger использует
+свой transport serializer. Конкретный Envelope остаётся деталью Messenger,
+не контрактом Outbox/Consumer. Обе границы сохраняют текущие публичные DTO,
+вложенные значения, eventId/eventAt и payload.
+
+Worker не перечитывает агрегат для формирования факта. При retry/recovery
+идентичность события и consumerId сохраняются; ID строки очереди их не заменяет.
+Форматы предыдущих экспериментов, upcasters, старые PHP-типы и двойные маршруты
+не поддерживаются.
+
+Следуй [проверкам событий](checks.md#межмодульные-события).
+При добавлении, изменении или удалении публичного факта/реакции обновляй
+[реестр](../events.md) вместе с кодом и инструкцией владельца. Не создавай записи
+о планируемых событиях и технических fixtures.
+Модульная инструкция фиксирует собственные инварианты и ссылки; общие правила
+не копируются.

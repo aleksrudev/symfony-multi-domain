@@ -7,6 +7,13 @@
 проверяй контейнер test/prod и Doctrine metadata. Сообщай фактические результаты
 и ограничения окружения.
 
+Для изменений только Markdown проверь относительные ссылки и якоря, парность
+кодовых блоков, `git diff --check` и актуальность карты. После удаления документов
+найди все ссылки на удалённые пути, включая скрытые проектные инструкции.
+`make lint` остаётся обязательным; полный PHPUnit и проверки контейнера только
+из-за правки текста не требуются. Для изменений кода и конфигурации применяй
+требования выше. Успех прошлого прогона не выдавай за свежую проверку.
+
 Основной интерфейс запуска — make. По умолчанию команды выполняются в Docker
 Compose-сервисе `php`. Для окружения без Docker make допускает `PHP=/path/to/php`,
 например `make test PHP=/path/to/php`. Требование PHP >= 8.4.17 сохраняется.
@@ -76,8 +83,11 @@ DI-код сборки в Infrastructure/Symfony/DependencyInjection может 
 `tests/Unit/Architecture/ArchitectureTest.php`, поведение ID — через
 `tests/Unit/Domain/UidIdTest.php`.
 
-Разрешённые межмодульные зависимости задаются в `config/dependencies.php`
-потребителя; правила описаны в [архитектуре](architecture.md).
+Разрешённые зависимости задаются в config/dependencies.php двумя обязательными
+списками sync/events. Sync открывает интерфейсы/DTO, events — события/DTO;
+циклы запрещены только в sync. Правила — в [архитектуре](architecture.md).
+DependencyGraphTest проверяет графы и формат, ArchitectureTest — реальные импорты
+через Deptrac. CLI отклоняет невалидную декларацию с exit code 2 без stack trace.
 Статический анализ зависимостей не анализирует смысл SQL; это проверяется ревью
 и интеграционными тестами конкретных репозиториев и DataProvider.
 
@@ -94,7 +104,8 @@ Deptrac проверяет зависимости слоёв, но не опре
 При ревью структуры бизнес-модуля проверь, что в Application есть только
 Command/ и Query/, а сообщения, handlers, входные DTO, результаты и порты
 группируются по сценарию. Listener собственных доменных событий находятся
-в Infrastructure/Messaging/EventListener/. Транспортные Inbox/Outbox DTO,
+в Infrastructure/Messaging/EventListener/. Технические Inbox/Outbox DTO
+конкретных внешних интеграций,
 handlers и вспомогательные типы находятся в
 `Infrastructure/Messaging/Inbox/<Operation>/` или `Outbox/<Operation>/`;
 файлов непосредственно в Inbox/Outbox нет. Handler бизнесового продолжения
@@ -113,17 +124,22 @@ Deptrac не проверяет содержание события, имя even
 Для публичных событий выполни также
 [проверки формирования и доставки](#межмодульные-события) по
 [соглашению о межмодульных событиях](integration-events.md).
-Deptrac выделяет Presentation/Contracts отдельно: запрещает его зависимость
-от внутренних слоёв, доступ Application к публичным Contracts и доступ
-потребителей к Presentation/Adapter поставщика. Разрешение чужих Contracts
-действует только для Infrastructure/Integration при объявленной зависимости.
+Deptrac выделяет публичные интерфейсы, Event и Dto отдельно. Он запрещает их
+зависимости от внутренних слоёв, доступ Application к Contracts и доступ
+потребителя к Presentation/Adapter. Чужие Contracts доступны только
+Infrastructure/Integration согласно sync/events. Точный Shared-контракт
+метаданных разрешён публичным Event, но не Domain/Application.
 
 ## Тесты
 
 `make test` запускает PHPUnit, `make test-unit` — только unit-тесты.
-Unit-тесты изолированы от контейнера и БД. Интеграции с контейнером/БД используют
-`Tests\Integration\IntegrationTestCase`; HTTP-тесты — WebTestCase либо прямой
-Kernel для проверки адаптеров. Технические fixtures находятся только в tests.
+Unit-тесты не требуют загрузки Symfony Kernel или внешней БД; технические
+проверки могут использовать SQLite in-memory. Для обычных интеграций доступен
+`Tests\Integration\IntegrationTestCase` на основе KernelTestCase. Независимые
+механизмы и процессные проверки используют собственные test-kernels и базовые
+классы из `tests/Fixtures/Messaging/`; не привязывай их к полному приложению.
+HTTP-тесты используют WebTestCase либо прямой Kernel для проверки адаптеров.
+Технические fixtures находятся только в tests.
 
 При изменении DI проверь, что сервисы загружаются узкими ресурсами и не требуют
 дублирующих `Class: ~`, tags, aliases или arguments. Все нужные шины и порты
@@ -136,15 +152,16 @@ Kernel для проверки адаптеров. Технические fixtur
 
 Тесты технической загрузки используют только tests/Fixtures и отдельный Kernel.
 Они не создают production-модули и не регистрируются обычным Kernel. Команды,
-inbox и базовая outbox-маршрутизация проверяются на SQLite in-memory.
-Дополнительный outbox-тест на PostgreSQL запускается при наличии
-`OUTBOX_TEST_DATABASE_URL`, указывающего на отдельную БД с суффиксом `_test`;
-CI подготавливает её отдельно. Тест проверяет атомарность записи между схемой
-модуля и таблицей `messenger_messages`.
+Query, локальное расписание и routing событий проверяются на SQLite/in-memory.
+Полная надёжная доставка проверяется отдельно на PostgreSQL.
+PostgreSQL-проверки надёжности используют отдельные guarded test-БД для
+Outbox, Consumer и полной композиции, как описано ниже. Подготавливай их
+отдельно перед запуском; тесты не применяют миграции.
 
 ### Доменные события и outbox
 
-При изменениях цепочки Action → доменное событие → listener → outbox проверь:
+Для надёжной доставки выполни [проверки паттернов](transactional-messaging.md#проверка-решения).
+При изменении публикации доменного факта и его инфраструктурной адаптации проверь:
 
 - Успешная операция публикует соответствующее событие из Action после изменения
   агрегата и вызова Repository. Содержание события соответствует доменному факту;
@@ -154,13 +171,10 @@ CI подготавливает её отдельно. Тест проверяе
 - Несколько listener получают одно событие; его контракт не привязан к данным
   конкретного получателя. Регистрация проверяется через действующий контейнер
   и EventBus, а не только прямым вызовом метода listener.
-- Инфраструктурный listener внутреннего продолжения правильно преобразует доменное
-  событие в самостоятельное исходящее сообщение из
-  `Infrastructure/Messaging/Outbox/<Operation>/` без агрегатов, сущностей
-  и ORM-коллекций. Его handler выполняет техническую доставку либо вызывает
-  собственный Command/Query для бизнесового продолжения.
-  Для публичного события проверь инфраструктурный listener и общую обёртку
-  по разделу ниже.
+- Инфраструктурный listener формирует самостоятельный снимок публичного факта
+  либо намерение конкретного внешнего эффекта. В нём нет агрегатов, сущностей
+  и ORM-коллекций. Бизнесовое решение остаётся в Domain/Application.
+  Для публичного события проверь самостоятельный событийный канал по разделу ниже.
 - Интеграционный тест проверяет откат изменения агрегата при ошибке записи outbox
   и откат уже записанного сообщения при последующей ошибке до commit.
   Сообщение идентифицируется по проверяемой операции, а не общему числу в очереди.
@@ -169,61 +183,94 @@ CI подготавливает её отдельно. Тест проверяе
 
 ### Межмодульные события
 
-При изменениях публичного контракта, маппинга или доставки проверь:
+Контракт метаданных уже проверяется IntegrationEventContractTest:
+PHP отклоняет отсутствие каждого обязательного свойства и неверный тип,
+текущий readonly DTO сохраняет метаданные/вложенные значения при сериализации.
+Компиляторные проверки используют изолированный PHP -n, без отладочных расширений.
 
-- Публичное событие находится в Presentation/Contracts/Event/ владельца,
-  реализует точную Shared Presentation-метку IntegrationEventInterface.
-  Вложенные final readonly DTO — в Presentation/Contracts/Dto/.
-  Нет зависимости от внутренних слоёв, ORM и маркеров шин. Поля, метаданные,
-  единицы измерения и смысл факта документированы.
-- Через действующий контейнер и доменную шину синхронный AsEventListener
-  владельца оборачивает публичный DTO в IntegrationEventMessage и напрямую
-  вызывает OutboxBusInterface::publish() в транзакции команды.
-  В outbox одна запись независимо от числа получателей, синхронных вызовов
-  потребителей нет. Вызов вне транзакции отклоняется даже без listener.
-- Формируется самостоятельный неизменяемый снимок: последующее изменение
-  исходной модели не меняет DTO. Отсутствие обязательных данных прерывает
-  транзакцию; маппинг не подставляет вымышленные значения. eventAt сохраняет
-  время операции в UTC с шестью знаками микросекунд.
-- Реальный PHP-сериализатор Messenger сохраняет публичный DTO, вложенные типы,
-  eventId/eventAt/source/type/schemaVersion. Повтор и восстановление из failed
-  не пересоздают идентичность. Сохранённые PHP-классы совместимы с новым кодом;
-  для изменения схемы проверяются ранее сериализованные сообщения.
-- Общий outbox handler использует native EventDispatcher. Listener потребителей
-  с AsEventListener только ставят собственные Inbox DTO, импортируя чужой
-  контракт лишь в Infrastructure/Integration при объявленной зависимости.
-  Application потребителя не импортирует публичные типы поставщика.
-- Inbox DTO, handler и вспомогательные типы сгруппированы в
-  `Infrastructure/Messaging/Inbox/<Operation>/`. Через действующую inbox.bus
-  handler преобразует доставленное сообщение в собственный Command/Query
-  и вызывает прикладную шину. Прямой вызов handler не заменяет проверку
-  сериализации, маршрутизации и обработки worker. Сбой прикладного сценария
-  откатывает бизнесовые изменения в транзакции inbox.bus.
-- Отсутствие listener допустимо: outbox-сообщение завершается без Inbox-записей.
-  Состав listener выбирается при доставке, без общего реестра или кодеков.
-- Ошибка команды и ошибка записи outbox откатывают данные владельца и сообщение
-  вместе. Через отдельное PostgreSQL connection проверь невидимость до commit.
-- Оба Doctrine transport используют default connection. Ошибка второй Inbox-записи
-  откатывает первую; outbox-повтор сохраняет DTO и метаданные. Все Inbox-записи
-  становятся видимыми вместе после commit рассылки, rollback удаляет все.
-- Настоящим worker со штатными retry/failure listeners проверь независимость:
-  успешный A выполняется один раз, B откатывается, имеет три повтора и попадает
-  в failed; восстановление B не повторяет A и сохраняет eventId.
-- Повтор публичного сообщения может создать дубликаты Inbox; получатели
-  идемпотентны в области своей реакции. InboxMessageInterface сам не дедуплицирует.
-  Воспроизведение результата команды не создаёт нового события.
-- Перед несовместимым переключением учтены pending/failed сообщения и остановка
-  старых worker. Переименование класса не теряет сообщения; очереди не очищаются.
+Нейтральный Outbox проверяется DoctrineOutboxWriterTest (SQLite),
+TransactionalOutboxSchemaTest, TransactionalOutboxTest, OutboxRelayTest и
+OutboxCommandsTest (PostgreSQL). OutboxKernel регистрирует только нейтральный Outbox,
+тестовый publisher и ORM-probe; Messenger/Consumer не нужны. Тесты используют
+подготовленную test-БД, не применяют миграции сами. Проверка SIGTERM требует pcntl,
+который включён в Dockerfile.
+Для запуска PostgreSQL-тестов переменная OUTBOX_TEST_DATABASE_URL должна быть
+доступна внутри PHP-процесса. При передаче уже заданной переменной хоста:
 
-Общий механизм проверяют `IntegrationEventDeliveryTest` и
-`PostgresIntegrationEventTest`. PostgreSQL-тест через отдельное соединение
-проверяет видимость данных владельца и outbox, затем отдельно всех Inbox-записей
-при commit/rollback рассылки. Используется выделенная OUTBOX_TEST_DATABASE_URL
-по правилам подготовки ниже, миграции сам тест не применяет.
-Точная архитектурная лазейка метки проверяется
-`ArchitectureTest::testIntegrationMarkerIsTheOnlySharedPublicContractAllowedForEvents`:
-Contracts может зависеть от неё, но не от прочих Shared Contracts;
-Domain не может использовать интеграционную метку.
+```console
+make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL php php -d memory_limit=256M"
+```
+
+Значение должно указывать на отдельную БД с суффиксом _test, проверяемую guard.
+При нехватке стандартных 128M допускается временный process-only memory_limit,
+без изменения php.ini.
+
+Consumer проверяется MessageIdentityTest, IdempotentConsumerSchemaTest,
+IdempotentConsumerTest и IdempotentConsumerOrmTest. Его Kernel не подключает
+Outbox/Messenger; CONSUMER_TEST_DATABASE_URL указывает на отдельную guarded test-БД
+без их таблиц. Подготовка выполняется после согласования: создание отдельной БД
+и применение только Version20261026000100 через make console. Тесты сами миграции
+не применяют. Проверяются реальная блокировка второго процесса на receipt,
+commit/rollback победителя, изоляция идентификаторов, flush/commit failure,
+очистка UnitOfWork и явный reset закрытого manager.
+Полная композиция проверяется через TransactionalMessagingKernel и
+MESSAGING_TEST_DATABASE_URL в IntegrationEventDeliveryTest,
+PostgresIntegrationEventTest, IdempotentConsumerOutboxTest и WorkerHealthCheckTest.
+Healthchecks relay, async-worker и scheduler проверяются при работающих
+и завершённых реальных процессах из Compose-конфигурации.
+Эта отдельная test-БД
+содержит три существующие миграции: Messenger transport, Outbox и Consumer.
+Статическое подключение DAMA в этом kernel отключено для настоящих commit/rollback.
+PostgresIntegrationEventTest проверяет crash после commit до ACK и после relay send
+до commit через SIGKILL отдельных процессов. Барьеры фиксируют фазу, а pg_stat_activity
+подтверждает конкуренцию по advisory/transactionid lock, не длительность sleep.
+После crash тест сдвигает только delivered_at мёртвого worker для ускорения lease;
+сообщение, receipts и эффекты остаются исходными.
+ORM-ошибка проверяется первой и последней реакцией со штатным reset между доставками.
+IntegrationEventDeliveryTest проверяет четыре отказа relay с настоящим Messenger
+publisher, retry сохранённого снимка, failed retry после runtime/ORM-ошибки и свежий
+Envelope. ModuleKernelTest отдельно проверяет production retry с jitter ±10%;
+IdempotentConsumerTest подтверждает сохранение receipt после продвижения Clock на 20 лет.
+Все три переменные можно передать из окружения хоста:
+
+```console
+make test PHP="docker compose exec -e OUTBOX_TEST_DATABASE_URL -e CONSUMER_TEST_DATABASE_URL -e MESSAGING_TEST_DATABASE_URL php php -d memory_limit=256M"
+```
+
+При изменениях сохраняй следующие проверки:
+
+- Outbox принимает plain object без IntegrationEvent/Messenger и сохраняет
+  снимок в source-транзакцию; ошибка serialize/INSERT и последующий отказ
+  откатывают снимок и бизнесовые данные. Observer PostgreSQL не видит его до commit.
+- Relay проверяется нейтральным publisher без event.bus: конкуренция,
+  send/decode failure, повтор и восстановление failed без потери body.
+- Consumer проверяется namespace/id и callback без payload/Outbox/Messenger.
+  Конкурирующие процессы применяют один эффект; callback и receipt атомарны.
+- ORM rollback не переносит pending-изменения в следующий callback.
+  На закрытом EM нет нового receipt; восстановление принадлежит worker/адаптеру.
+- IntegrationEventDispatcher проверяет метаданные и вызывает append($event).
+  Издатель не создаёт Envelope/Inbox DTO и не обращается к event.bus.
+- Messenger publisher получает event.bus через DI. Только в этой композиции
+  INSERT Doctrine async и DELETE Outbox атомарны на одном connection.
+- Subscriber объявляет events-зависимость и AsMessageHandler с bus event.bus,
+  переводит source/eventId в MessageIdentity и вызывает собственный сценарий.
+  Application не получает чужой DTO.
+- Несколько handlers не объединены общей doctrine_transaction. A-success/B-failure
+  сохраняет A; retry/failed общие для события. Проверять настоящим worker,
+  включая восстановление и повтор свежего Envelope без HandledStamp.
+- После commit до ACK и при конкуренции эффект не применяется повторно;
+  следующие исходящие события реакции атомарны с её receipt/данными.
+- Сериализация обеих границ сохраняет текущие DTO, вложенные значения,
+  eventId/eventAt и содержимое. Старые форматы не поддерживаются.
+- Нет handlers — допустимо; выбор подписок при получении и отсутствие replay/FIFO
+  описаны и проверены. Receipt не имеет автоматического TTL.
+- Заменённые API/config/fixtures удалены при переключении, без двойного пути
+  и aliases совместимости.
+
+IntegrationEventDeliveryTest/PostgresIntegrationEventTest проверяют полную
+композицию, без старых шин и промежуточных DTO. Обязательная PostgreSQL-приёмка требует реально выполненных
+тестов: SKIP не доказывает гарантии. Подготовка test-БД согласуется отдельно,
+тесты не применяют миграции сами.
 
 ### HTTP-вход и валидация
 

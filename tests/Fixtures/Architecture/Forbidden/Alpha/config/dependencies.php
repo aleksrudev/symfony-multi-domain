@@ -2,4 +2,4 @@
 
 declare(strict_types=1);
 
-return ['Beta'];
+return ['sync' => ['Beta'], 'events' => []];

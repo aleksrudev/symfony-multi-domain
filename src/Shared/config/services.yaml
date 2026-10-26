@@ -6,8 +6,19 @@ services:
     App\Shared\Infrastructure\Bus\Symfony\:
         resource: '../Infrastructure/Bus/Symfony/'
 
-    App\Shared\Infrastructure\Messaging\:
-        resource: '../Infrastructure/Messaging/*Handler.php'
+    App\Shared\Infrastructure\Messaging\IntegrationEvent\:
+        resource: '../Infrastructure/Messaging/IntegrationEvent/'
+
+    App\Shared\Infrastructure\Messaging\Messenger\:
+        resource: '../Infrastructure/Messaging/Messenger/'
+        bind:
+            $messageBus: '@event.bus'
+
+    App\Shared\Infrastructure\Messaging\Outbox\:
+        resource: '../Infrastructure/Messaging/Outbox/{Writer,Relay,Console}/'
+
+    App\Shared\Infrastructure\Messaging\IdempotentConsumer\Consumer\:
+        resource: '../Infrastructure/Messaging/IdempotentConsumer/Consumer/'
 
     App\Shared\Infrastructure\Schedule\:
         resource: '../Infrastructure/Schedule/'
