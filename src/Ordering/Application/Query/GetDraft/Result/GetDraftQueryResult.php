@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Application\Query\GetDraft;
+namespace App\Ordering\Application\Query\GetDraft\Result;
 
-use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
+use App\Ordering\Application\Query\GetOrder\Result\OrderItemQueryResult;
 
 final readonly class GetDraftQueryResult
 {
@@ -23,3 +23,4 @@ final readonly class GetDraftQueryResult
     ) {
     }
 }
+

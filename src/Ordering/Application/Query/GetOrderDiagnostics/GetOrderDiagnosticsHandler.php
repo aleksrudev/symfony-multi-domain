@@ -7,6 +7,11 @@ namespace App\Ordering\Application\Query\GetOrderDiagnostics;
 use App\Ordering\Application\Query\GetOrderDiagnostics\Provider\OrderNotificationStatus;
 use App\Ordering\Application\Query\GetOrderDiagnostics\Provider\OrderNotificationStatusProviderInterface;
 use App\Ordering\Application\Query\GetOrderDiagnostics\Provider\OrderReservationStatusProviderInterface;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\GetOrderDiagnosticsQueryResult;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\OrderDiagnosticItemResult;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\OrderDiagnosticResult;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\OrderInventoryDiagnosticResult;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\OrderNotificationDiagnosticResult;
 use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
 use App\Ordering\Domain\Entity\OrderItem;
 use App\Ordering\Domain\ValueObject\OrderId;
@@ -77,4 +82,3 @@ final readonly class GetOrderDiagnosticsHandler
         );
     }
 }
-

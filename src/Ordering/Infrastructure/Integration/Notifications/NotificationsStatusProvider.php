@@ -37,4 +37,3 @@ final readonly class NotificationsStatusProvider implements OrderNotificationSta
         );
     }
 }
-

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Inventory\Application\Command\ReserveStock;
 
-use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
+use App\Inventory\Application\Command\ReserveStock\Input\ReservationItemInput;
 use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
 use App\Inventory\Application\Command\ReserveStock\ReserveStockHandler;
 use App\Inventory\Domain\Action\ReserveStockAction;

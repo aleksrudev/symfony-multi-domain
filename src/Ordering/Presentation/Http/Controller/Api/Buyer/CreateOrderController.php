@@ -6,8 +6,8 @@ namespace App\Ordering\Presentation\Http\Controller\Api\Buyer;
 
 use App\Ordering\Application\Command\CreateDraft\CreateDraftCommand;
 use App\Ordering\Application\Query\GetDraft\GetDraftQuery;
-use App\Ordering\Application\Query\GetDraft\GetDraftQueryResult;
-use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
+use App\Ordering\Application\Query\GetDraft\Result\GetDraftQueryResult;
+use App\Ordering\Application\Query\GetOrder\Result\OrderItemQueryResult;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;

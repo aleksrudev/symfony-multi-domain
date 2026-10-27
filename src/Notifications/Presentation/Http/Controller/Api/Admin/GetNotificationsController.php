@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Notifications\Presentation\Http\Controller\Api\Admin;
 
 use App\Notifications\Application\Query\GetNotifications\GetNotificationsQuery;
-use App\Notifications\Application\Query\GetNotifications\GetNotificationsQueryResult;
-use App\Notifications\Application\Query\GetNotifications\NotificationItemQueryResult;
+use App\Notifications\Application\Query\GetNotifications\Result\GetNotificationsQueryResult;
+use App\Notifications\Application\Query\GetNotifications\Result\NotificationItemQueryResult;
 use App\Notifications\Presentation\Http\Request\GetNotificationsRequest;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;

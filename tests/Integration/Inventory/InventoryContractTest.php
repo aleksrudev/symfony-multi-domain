@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Inventory;
 
 use App\Inventory\Application\Command\ReleaseStock\ReleaseStockCommand;
-use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
+use App\Inventory\Application\Command\ReserveStock\Input\ReservationItemInput;
 use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
 use App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface;
 use App\Inventory\Domain\Entity\StockPosition;

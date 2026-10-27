@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Query\GetProduct;
+namespace App\Catalog\Application\Query\GetProduct\Result;
 
 final readonly class GetProductQueryResult
 {
@@ -15,3 +15,4 @@ final readonly class GetProductQueryResult
     ) {
     }
 }
+

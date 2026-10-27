@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Application\Command\ReplaceOrderItems;
+namespace App\Ordering\Application\Command\ReplaceOrderItems\Input;
 
 final readonly class ReplaceOrderItemInput
 {
@@ -12,3 +12,4 @@ final readonly class ReplaceOrderItemInput
     ) {
     }
 }
+

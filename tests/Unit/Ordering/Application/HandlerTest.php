@@ -6,7 +6,7 @@ namespace Tests\Unit\Ordering\Application;
 
 use App\Ordering\Application\Command\CreateDraft\CreateDraftCommand;
 use App\Ordering\Application\Command\CreateDraft\CreateDraftHandler;
-use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemInput;
+use App\Ordering\Application\Command\ReplaceOrderItems\Input\ReplaceOrderItemInput;
 use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsCommand;
 use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsHandler;
 use App\Ordering\Application\Query\GetDraft\GetDraftHandler;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inventory\Infrastructure\Integration\Ordering;
 
-use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
+use App\Inventory\Application\Command\ReserveStock\Input\ReservationItemInput;
 use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
 use App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem;
 use App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent;

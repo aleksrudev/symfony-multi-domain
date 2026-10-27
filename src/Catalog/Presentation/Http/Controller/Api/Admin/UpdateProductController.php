@@ -6,7 +6,7 @@ namespace App\Catalog\Presentation\Http\Controller\Api\Admin;
 
 use App\Catalog\Application\Command\UpdateProduct\UpdateProductCommand;
 use App\Catalog\Application\Query\GetProduct\GetProductQuery;
-use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
+use App\Catalog\Application\Query\GetProduct\Result\GetProductQueryResult;
 use App\Catalog\Presentation\Http\Request\UpdateProductRequest;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;

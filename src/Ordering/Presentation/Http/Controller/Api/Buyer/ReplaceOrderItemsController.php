@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Ordering\Presentation\Http\Controller\Api\Buyer;
 
-use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemInput;
+use App\Ordering\Application\Command\ReplaceOrderItems\Input\ReplaceOrderItemInput;
 use App\Ordering\Application\Command\ReplaceOrderItems\ReplaceOrderItemsCommand;
 use App\Ordering\Application\Query\GetOrder\GetOrderQuery;
-use App\Ordering\Application\Query\GetOrder\GetOrderQueryResult;
-use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
+use App\Ordering\Application\Query\GetOrder\Result\GetOrderQueryResult;
+use App\Ordering\Application\Query\GetOrder\Result\OrderItemQueryResult;
 use App\Ordering\Presentation\Http\Request\OrderItemInput;
 use App\Ordering\Presentation\Http\Request\ReplaceOrderItemsRequest;
 use App\Shared\Application\Bus\Command\CommandBusInterface;

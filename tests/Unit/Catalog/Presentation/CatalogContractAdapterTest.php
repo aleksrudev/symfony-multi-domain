@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Catalog\Presentation;
 
 use App\Catalog\Application\Query\GetProduct\GetProductQuery;
-use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
+use App\Catalog\Application\Query\GetProduct\Result\GetProductQueryResult;
 use App\Catalog\Domain\Exception\ProductNotFoundException;
 use App\Catalog\Presentation\Adapter\CatalogContractAdapter;
 use App\Catalog\Presentation\Contracts\Dto\Offer;

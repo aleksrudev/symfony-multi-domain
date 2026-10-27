@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Notifications\Application\Query\GetNotificationStatus;
 
+use App\Notifications\Application\Query\GetNotificationStatus\Result\NotificationStatusQueryResult;
 use App\Notifications\Domain\DataProvider\NotificationDataProviderInterface;
 use App\Notifications\Domain\Enum\NotificationType;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

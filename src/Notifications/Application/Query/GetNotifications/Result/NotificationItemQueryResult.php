@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Notifications\Application\Query\GetNotifications;
+namespace App\Notifications\Application\Query\GetNotifications\Result;
 
 final readonly class NotificationItemQueryResult
 {
@@ -44,3 +44,4 @@ final readonly class NotificationItemQueryResult
         ];
     }
 }
+

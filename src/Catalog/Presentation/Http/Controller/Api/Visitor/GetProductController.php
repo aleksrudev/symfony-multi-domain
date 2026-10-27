@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Presentation\Http\Controller\Api\Visitor;
 
 use App\Catalog\Application\Query\GetProduct\GetProductQuery;
-use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
+use App\Catalog\Application\Query\GetProduct\Result\GetProductQueryResult;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;

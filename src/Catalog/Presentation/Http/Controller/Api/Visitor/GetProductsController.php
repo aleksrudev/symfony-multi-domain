@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Catalog\Presentation\Http\Controller\Api\Visitor;
 
-use App\Catalog\Application\Query\GetProduct\GetProductQueryResult;
+use App\Catalog\Application\Query\GetProduct\Result\GetProductQueryResult;
 use App\Catalog\Application\Query\GetProducts\GetProductsQuery;
-use App\Catalog\Application\Query\GetProducts\GetProductsQueryResult;
+use App\Catalog\Application\Query\GetProducts\Result\GetProductsQueryResult;
 use App\Catalog\Presentation\Http\Request\GetProductsRequest;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;

@@ -6,7 +6,7 @@ namespace Tests\Unit\Inventory\Application\Query\GetStockPosition;
 
 use App\Inventory\Application\Query\GetStockPosition\GetStockPositionHandler;
 use App\Inventory\Application\Query\GetStockPosition\GetStockPositionQuery;
-use App\Inventory\Application\Query\GetStockPosition\GetStockPositionQueryResult;
+use App\Inventory\Application\Query\GetStockPosition\Result\GetStockPositionQueryResult;
 use App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface;
 use App\Inventory\Domain\Entity\StockPosition;
 use App\Inventory\Domain\Exception\StockPositionNotFoundException;

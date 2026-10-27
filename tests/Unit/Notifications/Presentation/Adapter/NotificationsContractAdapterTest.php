@@ -6,7 +6,7 @@ namespace Tests\Unit\Notifications\Presentation\Adapter;
 
 use App\Notifications\Application\Command\EnqueueNotification\EnqueueNotificationCommand;
 use App\Notifications\Application\Query\GetNotificationStatus\GetNotificationStatusQuery;
-use App\Notifications\Application\Query\GetNotificationStatus\NotificationStatusQueryResult;
+use App\Notifications\Application\Query\GetNotificationStatus\Result\NotificationStatusQueryResult;
 use App\Notifications\Domain\Collection\NotificationCollection;
 use App\Notifications\Domain\DataProvider\NotificationDataProviderInterface;
 use App\Notifications\Domain\Entity\Notification;

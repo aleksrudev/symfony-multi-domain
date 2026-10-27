@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Application\Query\GetOrderDiagnostics;
+namespace App\Ordering\Application\Query\GetOrderDiagnostics\Result;
 
 final readonly class OrderNotificationDiagnosticResult
 {

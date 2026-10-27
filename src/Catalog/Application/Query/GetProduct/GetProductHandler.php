@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Query\GetProduct;
 
+use App\Catalog\Application\Query\GetProduct\Result\GetProductQueryResult;
 use App\Catalog\Domain\DataProvider\ProductDataProviderInterface;
 use App\Catalog\Domain\ValueObject\ProductId;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

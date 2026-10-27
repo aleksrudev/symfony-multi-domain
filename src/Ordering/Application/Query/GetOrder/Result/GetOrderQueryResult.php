@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Ordering\Application\Query\GetOrder;
+namespace App\Ordering\Application\Query\GetOrder\Result;
 
 final readonly class GetOrderQueryResult
 {
@@ -22,3 +22,4 @@ final readonly class GetOrderQueryResult
     ) {
     }
 }
+

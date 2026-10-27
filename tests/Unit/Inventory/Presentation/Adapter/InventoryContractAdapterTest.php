@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Inventory\Presentation\Adapter;
 
 use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
-use App\Inventory\Application\Query\GetReservation\GetReservationQueryResult;
+use App\Inventory\Application\Query\GetReservation\Result\GetReservationQueryResult;
 use App\Inventory\Domain\Exception\ReservationNotFoundException;
 use App\Inventory\Presentation\Adapter\InventoryContractAdapter;
 use App\Shared\Application\Bus\Query\QueryBusInterface;

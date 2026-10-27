@@ -6,7 +6,7 @@ namespace App\Inventory\Presentation\Http\Controller\Api\Admin;
 
 use App\Inventory\Application\Command\ChangeStockOnHand\ChangeStockOnHandCommand;
 use App\Inventory\Application\Query\GetStockPosition\GetStockPositionQuery;
-use App\Inventory\Application\Query\GetStockPosition\GetStockPositionQueryResult;
+use App\Inventory\Application\Query\GetStockPosition\Result\GetStockPositionQueryResult;
 use App\Inventory\Presentation\Http\Request\UpdateStockOnHandRequest;
 use App\Shared\Application\Bus\Command\CommandBusInterface;
 use App\Shared\Application\Bus\Query\QueryBusInterface;

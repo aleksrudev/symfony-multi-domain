@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ordering\Application\Query\GetDraft;
 
-use App\Ordering\Application\Query\GetOrder\OrderItemQueryResult;
+use App\Ordering\Application\Query\GetDraft\Result\GetDraftQueryResult;
+use App\Ordering\Application\Query\GetOrder\Result\OrderItemQueryResult;
 use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
 use App\Ordering\Domain\ValueObject\BuyerId;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

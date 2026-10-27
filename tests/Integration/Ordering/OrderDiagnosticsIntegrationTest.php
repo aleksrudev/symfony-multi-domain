@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Ordering;
 
 use App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\CatalogFixtures;
-use App\Inventory\Application\Command\ReserveStock\ReservationItemInput;
+use App\Inventory\Application\Command\ReserveStock\Input\ReservationItemInput;
 use App\Inventory\Application\Command\ReserveStock\ReserveStockCommand;
 use App\Inventory\Domain\Entity\StockPosition;
 use App\Inventory\Domain\Repository\StockPositionRepositoryInterface;
@@ -14,7 +14,7 @@ use App\Notifications\Presentation\Contracts\Dto\EnqueueNotificationInput;
 use App\Notifications\Presentation\Contracts\NotificationsContractInterface;
 use App\Ordering\Application\Command\ConfirmOrder\ConfirmOrderCommand;
 use App\Ordering\Application\Query\GetOrderDiagnostics\GetOrderDiagnosticsQuery;
-use App\Ordering\Application\Query\GetOrderDiagnostics\GetOrderDiagnosticsQueryResult;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\GetOrderDiagnosticsQueryResult;
 use App\Ordering\Domain\Entity\Order;
 use App\Ordering\Domain\Enum\Currency;
 use App\Ordering\Domain\Enum\OrderStatus;

@@ -11,4 +11,3 @@ interface OrderNotificationStatusProviderInterface
      */
     public function getNotificationsForOrder(string $orderId): array;
 }
-

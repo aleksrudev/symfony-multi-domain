@@ -13,4 +13,3 @@ final readonly class GetOrderDiagnosticsQuery implements QueryInterface
     ) {
     }
 }
-

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Ordering\Presentation\Http\Controller\Api\Admin;
 
 use App\Ordering\Application\Query\GetOrderDiagnostics\GetOrderDiagnosticsQuery;
-use App\Ordering\Application\Query\GetOrderDiagnostics\GetOrderDiagnosticsQueryResult;
+use App\Ordering\Application\Query\GetOrderDiagnostics\Result\GetOrderDiagnosticsQueryResult;
 use App\Shared\Application\Bus\Query\QueryBusInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,4 +31,3 @@ final readonly class GetOrderDiagnosticsController
         return new JsonResponse($result->toArray(), Response::HTTP_OK);
     }
 }
-

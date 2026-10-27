@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inventory\Application\Query\GetStockPosition;
 
+use App\Inventory\Application\Query\GetStockPosition\Result\GetStockPositionQueryResult;
 use App\Inventory\Domain\DataProvider\StockPositionDataProviderInterface;
 use App\Inventory\Domain\Exception\StockPositionNotFoundException;
 use App\Inventory\Domain\ValueObject\ProductId;

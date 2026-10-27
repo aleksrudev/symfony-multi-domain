@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inventory\Application\Query\GetReservation;
 
+use App\Inventory\Application\Query\GetReservation\Result\GetReservationQueryResult;
 use App\Inventory\Domain\DataProvider\ReservationDataProviderInterface;
 use App\Inventory\Domain\ValueObject\OrderId;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

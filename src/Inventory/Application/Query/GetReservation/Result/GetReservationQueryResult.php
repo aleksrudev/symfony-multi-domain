@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Inventory\Application\Query\GetReservation;
+namespace App\Inventory\Application\Query\GetReservation\Result;
 
 final readonly class GetReservationQueryResult
 {
@@ -18,3 +18,4 @@ final readonly class GetReservationQueryResult
     ) {
     }
 }
+

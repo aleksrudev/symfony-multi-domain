@@ -51,4 +51,3 @@ final class NotificationsStatusProviderTest extends TestCase
         self::assertSame('2026-10-27T10:00:01.000000Z', $notifications[0]->sentAt);
     }
 }
-

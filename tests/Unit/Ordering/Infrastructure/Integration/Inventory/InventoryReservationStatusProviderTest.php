@@ -35,4 +35,3 @@ final class InventoryReservationStatusProviderTest extends TestCase
         self::assertNull($status->rejectionReason);
     }
 }
-

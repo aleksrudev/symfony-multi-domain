@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Inventory\Application\Command\ReserveStock;
+namespace App\Inventory\Application\Command\ReserveStock\Input;
 
 final readonly class ReservationItemInput
 {
@@ -15,3 +15,4 @@ final readonly class ReservationItemInput
         }
     }
 }
+

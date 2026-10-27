@@ -8,4 +8,3 @@ interface OrderReservationStatusProviderInterface
 {
     public function getReservationStatus(string $orderId): OrderReservationStatus;
 }
-

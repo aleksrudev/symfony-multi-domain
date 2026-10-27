@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ordering\Application\Query\GetOrder;
 
+use App\Ordering\Application\Query\GetOrder\Result\GetOrderQueryResult;
+use App\Ordering\Application\Query\GetOrder\Result\OrderItemQueryResult;
 use App\Ordering\Domain\DataProvider\OrderDataProviderInterface;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\BuyerId;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Inventory\Application\Query\GetStockPosition;
+namespace App\Inventory\Application\Query\GetStockPosition\Result;
 
 final readonly class GetStockPositionQueryResult
 {
@@ -15,3 +15,4 @@ final readonly class GetStockPositionQueryResult
     ) {
     }
 }
+

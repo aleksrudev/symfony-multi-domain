@@ -128,4 +128,3 @@ final class GetOrderDiagnosticsHandlerTest extends TestCase
         $handler(new GetOrderDiagnosticsQuery(self::ORDER_ID));
     }
 }
-

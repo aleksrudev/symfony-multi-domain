@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Notifications\Application\Query\GetNotifications;
 
+use App\Notifications\Application\Query\GetNotifications\Result\GetNotificationsQueryResult;
+use App\Notifications\Application\Query\GetNotifications\Result\NotificationItemQueryResult;
 use App\Notifications\Domain\DataProvider\NotificationDataProviderInterface;
 use App\Notifications\Domain\Entity\Notification;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
