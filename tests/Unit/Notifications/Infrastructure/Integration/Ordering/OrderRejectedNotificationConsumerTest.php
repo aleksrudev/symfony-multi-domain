@@ -61,4 +61,3 @@ final class OrderRejectedNotificationConsumerTest extends TestCase
         $handler($event);
     }
 }
-

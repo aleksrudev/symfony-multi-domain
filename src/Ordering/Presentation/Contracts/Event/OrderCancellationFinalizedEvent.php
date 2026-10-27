@@ -19,4 +19,3 @@ final readonly class OrderCancellationFinalizedEvent implements IntegrationEvent
     ) {
     }
 }
-

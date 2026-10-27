@@ -35,4 +35,3 @@ final readonly class PublishOrderCancellationFinalizedEventListener
         $this->dispatcher->dispatch($publicEvent);
     }
 }
-

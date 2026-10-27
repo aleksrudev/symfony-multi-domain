@@ -63,4 +63,3 @@ final class OrderConfirmedNotificationConsumerTest extends TestCase
         $handler($event);
     }
 }
-

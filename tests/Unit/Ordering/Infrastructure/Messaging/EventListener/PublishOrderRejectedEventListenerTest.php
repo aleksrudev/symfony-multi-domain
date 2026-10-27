@@ -50,4 +50,3 @@ final class PublishOrderRejectedEventListenerTest extends TestCase
         $listener($event);
     }
 }
-

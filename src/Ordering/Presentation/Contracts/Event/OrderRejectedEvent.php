@@ -20,4 +20,3 @@ final readonly class OrderRejectedEvent implements IntegrationEventInterface
     ) {
     }
 }
-

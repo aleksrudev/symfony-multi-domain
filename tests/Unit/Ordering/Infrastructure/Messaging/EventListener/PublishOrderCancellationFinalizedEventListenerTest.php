@@ -49,4 +49,3 @@ final class PublishOrderCancellationFinalizedEventListenerTest extends TestCase
         $listener($event);
     }
 }
-

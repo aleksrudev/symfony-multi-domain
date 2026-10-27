@@ -59,4 +59,3 @@ final class OrderCancellationFinalizedNotificationConsumerTest extends TestCase
         $handler($event);
     }
 }
-
