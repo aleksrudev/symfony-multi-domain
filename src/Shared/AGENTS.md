@@ -37,6 +37,13 @@ Messaging/Messenger содержит publisher с bind $messageBus: '@event.bus'
 подключает Writer/Relay/Console, Consumer — только Consumer/; Identity и DTO не сервисы.
 Следуй общим [правилам регистрации](../../docs/ai/rules/architecture.md#регистрация-сервисов-и-атрибуты).
 
+В демо-ветке `Presentation/Http/` также содержит технические адаптеры сессионного
+входа: AuthController, CsrfProtectionListener, LoginFailureListener и LogoutListener.
+Контроллер и request-listener имеют необходимую явную регистрацию в services.yaml;
+subscriber реализуют EventSubscriberInterface и подключаются через autoconfigure.
+Конфигурация безопасности и маршруты остаются общими; бизнес-моделей пользователей
+в Shared нет.
+
 Зависимости от бизнес-модулей, их Contracts и тестовых fixtures запрещены.
 Не добавляй общие Entity, Customer, Money, бизнесовые идентификаторы или
 универсальные Repository. Совпадение структуры двух типов не означает

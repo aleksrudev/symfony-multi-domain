@@ -137,9 +137,15 @@ final class ModuleKernelTest extends TestCase
             $kernel->boot();
             $container = $kernel->getContainer()->get('test.service_container');
             self::assertFalse($container->hasParameter('alpha.origin'));
-            self::assertCount(0, $container->get(\App\Shared\Infrastructure\Schedule\Schedule::class)->getSchedule()->getRecurringMessages());
+            $recurring = $container->get(\App\Shared\Infrastructure\Schedule\Schedule::class)->getSchedule()->getRecurringMessages();
+            foreach ($recurring as $task) {
+                $context = new \Symfony\Component\Scheduler\Generator\MessageContext('default', 'probe', $task->getTrigger(), new \DateTimeImmutable());
+                foreach ($task->getMessages($context) as $message) {
+                    self::assertNotInstanceOf(ProbeCommand::class, $message instanceof \Symfony\Component\Messenger\Envelope ? $message->getMessage() : $message);
+                }
+            }
             self::assertNull($container->get('router')->getRouteCollection()->get('alpha_probe'));
-            self::assertSame([], $container->get(EntityManagerInterface::class)->getMetadataFactory()->getAllMetadata());
+            self::assertFalse($container->get(EntityManagerInterface::class)->getMetadataFactory()->hasMetadataFor(Record::class));
         } finally {
             $kernel->shutdown();
         }

@@ -1,0 +1,39 @@
+parameters:
+    notifications.demo.fail_delivery: false
+    notifications.max_attempts: 3
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        bind:
+            $failDelivery: '%notifications.demo.fail_delivery%'
+            $maxAttempts: '%notifications.max_attempts%'
+
+    App\Notifications\Application\:
+        resource: '../Application/**/*Handler.php'
+
+    App\Notifications\Domain\Action\:
+        resource: '../Domain/Action/'
+
+    App\Notifications\Infrastructure\Persistence\Doctrine\Repository\:
+        resource: '../Infrastructure/Persistence/Doctrine/Repository/'
+
+    App\Notifications\Infrastructure\Persistence\Doctrine\DataProvider\:
+        resource: '../Infrastructure/Persistence/Doctrine/DataProvider/'
+
+    App\Notifications\Infrastructure\Delivery\:
+        resource: '../Infrastructure/Delivery/'
+
+    App\Notifications\Infrastructure\Integration\:
+        resource: '../Infrastructure/Integration/'
+
+    App\Notifications\Presentation\Adapter\:
+        resource: '../Presentation/Adapter/'
+
+    App\Notifications\Presentation\Http\Controller\Api\:
+        resource: '../Presentation/Http/Controller/Api/'
+
+    App\Notifications\Presentation\Http\Error\:
+        resource: '../Presentation/Http/Error/'
+

@@ -1,0 +1,6 @@
+catalog_api:
+    resource: ../Presentation/Http/Controller/Api/
+    type: attribute
+    prefix: /api/v1
+    name_prefix: catalog_
+    format: json

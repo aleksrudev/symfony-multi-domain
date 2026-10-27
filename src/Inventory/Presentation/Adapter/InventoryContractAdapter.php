@@ -1,0 +1,53 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Inventory\Presentation\Adapter;
+
+use App\Inventory\Application\Query\GetReservation\GetReservationQuery;
+use App\Inventory\Application\Query\GetReservation\Result\GetReservationQueryResult;
+use App\Inventory\Domain\Exception\ReservationNotFoundException;
+use App\Inventory\Presentation\Contracts\Dto\ReservationResult;
+use App\Inventory\Presentation\Contracts\Dto\ReservationResultItem;
+use App\Inventory\Presentation\Contracts\InventoryContractInterface;
+use App\Shared\Application\Bus\Query\QueryBusInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+
+#[AsAlias(InventoryContractInterface::class, public: true)]
+final readonly class InventoryContractAdapter implements InventoryContractInterface
+{
+    public function __construct(
+        private QueryBusInterface $queryBus,
+    ) {
+    }
+
+    public function getReservationResult(string $orderId): ReservationResult
+    {
+        try {
+            /** @var GetReservationQueryResult $result */
+            $result = $this->queryBus->dispatch(new GetReservationQuery($orderId));
+
+            $items = [];
+            foreach ($result->items as $item) {
+                $items[] = new ReservationResultItem(
+                    productId: $item['productId'],
+                    quantity: $item['quantity'],
+                );
+            }
+
+            return new ReservationResult(
+                orderId: $result->orderId,
+                status: $result->status,
+                rejectionReason: $result->rejectionReason,
+                items: $items,
+            );
+        } catch (ReservationNotFoundException) {
+            return new ReservationResult(
+                orderId: $orderId,
+                status: 'not_found',
+                rejectionReason: null,
+                items: [],
+            );
+        }
+    }
+}

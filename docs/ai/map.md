@@ -12,10 +12,12 @@
 
 | Название | Назначение | Путь | Инструкция | Подключение |
 | --- | --- | --- | --- | --- |
-| Shared | Общая техническая основа: CQRS, события и надёжная доставка, доменные базовые типы, HTTP-маппинг ошибок, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Shared | Общая техническая основа: CQRS, события и надёжная доставка (Transactional Outbox, Idempotent Consumer), доменные базовые типы, HTTP-маппинг ошибок, сессионная безопасность, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
+| Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный синхронный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
+| Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на события `ordering.order_submitted` и `ordering.order_cancelled`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
+| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий (`ordering.order_submitted`, `ordering.order_cancelled`, `ordering.order_confirmed`, `ordering.order_rejected`, `ordering.order_cancellation_finalized`) через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog`, `Inventory` и `Notifications` (для административной диагностики). | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
+| Notifications | Локальный ящик уведомлений покупателей и администратора, статусы доставки (`pending`, `sent`, `failed`), попытки и ошибки, подписка на интеграционные события `Ordering`, публичный контракт `NotificationsContractInterface`, административный просмотр ящика. | `src/Notifications/` | [src/Notifications/AGENTS.md](../../src/Notifications/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `notifications`. |
 
-Бизнес-модулей пока нет. В `src/Kernel.php` метод `moduleDirectories()` возвращает
-пустой список; Shared подключается отдельно как техническая основа.
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
 а не модули приложения.
 
@@ -23,8 +25,23 @@
 
 Shared содержит только механизмы, независимые от предметной области.
 Бизнесовые сущности, value objects, репозитории, правила и сценарии использования
-относятся к бизнес-модулю владельца. Аутентификация в шаблоне не реализована;
-Shared не является модулем пользователей или авторизации.
+относятся к бизнес-модулю владельца. Демонстрационный вход и сессионный доступ
+реализованы через общую конфигурацию безопасности и технические HTTP-адаптеры
+в `src/Shared/Presentation/Http/` (сессия, CSRF, login/logout, throttling); Shared
+не является модулем пользователей и не содержит их бизнес-моделей.
+
+`Catalog` владеет товарами (`Product`), их наименованием, ценой целым числом копеек (RUB)
+и признаком публикации. Не владеет складскими остатками (владеет `Inventory`) и историческими
+снимками позиций в заказах (владеет `Ordering`).
+
+`Inventory` владеет складскими позициями (`StockPosition`), физическими остатками (`onHand`),
+резервами (`reserved`) и доступным для заказа остатком (`available`). Не владеет карточками товаров
+и витринными ценами (владеет `Catalog`), корзинами и оформлением заказов (владеет `Ordering`).
+
+`Ordering` владеет заказами (`Order`), их статусами, позициями (`OrderItem`), снимками
+наименований и цен товаров, количествами, черновиком покупателя и идемпотентностью команд.
+Не владеет каталожной витриной и актуальными ценами (владеет `Catalog`), остатками на складе
+(владеет `Inventory`) и оплатой (владеет `Payment`).
 
 | Механизм Shared | Путь внутри `src/Shared/` |
 | --- | --- |
@@ -50,14 +67,40 @@ Shared не является модулем пользователей или а
 TransactionalMessagingKernel — полную цепочку. Требования к раздельным PostgreSQL
 test-БД и их подготовке — в [правилах проверок](rules/checks.md#межмодульные-события).
 
-[Реестр событий и подписчиков](events.md) пуст: публичных бизнесовых событий
-пока нет. Перечни фактов и подписок ведутся только в реестре, вместе с кодом;
-технические Alpha/Beta в него не входят.
+[Реестр событий и подписчиков](events.md) содержит публичные бизнесовые события
+`ordering.order_submitted / v1` и `ordering.order_cancelled / v1`. Перечни фактов и подписок
+ведутся только в реестре, вместе с кодом; технические Alpha/Beta в него не входят.
 
 ## Связи модулей
 
-Межмодульных бизнес-связей пока нет: бизнес-модули и их публичные Contracts
-отсутствуют. Shared не зависит от бизнес-модулей и их Contracts.
+`Catalog` экспортирует публичный межмодульный контракт `App\Catalog\Presentation\Contracts\CatalogContractInterface`
+(метод `getOffer(productId): ?Offer`). Поставщик: `Catalog`. Потребитель: модуль `Ordering`
+(при оформлении заказа в задаче `T05`) через собственный адаптер `Ordering/Infrastructure/Integration/Catalog/CatalogOfferProvider.php`.
+Сам `Catalog` не зависит от других бизнес-модулей (`Catalog/config/dependencies.php`: `['sync' => [], 'events' => []]`).
+
+`Inventory` экспортирует публичный синхронный контракт `App\Inventory\Presentation\Contracts\InventoryContractInterface`
+(метод `getReservationResult(orderId): ReservationResult`).
+Потребитель синхронного складского контракта — `Ordering` (`Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`)
+через собственный адаптер `Ordering/Infrastructure/Integration/Inventory/InventoryReservationResultProvider.php` для периодической сверки результата резерва (T09, T10).
+`Inventory` подписывается на публичные интеграционные события `ordering.order_submitted` и `ordering.order_cancelled` через
+`Inventory/Infrastructure/Integration/Ordering/OrderSubmittedReservationConsumer.php` и
+`Inventory/Infrastructure/Integration/Ordering/OrderCancelledReleaseConsumer.php`
+(`Inventory/config/dependencies.php`: `['sync' => [], 'events' => ['Ordering']]`).
+Обработчики используют `IdempotentConsumerInterface` и отправляют внутренние команды `ReserveStockCommand` и `ReleaseStockCommand`.
+
+`Ordering` экспортирует публичные межмодульные события `OrderSubmittedEvent`, `OrderCancelledEvent`,
+`OrderConfirmedEvent`, `OrderRejectedEvent` и `OrderCancellationFinalizedEvent`
+(реализуют Shared `IntegrationEventInterface`), формируемые и публикуемые через `IntegrationEventDispatcherInterface`
+в нейтральный transactional outbox инфраструктурными listeners.
+Из outbox события перекладываются relay в `event.bus` (транспорт `async`) и обрабатываются подписчиками (модули `Inventory` и `Notifications`).
+
+Граф зависимостей:
+- `Catalog`: sync: [], events: []
+- `Ordering`: sync: [Catalog, Inventory, Notifications], events: []
+- `Inventory`: sync: [], events: [Ordering]
+- `Notifications`: sync: [], events: [Ordering]
+
+Циклические зависимости отсутствуют. Целевые асинхронные команды между модулями запрещены.
 
 Бизнес-модули смогут использовать технические контракты Shared и расширять
 общие механизмы через провайдеры HTTP-ошибок и поставщиков расписания.

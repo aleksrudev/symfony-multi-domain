@@ -28,3 +28,6 @@ services:
 
     App\Shared\Presentation\Http\Error\:
         resource: '../Presentation/Http/Error/*Registry.php'
+
+    App\Shared\Presentation\Http\AuthController:
+        tags: [controller.service_arguments]

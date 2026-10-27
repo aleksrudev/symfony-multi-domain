@@ -1,0 +1,28 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\Catalog\Application\:
+        resource: '../Application/**/*Handler.php'
+
+    App\Catalog\Domain\Action\:
+        resource: '../Domain/Action/'
+
+    App\Catalog\Infrastructure\Persistence\Doctrine\Repository\:
+        resource: '../Infrastructure/Persistence/Doctrine/Repository/'
+
+    App\Catalog\Infrastructure\Persistence\Doctrine\DataProvider\:
+        resource: '../Infrastructure/Persistence/Doctrine/DataProvider/'
+
+    App\Catalog\Infrastructure\Persistence\Doctrine\Fixtures\:
+        resource: '../Infrastructure/Persistence/Doctrine/Fixtures/'
+
+    App\Catalog\Presentation\Adapter\:
+        resource: '../Presentation/Adapter/'
+
+    App\Catalog\Presentation\Http\Controller\Api\:
+        resource: '../Presentation/Http/Controller/Api/'
+
+    App\Catalog\Presentation\Http\Error\:
+        resource: '../Presentation/Http/Error/'
