@@ -15,4 +15,3 @@ final readonly class OrderCancellationFinalizedEvent implements EventInterface
     ) {
     }
 }
-

@@ -6,7 +6,6 @@ return [
     'sync' => [
         'Catalog',
         'Inventory',
-        'Notifications',
     ],
     'events' => [],
 ];

@@ -404,18 +404,20 @@ BR-13–BR-14, A-10.
 
 ### T12. Уведомления о результатах заказа
 
-**Зависимости:** T09–T11. **Область:** outbox-сообщения `Ordering` и адаптер к
-`Notifications.Contracts`; обновление `Ordering/config/dependencies.php`.
+**Зависимости:** T09–T11. **Область:** интеграционные события `Ordering`,
+Transactional Outbox, адаптеры подписчиков `Notifications/Infrastructure/Integration/Ordering/`
+и `Notifications/config/dependencies.php`.
 
-**Результат:** подтверждение, отказ и завершённая отмена публикуют отдельные
-намерения уведомления в своих локальных транзакциях. Worker передаёт их в
-`Notifications`, где один смысловой ключ создаёт одну запись. Ошибка доставки
-не откатывает бизнес-состояние заказа. Доставка идёт через
-`Ordering/Infrastructure/Integration/Notifications/` и контракт принятия
-задания в Inbox уведомлений. `Ordering/config/dependencies.php` становится
-`['Catalog', 'Inventory', 'Notifications']`, у Notifications список пуст.
-Подписка Notifications на события Ordering не добавляется: она создала бы
-цикл при чтении статуса уведомлений и диагностике T13.
+**Результат:** подтверждение, отказ и завершённая отмена публикуют публичные
+интеграционные факты `ordering.order_confirmed`, `ordering.order_rejected` и
+`ordering.order_cancellation_finalized` в своих локальных транзакциях через
+`IntegrationEventDispatcherInterface` и Transactional Outbox. Worker передаёт их
+через `event.bus` в модуль `Notifications`, где подписчики через `IdempotentConsumer`
+создают соответствующие уведомления в локальном ящике (`order_confirmed`, `order_rejected`,
+`order_cancelled`). Ошибка доставки уведомления не откатывает бизнес-состояние заказа.
+Отложенные адресные вызовы чужих API через технические сообщения Outbox и handler
+отправителя запрещены. `Notifications/config/dependencies.php` содержит `'events' => ['Ordering']`,
+у `Ordering` — `'sync' => ['Catalog', 'Inventory']`, `'events' => []`.
 
 **Готово, когда:** сквозные тесты проверяют три типа уведомления, повтор и
 независимость состояния заказа от сбоя доставки. Покрытие: F-10, BR-13–BR-14,

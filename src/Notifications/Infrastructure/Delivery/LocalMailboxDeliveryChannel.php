@@ -10,16 +10,23 @@ use App\Notifications\Domain\Entity\Notification;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 
 #[AsAlias(NotificationDeliveryChannelInterface::class)]
-final readonly class LocalMailboxDeliveryChannel implements NotificationDeliveryChannelInterface
+final class LocalMailboxDeliveryChannel implements NotificationDeliveryChannelInterface
 {
+    private static ?bool $overrideFailDelivery = null;
+
     public function __construct(
-        private bool $failDelivery = false,
+        private readonly bool $failDelivery = false,
     ) {
+    }
+
+    public static function setOverrideFailDelivery(?bool $override): void
+    {
+        self::$overrideFailDelivery = $override;
     }
 
     public function send(Notification $notification): void
     {
-        if ($this->failDelivery) {
+        if (self::$overrideFailDelivery ?? $this->failDelivery) {
             throw new NotificationDeliveryFailedException('Simulated delivery failure via notifications.demo.fail_delivery.');
         }
     }

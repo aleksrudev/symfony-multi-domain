@@ -55,7 +55,12 @@ Application сценарии:
   - `NotificationsContractAdapter` в `Presentation/Adapter/NotificationsContractAdapter.php` с `#[AsAlias(NotificationsContractInterface::class, public: true)]`.
 
 Зависимости модуля:
-- `Notifications/config/dependencies.php`: `['sync' => [], 'events' => []]`. Модуль полностью автономен и не зависит от других модулей.
+- `Notifications/config/dependencies.php`: `['sync' => [], 'events' => ['Ordering']]`. Модуль подписывается на публичные интеграционные события `Ordering`.
+
+Адаптеры подписчика (`Infrastructure/Integration/Ordering/`):
+- `OrderConfirmedNotificationConsumer` (`#[AsMessageHandler(bus: 'event.bus')]`): слушает `OrderConfirmedEvent`, через `IdempotentConsumerInterface` (ID `notifications.order-confirmed`) отправляет `EnqueueNotificationCommand(type: 'order_confirmed')`.
+- `OrderRejectedNotificationConsumer` (`#[AsMessageHandler(bus: 'event.bus')]`): слушает `OrderRejectedEvent`, через `IdempotentConsumerInterface` (ID `notifications.order-rejected`) отправляет `EnqueueNotificationCommand(type: 'order_rejected')`.
+- `OrderCancellationFinalizedNotificationConsumer` (`#[AsMessageHandler(bus: 'event.bus')]`): слушает `OrderCancellationFinalizedEvent`, через `IdempotentConsumerInterface` (ID `notifications.order-cancellation-finalized`) отправляет `EnqueueNotificationCommand(type: 'order_cancelled')`.
 
 Канал доставки:
 - `NotificationDeliveryChannelInterface` в `Infrastructure/Delivery/NotificationDeliveryChannelInterface.php`.

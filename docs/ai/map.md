@@ -15,8 +15,8 @@
 | Shared | Общая техническая основа: CQRS, события и надёжная доставка (Transactional Outbox, Idempotent Consumer), доменные базовые типы, HTTP-маппинг ошибок, сессионная безопасность, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный синхронный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
 | Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на события `ordering.order_submitted` и `ordering.order_cancelled`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
-| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий `ordering.order_submitted` и `ordering.order_cancelled` через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog`, `Inventory` и отправка уведомлений в `Notifications`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
-| Notifications | Локальный ящик уведомлений покупателей и администратора, статусы доставки (`pending`, `sent`, `failed`), попытки и ошибки, публичный контракт `NotificationsContractInterface`, административный просмотр ящика. | `src/Notifications/` | [src/Notifications/AGENTS.md](../../src/Notifications/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `notifications`. |
+| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий (`ordering.order_submitted`, `ordering.order_cancelled`, `ordering.order_confirmed`, `ordering.order_rejected`, `ordering.order_cancellation_finalized`) через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog` и `Inventory`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
+| Notifications | Локальный ящик уведомлений покупателей и администратора, статусы доставки (`pending`, `sent`, `failed`), попытки и ошибки, подписка на интеграционные события `Ordering`, публичный контракт `NotificationsContractInterface`, административный просмотр ящика. | `src/Notifications/` | [src/Notifications/AGENTS.md](../../src/Notifications/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `notifications`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
 а не модули приложения.
@@ -88,17 +88,17 @@ test-БД и их подготовке — в [правилах проверок
 (`Inventory/config/dependencies.php`: `['sync' => [], 'events' => ['Ordering']]`).
 Обработчики используют `IdempotentConsumerInterface` и отправляют внутренние команды `ReserveStockCommand` и `ReleaseStockCommand`.
 
-`Ordering` экспортирует публичные межмодульные события `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent` и
-`App\Ordering\Presentation\Contracts\Event\OrderCancelledEvent`
+`Ordering` экспортирует публичные межмодульные события `OrderSubmittedEvent`, `OrderCancelledEvent`,
+`OrderConfirmedEvent`, `OrderRejectedEvent` и `OrderCancellationFinalizedEvent`
 (реализуют Shared `IntegrationEventInterface`), формируемые и публикуемые через `IntegrationEventDispatcherInterface`
-в нейтральный transactional outbox инфраструктурными listeners при переводе заказа в `pending_stock` и `cancelling`.
-Из outbox события перекладываются relay в `event.bus` (транспорт `async`) и обрабатываются подписчиками (модуль `Inventory`).
+в нейтральный transactional outbox инфраструктурными listeners.
+Из outbox события перекладываются relay в `event.bus` (транспорт `async`) и обрабатываются подписчиками (модули `Inventory` и `Notifications`).
 
 Граф зависимостей:
 - `Catalog`: sync: [], events: []
-- `Ordering`: sync: [Catalog, Inventory, Notifications], events: []
+- `Ordering`: sync: [Catalog, Inventory], events: []
 - `Inventory`: sync: [], events: [Ordering]
-- `Notifications`: sync: [], events: []
+- `Notifications`: sync: [], events: [Ordering]
 
 Циклические зависимости отсутствуют. Целевые асинхронные команды между модулями запрещены.
 

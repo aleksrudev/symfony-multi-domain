@@ -83,31 +83,32 @@ Application сценарии:
 Экспортируемые публичные события:
 - `App\Ordering\Presentation\Contracts\Event\OrderSubmittedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`eventId`, `eventAt` в UTC RFC 3339, `type = 'ordering.order_submitted'`, `source = 'Ordering'`, `schemaVersion = 1`) и payload (`orderId`, `buyerId`, `items: list<SubmittedOrderItem>`, `totalAmount`, `currency`).
 - `App\Ordering\Presentation\Contracts\Event\OrderCancelledEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`eventId`, `eventAt` в UTC RFC 3339, `type = 'ordering.order_cancelled'`, `source = 'Ordering'`, `schemaVersion = 1`) и payload (`orderId`, `buyerId`).
+- `App\Ordering\Presentation\Contracts\Event\OrderConfirmedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`type = 'ordering.order_confirmed'`) и payload (`orderId`, `buyerId`, `totalAmount`, `currency`).
+- `App\Ordering\Presentation\Contracts\Event\OrderRejectedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`type = 'ordering.order_rejected'`) и payload (`orderId`, `buyerId`, `reason`).
+- `App\Ordering\Presentation\Contracts\Event\OrderCancellationFinalizedEvent`: реализует Shared `IntegrationEventInterface`. Содержит скалярные метаданные (`type = 'ordering.order_cancellation_finalized'`) и payload (`orderId`, `buyerId`).
 - Вложенный DTO: `App\Ordering\Presentation\Contracts\Dto\SubmittedOrderItem` (`productId`, `quantity`, `productName`, `priceAmount`).
 
 Публикация в Outbox:
 - `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderSubmittedEventListener`: помечен `#[AsEventListener(event: DomainOrderSubmittedEvent::class)]`. Проверяет полноту данных оформленного заказа без скрывающих ошибки fallback-значений, передаёт публичное событие в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
 - `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderCancelledEventListener`: помечен `#[AsEventListener(event: OrderCancellingEvent::class)]`. Передаёт публичное событие `OrderCancelledEvent` в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
-- Намерения уведомлений `OrderNotificationMessage` в `Infrastructure/Messaging/Outbox/OrderNotification/`:
-  - `PublishOrderConfirmedNotificationEventListener`: помечен `#[AsEventListener(event: OrderConfirmedEvent::class)]`, сохраняет `OrderNotificationMessage` (`order_confirmed`) в transactional outbox.
-  - `PublishOrderRejectedNotificationEventListener`: помечен `#[AsEventListener(event: OrderRejectedEvent::class)]`, сохраняет `OrderNotificationMessage` (`order_rejected`) в transactional outbox.
-  - `PublishOrderCancelledNotificationEventListener`: помечен `#[AsEventListener(event: OrderCancellationFinalizedEvent::class)]`, сохраняет `OrderNotificationMessage` (`order_cancelled`) в transactional outbox.
+- `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderConfirmedEventListener`: помечен `#[AsEventListener(event: DomainOrderConfirmedEvent::class)]`. Передаёт публичное событие `OrderConfirmedEvent` в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
+- `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderRejectedEventListener`: помечен `#[AsEventListener(event: DomainOrderRejectedEvent::class)]`. Передаёт публичное событие `OrderRejectedEvent` в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
+- `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderCancellationFinalizedEventListener`: помечен `#[AsEventListener(event: DomainOrderCancellationFinalizedEvent::class)]`. Передаёт публичное событие `OrderCancellationFinalizedEvent` в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
 
 Зависимости от других бизнес-модулей:
-- Модуль зависит от `Catalog`, `Inventory` и `Notifications` синхронно (`src/Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory', 'Notifications'], 'events' => []]`).
+- Модуль зависит от `Catalog` и `Inventory` синхронно (`src/Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`).
 - Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` помечен `#[AsAlias(ProductOfferProviderInterface::class)]` и вызывает контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
 - Для `Inventory` зависимость используется синхронно при вызове `InventoryContractInterface::getReservationResult()`.
-- Для `Notifications` адаптер `OrderNotificationDeliveryHandler` в `Infrastructure/Integration/Notifications/` слушает `OrderNotificationMessage` на `event.bus` и передаёт задачу в `NotificationsContractInterface::enqueueNotification()`. Сбой доставки уведомления не откатывает состояние заказа (BR-13).
 
 ### Интеграция межмодульных событий и T08–T12
 
 Ordering управляет оформлением, публикацией интеграционного факта `OrderSubmittedEvent` через outbox, а в T09 — периодической сверкой (`ReconcileStockCommand`).
-Публикация `OrderSubmittedEvent` и `OrderCancelledEvent` передаётся через `IntegrationEventDispatcherInterface`, сохраняется в таблице `shared.outbox_messages`, перекладывается relay в `event.bus` (async) и асинхронно обрабатывается подписчиками (модуль `Inventory`).
-Намерения уведомлений сохраняются в outbox и доставляются воркером в модуль `Notifications` через контракт `NotificationsContractInterface`.
-Целевые асинхронные команды между модулями отсутствуют.
+Публикация интеграционных событий передаётся через `IntegrationEventDispatcherInterface`, сохраняется в таблице `shared.outbox_messages`, перекладывается relay в `event.bus` (async) и асинхронно обрабатывается подписчиками (`Inventory` и `Notifications`).
+Целевые асинхронные команды и отложенные адресные вызовы чужих API через Outbox-сообщения отсутствуют.
 Граф зависимостей:
-- `Ordering`: sync: [Catalog, Inventory, Notifications], events: []
+- `Ordering`: sync: [Catalog, Inventory], events: []
 - `Inventory`: sync: [], events: [Ordering]
+- `Notifications`: sync: [], events: [Ordering]
 
 В T09 порт чтения результата резерва и собственная модель находятся в
 `Application/Command/ReconcileStock/Provider/`; адаптер вызывает
