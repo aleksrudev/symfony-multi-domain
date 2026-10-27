@@ -82,13 +82,14 @@ test-БД и их подготовке — в [правилах проверок
 | Доменное событие, публикуемое Action | `src/<Module>/Domain/Event/`; [правила](rules/domain-actions.md#доменные-события-и-реакции) |
 | Доменный интерфейс поиска сущностей | `src/<Module>/Domain/DataProvider/` |
 | Типизированная или пагинированная коллекция сущностей | `src/<Module>/Domain/Collection/` |
-| Оркестрация доменных операций, Command/Query-сообщения, обработчики и модели результатов сценариев бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Command/Query-сообщение и его обработчик, оркестрирующий сценарий бизнес-модуля | `src/<Module>/Application/Command/<UseCase>/` или `src/<Module>/Application/Query/<UseCase>/` |
+| Дополнительные входные DTO сценария | `src/<Module>/Application/Command/<UseCase>/Input/` или `src/<Module>/Application/Query/<UseCase>/Input/` |
+| Главная и вложенные модели результата Command/Query-сценария | `src/<Module>/Application/Command/<UseCase>/Result/` или `src/<Module>/Application/Query/<UseCase>/Result/`; [структура сценария](rules/domain-actions.md#структура-commandquery-сценария) |
 | Listener адаптации собственного доменного факта | `src/<Module>/Infrastructure/Messaging/EventListener/` |
 | Технические Inbox-типы конкретной внешней интеграции | `src/<Module>/Infrastructure/Messaging/Inbox/<Operation>/`; [назначение](rules/transactional-messaging.md) |
 | Технические Outbox-типы конкретной внешней интеграции | `src/<Module>/Infrastructure/Messaging/Outbox/<Operation>/`; [назначение](rules/transactional-messaging.md) |
 | Синхронная адаптация собственного доменного события в публичный факт | `src/<Module>/Infrastructure/Messaging/EventListener/`; [правила](rules/integration-events.md) |
 | Прикладной провайдер внешних или межмодульных данных и его собственная модель результата | `src/<Module>/Application/Command/<UseCase>/Provider/` или `src/<Module>/Application/Query/<UseCase>/Provider/`; [правила](rules/domain-actions.md#прикладные-провайдеры) |
-| Модель результата Query `<QueryName>Result` для сущности, списка или составных данных | `src/<Module>/Application/Query/<UseCase>/` рядом с запросом и обработчиком |
 | Публичный межмодульный интерфейс | `src/<Module>/Presentation/Contracts/` |
 | Неизменяемый DTO публичного межмодульного API | `src/<Module>/Presentation/Contracts/Dto/` |
 | Публичное межмодульное событие | `src/<Module>/Presentation/Contracts/Event/`; [правила](rules/integration-events.md) |

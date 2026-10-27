@@ -13,10 +13,10 @@ Command/Query-сценарии в Application — оркестраторы до�
 сообщений Command и Query остаются неизменяемыми носителями входных данных.
 
 В Application бизнес-модуля разрешены только Command/ и Query/.
-Сообщение Command/Query, обработчик, входные DTO и модели результата сценария
-находятся в его каталоге. Прикладные провайдеры и их модели
-результатов размещай в подкаталоге
-`<UseCase>/Provider/` по правилам ниже.
+Типы группируются по сценарию в `Application/Command/<UseCase>/` или
+`Application/Query/<UseCase>/`. В корне сценария находятся только сообщение
+Command/Query и его обработчик; остальные типы размещай в подкаталогах
+по назначению согласно [структуре сценария](#структура-commandquery-сценария).
 Не создавай Application/Message, Application/EventListener, Application/Service
 или другие каталоги верхнего уровня в Application. Реализация публичного
 межмодульного интерфейса — задача Presentation/Adapter по
@@ -49,6 +49,46 @@ Query не изменяет состояние. Если запрос тольк
 полученные сущности в модели результата Application. Для бизнес-расчёта или проверки доменной доступности
 используй Action. Не создавай Action без собственного поведения только
 ради перенаправления вызова DataProvider.
+
+## Структура Command/Query-сценария
+
+Правило одинаково для Command и Query: непосредственно в `<UseCase>/`
+размещай только `<UseCase>Command.php` или `<UseCase>Query.php`
+и `<UseCase>Handler.php`.
+
+| Тип | Каталог внутри сценария |
+| --- | --- |
+| Дополнительные входные DTO, например элемент списка в Command | `Input/` |
+| Главная модель результата сценария и все её вложенные модели | `Result/` |
+| Интерфейсы прикладных провайдеров и их собственные модели данных | `Provider/` |
+
+Главный результат также находится в `Result/`, даже если он единственный.
+Само сообщение Command/Query остаётся в корне и не переносится в `Input/`.
+Модель данных провайдера остаётся в `Provider/`: она описывает данные зависимости,
+а не результат сценария. Совпадение её полей с моделью из `Result/`
+само по себе не требует объединения этих типов.
+
+Если нужны другие вспомогательные типы, размещай их в подкаталогах по назначению,
+не рядом с сообщением и обработчиком. Каталоги создавай только при наличии
+соответствующих типов. Для Command без результата не создавай модель результата
+или пустой `Result/` ради единообразия.
+
+Пример составного результата Query:
+
+```text
+Application/Query/GetOrderDiagnostics/
+├── GetOrderDiagnosticsQuery.php
+├── GetOrderDiagnosticsHandler.php
+├── Result/
+│   ├── GetOrderDiagnosticsQueryResult.php
+│   ├── OrderDiagnosticResult.php
+│   ├── OrderDiagnosticItemResult.php
+│   ├── OrderInventoryDiagnosticResult.php
+│   └── OrderNotificationDiagnosticResult.php
+└── Provider/
+    ├── OrderReservationStatusProviderInterface.php
+    └── OrderReservationStatus.php
+```
 
 ## Прикладные провайдеры
 
@@ -99,8 +139,9 @@ Application/Command/SubmitOrder/
 ## Результаты Query
 
 Результат Query, представляющий одну сущность, список или составные данные,
-оформляй отдельной типизированной моделью `<QueryName>Result` в Application
-рядом с запросом и обработчиком. `GetProductHandler` возвращает
+оформляй отдельной типизированной моделью `<QueryName>Result` в
+`Application/Query/<UseCase>/Result/`. Все вложенные модели результата
+размещай в том же `Result/`. `GetProductHandler` возвращает
 `GetProductQueryResult`, а не `App\Catalog\Domain\Entity\Product`.
 QueryResult не должен содержать доменные сущности и их коллекции, включая
 вложенные поля и элементы списков. Переноси только необходимые данные
@@ -108,7 +149,7 @@ QueryResult не должен содержать доменные сущност
 
 Не возвращай структурированные массивы с PHPDoc `array{...}`, `stdClass`
 или нетипизированные контейнеры данных. Например, `GetProductsHandler`
-возвращает `GetProductsQueryResult` из `Application/Query/GetProducts/`:
+возвращает `GetProductsQueryResult` из `Application/Query/GetProducts/Result/`:
 
 ```php
 final readonly class GetProductQueryResult
@@ -263,6 +304,10 @@ flush или commit. HTTP-вызовы, отправка писем и друг�
 - Command/Query-обработчики оркестрируют доменные операции; сообщения содержат
   входные данные. В Application нет собственных бизнес-расчётов и правил
   перехода состояний.
+- В корне каждого Command/Query-сценария находятся только сообщение и обработчик.
+  Дополнительные входные DTO находятся в `Input/`, главный и вложенные результаты
+  сценария — в `Result/`, даже при единственной модели результата. Остальные
+  вспомогательные типы сгруппированы в подкаталоги по назначению; пустых каталогов нет.
 - Прикладные провайдеры и их собственные модели результатов находятся в
   `<UseCase>/Provider/`; названия отражают предоставляемые сведения и отличают
   их от исторических доменных снимков.
