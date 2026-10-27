@@ -139,7 +139,10 @@ Receipt и локальный эффект атомарны; retry/failed общ
 
 В Application бизнес-модуля разрешены только `Command/` и `Query/`:
 сообщение, обработчик, входные DTO, модели результата и прикладные порты
-группируются по сценарию. `Application/Message`, `Application/EventListener`
+группируются по сценарию. В корне сценария — только сообщение и его обработчик;
+остальные типы — в подкаталогах по назначению согласно
+[правилам структуры сценария](docs/ai/rules/domain-actions.md#структура-commandquery-сценария).
+`Application/Message`, `Application/EventListener`
 и `Application/Service` запрещены. Технические Inbox/Outbox-типы конкретных
 внешних интеграций находятся
 в `Infrastructure/Messaging/Inbox/<Operation>/` или `Outbox/<Operation>/`;
