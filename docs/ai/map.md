@@ -15,7 +15,7 @@
 | Shared | Общая техническая основа: CQRS, события и надёжная доставка (Transactional Outbox, Idempotent Consumer), доменные базовые типы, HTTP-маппинг ошибок, сессионная безопасность, расписание и DI. | `src/Shared/` | [src/Shared/AGENTS.md](../../src/Shared/AGENTS.md) | Подключён всегда: Kernel загружает `src/Shared/config/` отдельно от списка бизнес-модулей. |
 | Catalog | Витрина и карточки товаров, актуальные цены в копейках и публикация, публичный синхронный контракт `GetOffer` для оформления заказов. | `src/Catalog/` | [src/Catalog/AGENTS.md](../../src/Catalog/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `catalog`. |
 | Inventory | Складской учёт физических остатков (`onHand`), резервов (`reserved`) и доступности (`available`), изменение остатков администратором, подписка на события `ordering.order_submitted` и `ordering.order_cancelled`, публичный синхронный контракт `getReservationResult`. | `src/Inventory/` | [src/Inventory/AGENTS.md](../../src/Inventory/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `inventory`. |
-| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий (`ordering.order_submitted`, `ordering.order_cancelled`, `ordering.order_confirmed`, `ordering.order_rejected`, `ordering.order_cancellation_finalized`) через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog` и `Inventory`. | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
+| Ordering | Жизненный цикл заказов покупателей: черновик заказа, редактирование позиций, владение заказом, оформление и отмена с публикацией интеграционных событий (`ordering.order_submitted`, `ordering.order_cancelled`, `ordering.order_confirmed`, `ordering.order_rejected`, `ordering.order_cancellation_finalized`) через Outbox, периодическая сверка резерва и тайм-аутов, синхронный опрос `Catalog`, `Inventory` и `Notifications` (для административной диагностики). | `src/Ordering/` | [src/Ordering/AGENTS.md](../../src/Ordering/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `ordering`. |
 | Notifications | Локальный ящик уведомлений покупателей и администратора, статусы доставки (`pending`, `sent`, `failed`), попытки и ошибки, подписка на интеграционные события `Ordering`, публичный контракт `NotificationsContractInterface`, административный просмотр ящика. | `src/Notifications/` | [src/Notifications/AGENTS.md](../../src/Notifications/AGENTS.md) | Подключён в `Kernel::moduleDirectories()`, собственная PostgreSQL-схема `notifications`. |
 
 Примеры Alpha, Beta и RuleFixtures в `tests/Fixtures/` — технические fixtures,
@@ -96,7 +96,7 @@ test-БД и их подготовке — в [правилах проверок
 
 Граф зависимостей:
 - `Catalog`: sync: [], events: []
-- `Ordering`: sync: [Catalog, Inventory], events: []
+- `Ordering`: sync: [Catalog, Inventory, Notifications], events: []
 - `Inventory`: sync: [], events: [Ordering]
 - `Notifications`: sync: [], events: [Ordering]
 

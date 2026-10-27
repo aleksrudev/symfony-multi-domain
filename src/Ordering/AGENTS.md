@@ -73,10 +73,13 @@ Application сценарии:
 - `GetDraftQuery` / `GetDraftHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): загружает активный черновик покупателя и возвращает модель `GetDraftQueryResult` с `list<OrderItemQueryResult>`.
 - `GetOrderQuery` / `GetOrderHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): загружает заказ через `OrderDataProviderInterface::findByIdAndBuyerId()` и формирует `GetOrderQueryResult` с `list<OrderItemQueryResult>` и `rejectionReason`.
 - `GetOrdersQuery` / `GetOrdersHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): запрашивает пагинированную выборку через `OrderDataProviderInterface::findByBuyerIdPaginated()` и формирует `GetOrdersQueryResult` (`items: list<GetOrderQueryResult>`).
+- `GetOrderDiagnosticsQuery` / `GetOrderDiagnosticsHandler` (`#[AsMessageHandler(bus: 'query.bus')]`): загружает заказ через `OrderDataProviderInterface::findById()`, опрашивает склад через `OrderReservationStatusProviderInterface` и историю уведомлений через `OrderNotificationStatusProviderInterface`, объединяя переходы заказа, результат складской операции и статус уведомлений в `GetOrderDiagnosticsQueryResult`.
 
 Прикладные провайдеры Application:
 - `ProductOfferProviderInterface` (`Application/Command/SubmitOrder/Provider/ProductOfferProviderInterface`): интерфейс получения актуальных предложений каталога. Возвращает модель результата сценария `ProductOffer` (`Application/Command/SubmitOrder/Provider/ProductOffer`). Реализуется в `Infrastructure/Integration/Catalog/CatalogOfferProvider` с `#[AsAlias]`.
 - `ReservationResultProviderInterface` (`Application/Command/ReconcileStock/Provider/ReservationResultProviderInterface`): интерфейс запроса результата складского резерва. Возвращает модель `ReservationResult`. Реализуется в `Infrastructure/Integration/Inventory/InventoryReservationResultProvider` с `#[AsAlias]`.
+- `OrderReservationStatusProviderInterface` (`Application/Query/GetOrderDiagnostics/Provider/OrderReservationStatusProviderInterface`): интерфейс запроса складского статуса для диагностики. Возвращает `OrderReservationStatus`. Реализуется в `Infrastructure/Integration/Inventory/InventoryReservationStatusProvider` с `#[AsAlias]`.
+- `OrderNotificationStatusProviderInterface` (`Application/Query/GetOrderDiagnostics/Provider/OrderNotificationStatusProviderInterface`): интерфейс запроса истории уведомлений для диагностики. Возвращает `list<OrderNotificationStatus>`. Реализуется в `Infrastructure/Integration/Notifications/NotificationsStatusProvider` с `#[AsAlias]`.
 
 ## Публичный API и зависимости
 
@@ -96,17 +99,18 @@ Application сценарии:
 - `App\Ordering\Infrastructure\Messaging\EventListener\PublishOrderCancellationFinalizedEventListener`: помечен `#[AsEventListener(event: DomainOrderCancellationFinalizedEvent::class)]`. Передаёт публичное событие `OrderCancellationFinalizedEvent` в `IntegrationEventDispatcherInterface::dispatch()` внутри транзакции команды.
 
 Зависимости от других бизнес-модулей:
-- Модуль зависит от `Catalog` и `Inventory` синхронно (`src/Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory'], 'events' => []]`).
+- Модуль зависит от `Catalog`, `Inventory` и `Notifications` синхронно (`src/Ordering/config/dependencies.php`: `['sync' => ['Catalog', 'Inventory', 'Notifications'], 'events' => []]`).
 - Адаптер `CatalogOfferProvider` в `Infrastructure/Integration/Catalog/CatalogOfferProvider.php` помечен `#[AsAlias(ProductOfferProviderInterface::class)]` и вызывает контракт `CatalogContractInterface::getOffer()` поставщика `Catalog`.
 - Для `Inventory` зависимость используется синхронно при вызове `InventoryContractInterface::getReservationResult()`.
+- Для `Notifications` адаптер `NotificationsStatusProvider` в `Infrastructure/Integration/Notifications/` синхронно запрашивает историю уведомлений через `NotificationsContractInterface::getNotificationsForOrder()` для административной диагностики.
 
-### Интеграция межмодульных событий и T08–T12
+### Интеграция межмодульных событий и T08–T13
 
 Ordering управляет оформлением, публикацией интеграционного факта `OrderSubmittedEvent` через outbox, а в T09 — периодической сверкой (`ReconcileStockCommand`).
 Публикация интеграционных событий передаётся через `IntegrationEventDispatcherInterface`, сохраняется в таблице `shared.outbox_messages`, перекладывается relay в `event.bus` (async) и асинхронно обрабатывается подписчиками (`Inventory` и `Notifications`).
 Целевые асинхронные команды и отложенные адресные вызовы чужих API через Outbox-сообщения отсутствуют.
 Граф зависимостей:
-- `Ordering`: sync: [Catalog, Inventory], events: []
+- `Ordering`: sync: [Catalog, Inventory, Notifications], events: []
 - `Inventory`: sync: [], events: [Ordering]
 - `Notifications`: sync: [], events: [Ordering]
 
@@ -114,10 +118,13 @@ Ordering управляет оформлением, публикацией ин�
 `Application/Command/ReconcileStock/Provider/`; адаптер вызывает
 `InventoryContractInterface::getReservationResult()`. Scheduler только инициирует
 собственный сценарий через `ScheduleContributorInterface`, переходы и проверки текущего статуса остаются в Domain Ordering.
+В T13 `GetOrderDiagnosticsController` читает результаты склада и ящика уведомлений через Application-порты и контракты `Inventory` и `Notifications`.
 
 ### HTTP API
 
 HTTP API контроллеры одного действия:
+- Актор `Admin` (`Presentation/Http/Controller/Api/Admin/`):
+  - `GetOrderDiagnosticsController::__invoke(string $id)`: `GET /api/v1/admin/diagnostics/orders/{id}`, имя `ordering_admin_diagnostics_orders_item`. Требует `ROLE_ADMIN`. Возвращает HTTP 200 со структурой `order`, `inventory`, `notifications` или HTTP 404 (`order_not_found`).
 - Актор `Buyer` (`Presentation/Http/Controller/Api/Buyer/`), все помечены `#[IsGranted('ROLE_BUYER')]`:
   - `CreateOrderController::__invoke()`: `POST /api/v1/orders`, имя `ordering_orders_create`. Требует `ROLE_BUYER`, заголовок `X-CSRF-Token` и опциональный `Idempotency-Key`. Возвращает HTTP 200.
   - `ReplaceOrderItemsController::__invoke(string $id, ReplaceOrderItemsRequest $request)`: `PUT /api/v1/orders/{id}/items`, имя `ordering_orders_replace_items`. Требует `ROLE_BUYER`, `X-CSRF-Token`. Маппинг через `#[MapRequestPayload(acceptFormat: 'json')]`. Возвращает HTTP 200.
