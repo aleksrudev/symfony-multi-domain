@@ -33,3 +33,4 @@ final readonly class PublishOrderRejectedNotificationEventListener
         $this->outboxWriter->append($message);
     }
 }
+

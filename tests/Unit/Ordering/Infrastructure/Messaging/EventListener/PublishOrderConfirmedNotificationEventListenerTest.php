@@ -48,3 +48,4 @@ final class PublishOrderConfirmedNotificationEventListenerTest extends TestCase
         $listener($event);
     }
 }
+

@@ -31,3 +31,4 @@ final readonly class PublishOrderCancelledNotificationEventListener
         $this->outboxWriter->append($message);
     }
 }
+

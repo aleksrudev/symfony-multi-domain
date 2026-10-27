@@ -35,3 +35,4 @@ final class OrderNotificationDeliveryHandlerTest extends TestCase
         $handler($message);
     }
 }
+

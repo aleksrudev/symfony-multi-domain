@@ -47,3 +47,4 @@ final class PublishOrderRejectedNotificationEventListenerTest extends TestCase
         $listener($event);
     }
 }
+

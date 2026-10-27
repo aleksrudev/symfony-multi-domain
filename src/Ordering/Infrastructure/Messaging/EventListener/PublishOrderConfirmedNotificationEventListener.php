@@ -34,3 +34,4 @@ final readonly class PublishOrderConfirmedNotificationEventListener
         $this->outboxWriter->append($message);
     }
 }
+

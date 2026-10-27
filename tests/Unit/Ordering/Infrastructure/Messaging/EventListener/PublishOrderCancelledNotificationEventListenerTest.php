@@ -46,3 +46,4 @@ final class PublishOrderCancelledNotificationEventListenerTest extends TestCase
         $listener($event);
     }
 }
+
