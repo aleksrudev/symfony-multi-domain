@@ -44,4 +44,3 @@ final readonly class NotificationItemQueryResult
         ];
     }
 }
-

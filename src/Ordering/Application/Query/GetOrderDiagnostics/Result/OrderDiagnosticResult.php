@@ -50,4 +50,3 @@ final readonly class OrderDiagnosticResult
         ];
     }
 }
-

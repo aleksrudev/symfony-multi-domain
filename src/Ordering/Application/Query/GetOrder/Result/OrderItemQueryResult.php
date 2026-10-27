@@ -42,4 +42,3 @@ final readonly class OrderItemQueryResult
         return $data;
     }
 }
-

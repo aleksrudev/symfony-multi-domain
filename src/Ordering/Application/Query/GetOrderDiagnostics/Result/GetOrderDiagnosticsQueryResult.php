@@ -54,4 +54,3 @@ final readonly class GetOrderDiagnosticsQueryResult
         ];
     }
 }
-
